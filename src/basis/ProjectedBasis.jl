@@ -19,9 +19,8 @@ struct ProjectedBasis <: AbstractBasis
 end
 #-----------------------------------------------------------------------------------------------------
 eltype(::ProjectedBasis) = Int
-change!(b::ProjectedBasis, i::Integer) = change!(b.dgt, b.I[i], base=b.B)
+change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
 index(b::ProjectedBasis) = 1, binary_search(b.I, index(b.dgt, base=b.B))
-norm(::ProjectedBasis, ::Integer) = 1
 size(b::ProjectedBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
 size(b::ProjectedBasis) = (l=length(b.I); (l,l))
 

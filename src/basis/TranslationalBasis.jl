@@ -9,21 +9,21 @@ struct TranslationalBasis{T <: Number} <: AbstractBasis
     B::Int
 end
 #-----------------------------------------------------------------------------------------------------
-eltype(::TranslationalBasis{T}) where T = T
-change!(b::TranslationalBasis, i::Integer) = change!(b.dgt, b.I[i], base=b.B)
+eltype(::TranslationalBasis{T}) where T = promote_type(T, Float64)
+change!(b::TranslationalBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); b.R[i])
 function index(b::TranslationalBasis{Tb})::Tuple{Tb, Int} where Tb<:Number
     Im, T = indmin(b.dgt, b.B)
     ind = binary_search(b.I, Im)
     if ind == 0
         return convert(Tb, 0), 1
     else
-        N = b.C ^ T
+        N = b.C ^ T * b.R[ind]
         return N, ind
     end
 end
-norm(b::TranslationalBasis, i::Integer) = b.R[i]
 size(b::TranslationalBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
 size(b::TranslationalBasis) = (l=length(b.I); (l,l))
+
 #-----------------------------------------------------------------------------------------------------
 # Construct
 #-----------------------------------------------------------------------------------------------------

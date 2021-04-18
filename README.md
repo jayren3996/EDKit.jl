@@ -24,12 +24,11 @@ In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasi
 2. `ProjectedBasis`: Basis for subspace that is spanned only by product states.
 3. `TranslationalBasis`: Basis for translational symmetric Hamiltonian.
 
-The basis object can be extended. To construct linear operation, we need to define 4 functions for a new basis type:
+The basis object can be extended. To construct linear operation, we need to define 3 functions for a new basis type:
 
 1. `size(b::AbstractBasis)` : Size of matrix representations of the operators in this subspace.
-2. `change!(b::AbstractBasis, i::Integer)` : Change the digits to ith states in this subspace.
+2. `change!(b::AbstractBasis, i::Integer)` : Return the normalization of ith state and change the digits to ith states in this subspace.
 3. `index(b::AbstractBasis)` : Return the coefficient and index of the digits.
-4. `norm(b::AbstractBasis, i)` : Normalization of the given basis.
 
 Optionally, we can define `eltype` for a basis object (default is `ComplexF64`).
 
