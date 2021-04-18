@@ -178,10 +178,10 @@ We also provide a helper function to create spin-s operators (represented by mat
 function spin(spins...; D::Integer=2)
 ```
 
-In the definition, `spins` are arbituary number of tuples such as `(1.0, "xzx")`. The supported characters are
+In the definition, `spins` are arbituary number of tuples such as `(1.0, "xzx")`. The supported characters are:
 
 ```julia
-"x", "y", "z", "1", "+", "-", "Y",
+"x", "y", "z", "1", "+", "-"
 ```
 
-where `Y=iSʸ`. The other input `D` is the dimension of the matrix (`D = 2s+1`).
+The other input `D` is the dimension of the matrix (`D = 2s+1`).

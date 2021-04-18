@@ -25,8 +25,8 @@ function change!(b::ProjectedBasis, i::Integer)::Int
 end
 #-----------------------------------------------------------------------------------------------------
 function index(b::ProjectedBasis)::Tuple{Int, Int}
-    ind = index(b.dgt, base=b.B)
-    1, binary_search(b.I, ind)
+    ind = binary_search(b.I, index(b.dgt, base=b.B))
+    1, ind
 end
 #-----------------------------------------------------------------------------------------------------
 size(b::ProjectedBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
@@ -40,7 +40,7 @@ function projectedbasis(f, L::Integer; base::Integer=2)
     dgt = zeros(Int, L)
     I = []
     for i = 1:base^L
-        change!(dgt, i)
+        change!(dgt, i, base=base)
         if f(dgt)
             append!(I, i)
         end
@@ -68,8 +68,11 @@ function binary_search(list::AbstractVector{<:Integer}, i::Integer)
         else
             break
         end
-        c = (l+r) ÷ 2
-        @assert l <= r "No such symmetry."
+        if l > r
+            return 0
+        else
+            c = (l+r) ÷ 2
+        end
     end
     c
 end

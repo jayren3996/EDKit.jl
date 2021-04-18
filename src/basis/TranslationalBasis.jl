@@ -18,8 +18,12 @@ end
 function index(b::TranslationalBasis)::Tuple{ComplexF64, Int}
     Im, T = indmin(b.dgt, b.B)
     ind = binary_search(b.I, Im)
-    N = b.C ^ T * b.R[ind]
-    N, ind
+    if ind == 0
+        return 0.0, 1
+    else
+        N = b.C ^ T * b.R[ind]
+        return N, ind
+    end
 end
 #-----------------------------------------------------------------------------------------------------
 size(b::TranslationalBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
@@ -32,7 +36,7 @@ function translationalbasis(k::Integer, L::Integer; base::Integer=2)
     dgt = zeros(Int, L)
     I, R = Int[], Float64[]
     for i = 1:base^L
-        change!(dgt, i)
+        change!(dgt, i, base=base)
         c, r = checkstate(dgt, i, base)
         if c && (k * r % L == 0)
             append!(I, i)
@@ -48,7 +52,7 @@ function translationalbasis(f, k::Integer, L::Integer; base::Integer=2)
     dgt = zeros(Int, L)
     I, R = Int[], Float64[]
     for i = 1:base^L
-        change!(dgt, i)
+        change!(dgt, i, base=base)
         if f(dgt)
             c, r = checkstate(dgt, i, base)
             if c && (k * r % L == 0)
@@ -95,6 +99,7 @@ function indmin(dgt::AbstractVector{<:Integer}, base::Integer)
         movebits!(dgt)
         In = index(dgt, base=base)
         if In == Im
+            change!(dgt, I0, base=base)
             return Im, T
         elseif In < Im
             Im, T = In, i
