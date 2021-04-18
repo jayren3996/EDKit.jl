@@ -28,6 +28,22 @@ size(b::TranslationalBasis) = (l=length(b.I); (l,l))
 # Construct
 #-----------------------------------------------------------------------------------------------------
 export translationalbasis
+function translationalbasis(k::Integer, L::Integer; base::Integer=2)
+    dgt = zeros(Int, L)
+    I, R = Int[], Float64[]
+    for i = 1:base^L
+        change!(dgt, i)
+        c, r = checkstate(dgt, i, base)
+        if c && (k * r % L == 0)
+            append!(I, i)
+            append!(R, L/sqrt(r))
+        end
+    end
+    expk = exp(-1im*2π/L*k)
+    C = imag(expk) == 0 ? real(expk) : expk
+    TranslationalBasis(dgt, I, R, C, base)
+end
+#-----------------------------------------------------------------------------------------------------
 function translationalbasis(f, k::Integer, L::Integer; base::Integer=2)
     dgt = zeros(Int, L)
     I, R = Int[], Float64[]
