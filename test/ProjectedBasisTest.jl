@@ -2,20 +2,25 @@ include("../src/EDKit.jl")
 using LinearAlgebra
 using .EDKit
 using Test
+const printstate = false
 #-------------------------------------------------------------------------------------------------------------------------
 # Base-2
 #-------------------------------------------------------------------------------------------------------------------------
 @testset "Spin-1/2 XY" begin
     L = 10
-    println("------------------------------------------------------------")
-    println("Spin-1/2 XY Model with L = $L")
-    println("------------------------------------------------------------")
+    if printstate 
+        println("------------------------------------------------------------")
+        println("Spin-1/2 XY Model with L = $L")
+        println("------------------------------------------------------------")
+    end
     mat = spin((1, "xx"), (1, "yy"))
     E = zeros(2^L)
     P = 0
     for n = 0:L
         basis = projectedbasis(x->sum(x)==n, L)
-        println("N = $n: $(length(basis)) states.")
+        if printstate 
+            println("N = $n: $(length(basis)) states.")
+        end
         if (l = length(basis)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -29,9 +34,11 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 @testset "Spin-1/2 Random" begin
     L = 10
-    println("------------------------------------------------------------")
-    println("Spin-1/2 Random Model with L = $L")
-    println("------------------------------------------------------------")
+    if printstate 
+        println("------------------------------------------------------------")
+        println("Spin-1/2 Random Model with L = $L")
+        println("------------------------------------------------------------")
+    end
     mat = begin
         M = zeros(ComplexF64, 8, 8)
         M[1,1] = rand()
@@ -44,7 +51,9 @@ end
     P = 0
     for n = 0:L
         basis = projectedbasis(x->sum(x)==n, L)
-        println("N = $n: $(length(basis)) states.")
+        if printstate 
+            println("N = $n: $(length(basis)) states.")
+        end
         if (l = length(basis)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -111,9 +120,11 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 @testset "Spin-1 Random" begin
     L = 6
-    println("------------------------------------------------------------")
-    println("Spin-1 Random Model with L = $L")
-    println("------------------------------------------------------------")
+    if printstate 
+        println("------------------------------------------------------------")
+        println("Spin-1 Random Model with L = $L")
+        println("------------------------------------------------------------")
+    end
     R3 = begin    
         m2 = [2, 4, 10]
         m1 = [3, 5, 7, 11, 13, 19]
@@ -134,7 +145,9 @@ end
     P = 0
     for n = 0:2L
         basis = projectedbasis(x->sum(x)==n, L, base=3)
-        println("N = $n: $(length(basis)) states.")
+        if printstate 
+            println("N = $n: $(length(basis)) states.")
+        end
         if (l = length(basis)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals

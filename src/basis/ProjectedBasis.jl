@@ -17,23 +17,16 @@ struct ProjectedBasis <: AbstractBasis
     I::Vector{Int}
     B::Int
 end
+#-----------------------------------------------------------------------------------------------------
 eltype(::ProjectedBasis) = Int
-#-----------------------------------------------------------------------------------------------------
-function change!(b::ProjectedBasis, i::Integer)::Int
-    change!(b.dgt, b.I[i], base=b.B)
-    1
-end
-#-----------------------------------------------------------------------------------------------------
-function index(b::ProjectedBasis)::Tuple{Int, Int}
-    ind = binary_search(b.I, index(b.dgt, base=b.B))
-    1, ind
-end
-#-----------------------------------------------------------------------------------------------------
+change!(b::ProjectedBasis, i::Integer) = change!(b.dgt, b.I[i], base=b.B)
+index(b::ProjectedBasis) = 1, binary_search(b.I, index(b.dgt, base=b.B))
+norm(::ProjectedBasis, ::Integer) = 1
 size(b::ProjectedBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
 size(b::ProjectedBasis) = (l=length(b.I); (l,l))
 
 #-----------------------------------------------------------------------------------------------------
-# Construct basis
+# Construction
 #-----------------------------------------------------------------------------------------------------
 export projectedbasis
 function projectedbasis(f, L::Integer; base::Integer=2)

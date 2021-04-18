@@ -8,24 +8,20 @@ struct TranslationalBasis{T <: Number} <: AbstractBasis
     C::T
     B::Int
 end
+#-----------------------------------------------------------------------------------------------------
 eltype(::TranslationalBasis{T}) where T = T
-#-----------------------------------------------------------------------------------------------------
-function change!(b::TranslationalBasis, i::Integer)::Float64
-    change!(b.dgt, b.I[i], base=b.B)
-    1 / b.R[i]
-end
-#-----------------------------------------------------------------------------------------------------
-function index(b::TranslationalBasis)::Tuple{ComplexF64, Int}
+change!(b::TranslationalBasis, i::Integer) = change!(b.dgt, b.I[i], base=b.B)
+function index(b::TranslationalBasis{Tb})::Tuple{Tb, Int} where Tb<:Number
     Im, T = indmin(b.dgt, b.B)
     ind = binary_search(b.I, Im)
     if ind == 0
-        return 0.0, 1
+        return convert(Tb, 0), 1
     else
-        N = b.C ^ T * b.R[ind]
+        N = b.C ^ T
         return N, ind
     end
 end
-#-----------------------------------------------------------------------------------------------------
+norm(b::TranslationalBasis, i::Integer) = b.R[i]
 size(b::TranslationalBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
 size(b::TranslationalBasis) = (l=length(b.I); (l,l))
 #-----------------------------------------------------------------------------------------------------

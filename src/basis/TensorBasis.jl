@@ -15,22 +15,20 @@ struct TensorBasis <: AbstractBasis
     dgt::Vector{Int}
     B::Int
 end
+#-----------------------------------------------------------------------------------------------------
 eltype(::TensorBasis) = Int
+change!(b::TensorBasis, i::Integer) = change!(b.dgt, i, base=b.B)
+index(b::TensorBasis) = 1, index(b.dgt, base=b.B)
+norm(::TensorBasis, ::Integer) = 1
+size(b::TensorBasis, i::Integer) = (i == 2 || i == 1) ? b.B ^ length(b.dgt) : 1
+size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
+
+#-----------------------------------------------------------------------------------------------------
+# Construction
 #-----------------------------------------------------------------------------------------------------
 export tensorbasis
 tensorbasis(L::Integer; base::Integer=2) = TensorBasis(zeros(Int, L), base)
-#-----------------------------------------------------------------------------------------------------
-function change!(b::TensorBasis, i::Integer)::Int
-    change!(b.dgt, i, base=b.B)
-    1
-end
-#-----------------------------------------------------------------------------------------------------
-function index(b::TensorBasis)::Tuple{Int, Int}
-    1, index(b.dgt, base=b.B)
-end
-#-----------------------------------------------------------------------------------------------------
-size(b::TensorBasis, i::Integer) = (i == 2 || i == 1) ? b.B ^ length(b.dgt) : 1
-size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
+
 #-----------------------------------------------------------------------------------------------------
 # Helper Functions
 #-----------------------------------------------------------------------------------------------------
@@ -52,7 +50,7 @@ function index(dgt::AbstractVector{Int}; base::Int=2)::Int
     end
     N + 1
 end
-
+#-----------------------------------------------------------------------------------------------------
 function index(dgt::AbstractVector{Int}, sites::Vector{Int}; base::Int=2)::Int
     N = 0
     for i in sites
@@ -74,7 +72,7 @@ function change!(dgt::Vector{Int}, ind::Int; base::Int=2)
         N, dgt[i] = divrem(N, base)
     end
 end
-
+#-----------------------------------------------------------------------------------------------------
 function change!(dgt::Vector{Int}, sites::Vector{Int}, ind::Int; base::Int=2)
     N = ind - 1
     for i = length(sites):-1:1

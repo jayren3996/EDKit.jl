@@ -49,7 +49,7 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
         row, val = rows[i], vals[i]
         change!(b.dgt, I, row, base=b.B)
         C, pos = index(b)
-        target[pos] += C * val * coeff
+        target[pos] += coeff * C * val * norm(b, pos)
         change = true
     end
     change ? change!(b.dgt, I, j, base=b.B) : nothing
@@ -57,9 +57,10 @@ end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Real=1)
     b, M, I = opt.B, opt.M, opt.I
-    N = change!(b, j) * coeff
+    change!(b, j)
+    C = coeff / norm(b, j)
     for i = 1:length(M)
-        colmn!(target, M[i], I[i], b, N)
+        colmn!(target, M[i], I[i], b, C)
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
