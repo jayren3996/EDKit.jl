@@ -4,8 +4,8 @@ using LinearAlgebra
 using SparseArrays
 #-----------------------------------------------------------------------------------------------------
 import Base: +, -, *, /
-import Base: eltype, view, length, size
-import Base: Array
+import Base: eltype, view, length, size, append!
+import Base: Array, Vector
 import LinearAlgebra: norm, mul!
 import SparseArrays: sparse
 #-----------------------------------------------------------------------------------------------------
@@ -42,7 +42,8 @@ length(b::AbstractBasis) = size(b, 2)
 include("basis/TensorBasis.jl")
 include("basis/ProjectedBasis.jl")
 include("basis/TranslationalBasis.jl")
-include("basis/DoubleBasis.jl")
+include("basis/ParityBasis.jl")
+#include("basis/DoubleBasis.jl")
 include("Operator.jl")
 include("LinearOperation.jl")
 include("Spin.jl")
