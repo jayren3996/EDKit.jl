@@ -1,28 +1,23 @@
 # EDKit.jl
 
- Julia package for general many-body exact diagonalization calculation. The package provide a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
+Julia package for general many-body exact diagonalization calculation. The package provide a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
 
-## Installation & Update
+## Installation
 
 Run the following script in the ```Pkg REPL``` :
 
 ```julia
-pkg> add EDKit
-```
-
-To update the package, run:
-
-```julia
-pkg> update EDKit
+pkg> add https://github.com/jayren3996/EDKit
 ```
 
 ## Basis Object
 
-In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasis` is the abstract type of basis. Currently there are 3 concrete basis:
+In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasis` is the abstract type of basis. Currently there are 4 concrete basis:
 
 1. `TensorBasis`: Ordinary basis without any symmetry.
 2. `ProjectedBasis`: Basis for subspace that is spanned only by product states.
 3. `TranslationalBasis`: Basis for translational symmetric Hamiltonian.
+4. `TranslationalParityBasis` : Basis with translational and reflection symmetry. The momensum should be 0 or π.
 
 The basis object can be extended. To construct linear operation, we need to define 3 functions for a new basis type:
 
