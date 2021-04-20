@@ -14,7 +14,7 @@ np = pyimport("numpy")
         P * kron(I(2), X, I(2)) * P
     end
     pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
-    basis = translationparitybasis(pxpf, k, p, L)
+    @time basis = translationparitybasis(pxpf, k, p, L, threaded=true)
     H = trans_inv_operator(mat, 2, basis) |> Array
     E = np.linalg.eigvalsh(H)
     PXPE = readdlm("evals_periodic_N26_k0_p0.npy.txt")
@@ -29,7 +29,7 @@ end
         P * kron(I(2), X, I(2)) * P
     end
     pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
-    basis = translationparitybasis(pxpf, k, p, L)
+    @time basis = translationparitybasis(pxpf, k, p, L, threaded=true)
     H = trans_inv_operator(mat, 2, basis) |> Array
     E = np.linalg.eigvalsh(H)
     PXPE = readdlm("evals_periodic_N28_k0_p0.npy.txt")

@@ -29,6 +29,7 @@ function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<
     M, I = standard_format(mats, inds)
     Operator(M, I, B)
 end
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
     M, I = standard_format(mats, inds)
     B = tensorbasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
@@ -65,9 +66,8 @@ function +(opt1::Operator, opt2::Operator)
     Tv = promote_type(eltype(opt1), eltype(opt2))
     M = Vector{SparseMatrixCSC{Tv, Int}}(undef, n1 + n2)
     I = Vector{Vector{Int}}(undef, n1+n2)
-    for i = 1:n1
-        M[i], I[i] = opt1.M[i], opt1.I[i]
-    end
+    M[1:n1] .= opt1.M
+    I[1:n1] .= opt2.I
     P = n1
     for i = 1:n2
         if (p = findposition(opt1.I, opt2.I[i])) > 0
