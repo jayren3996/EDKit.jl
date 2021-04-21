@@ -8,5 +8,5 @@ makedocs(
                 "Home" => "index.md"
                ])
 deploydocs(;
-    repo="github.com/jayren3996/EDKit.jl.git",
+    repo="github.com/jayren3996/EDKit.jl",
 )
