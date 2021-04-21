@@ -1,51 +1,82 @@
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Parity Bases
+# Translationnal + Parity Bases
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+"""
+    TranslationParityBasis
+
+Basis with translational and reflection symmetries.
+
+Properties:
+-----------
+- dgt::Vector{Int}    : Digits
+- I::Vector{Int}      : Representing states
+- R::Vector{Float64}  : Normalization
+- K::Int              : {±1}, momentum 0/π
+- P::Int              : {±1}, parity
+- B::Int              : Base
+"""
 struct TranslationParityBasis <: AbstractBasis
-    dgt::Vector{Int}
-    I::Vector{Int}
-    R::Vector{Float64}
-    K::Bool
-    P::Bool
-    B::Int
+    dgt::Vector{Int}        # Digits
+    I::Vector{Int}          # Representing states
+    R::Vector{Float64}      # Normalization
+    K::Int                  # {±1}, momentum 0/π
+    P::Int                  # {±1}, parity
+    B::Int                  # Base
 end
 eltype(::TranslationParityBasis) = Float64
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function index(b::TranslationParityBasis)
-    p, i, t = indparity(reverse!, b.dgt, b.B)
+function index(b::TranslationParityBasis)::Tuple{Float64, Int}
+    reflect, i, t = parity_index(b.dgt, b.B)
     ind = binary_search(b.I, i)
     if ind == 0
         0.0, 1
     else
-        N = if p
-            K = 2 * b.K - 1
-            K ^ t
-        else
-            K, P = 2 * b.K - 1, 2 * b.P - 1
-            P * K ^ t
-        end
+        N = reflect ? (b.P * b.K ^ t) : (b.K ^ t)
         N * b.R[ind], ind
     end
 end
-change!(b::TranslationParityBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); b.R[i])
-size(b::TranslationParityBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
-size(b::TranslationParityBasis) = (l=length(b.I); (l,l))
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+struct TranslationParityInfo
+    F
+    K::Int
+    P::Int
+    B::Int
+    S::Vector{Float64}
+end
+translationparityinfo(F, K::Int, P::Int, B::Integer, S::Vector{Float64}) = TranslationParityInfo(F, K, P, Int(B), S)
+
+function (info::TranslationParityInfo)(dgt::Vector{Int}, i::Integer)::Tuple{Bool, Float64}
+    if info.F(dgt)
+        isrep, reflect, r, m = parity_check(dgt, i, info.B)
+        if isrep && (info.K ^ r == 1)
+            Q, N = parity_norm(reflect, info.K, info.P, r, m, info.S)
+            Q ? (Q, N) : (Q, 0.0)
+        else
+            (false, 0.0)
+        end
+    else
+        (false, 0.0)
+    end
+end
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Construction
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 export translationparitybasis
-function translationparitybasis(f, k::Int, p::Int, L::Integer; base::Integer=2, alloc::Integer=1000, threaded=false)
-    K = (k == 0) ? true : (2k == L) ? false : error("Momentum incompatible with parity.")
-    P = (p == 1) ? true : (p == -1) ? false : error("Invalid parity $p.")
+function translationparitybasis(
+    f, k::Integer, p::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded=false
+)
     dgt = zeros(Int, L)
-    sqrtl = [L/sqrt(i/2) for i = 1:L]
-    cospl = [sqrt(1+cos(2π*i/L)) for i = 0:L-1]
-    cosml = [sqrt(1-cos(2π*i/L)) for i = 0:L-1]
+    K = (k == 0) ? 1 : (2k == L) ? -1 : error("Momentum incompatible with parity.")
+    P = (p == 1) ? 1 : (p == -1) ? -1 : error("Invalid parity $p.")
+    S = append!([L/sqrt(i/2) for i = 1:L], sqrt(2))
+    info = translationparityinfo(f, K, P, base, S)
     I, R = if threaded
-        paritysearch_threaded(reverse!, f, k, P, L, sqrtl, cospl, cosml, base=base, alloc=alloc)
+        selectindexnorm_threaded(info, L, base=base, alloc=alloc)
     else
-        paritysearch(reverse!, f, k, P, L, sqrtl, cospl, cosml, 1:base^L, base=base, alloc=alloc)
+        selectindexnorm(info, L, 1:base^L, base=base, alloc=alloc)
     end
     TranslationParityBasis(dgt, I, R, K, P, base)
 end
@@ -53,95 +84,58 @@ end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Helper Functions
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function checkparity(parity!, dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)::Tuple{Bool, Bool, Int, Int}
-    b1, r = checkstate(dgt, I0, base)
-    if !b1 
-        return (false, false, r, 0) 
-    end
-    parity!(dgt)
-    for i = 0:r-1
-        In = index(dgt, base=base)
-        if In < I0
-            change!(dgt, I0, base=base)
-            return (false, false, r, 0)
-        elseif In == I0
-            return (true, true, r, i)
-        end
-        cyclebits!(dgt)
-    end
-    parity!(dgt)
-    true, false, r, 0
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function indparity(parity!, dgt::AbstractVector{<:Integer}, base::Integer)
-    Im1, T1 = indmin(dgt, base)
-    parity!(dgt)
-    Im2, T2 = indmin(dgt, base)
-    parity!(dgt)
-    if Im2 < Im1
-        false, Im2, T2
-    else
-        true, Im1, T1
-    end
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function paritynorm(b::Bool, k::Int, p::Bool, r::Int, m::Int, L::Integer, sqrtl::Vector{Float64}, cospl::Vector{Float64}, cosml::Vector{Float64})
-    Q, N = if b
-        km = k * m
-        if p
-            (2 * rem(km, L) == L) ? (false, 0.0) : (true, cospl[km % L + 1] * sqrtl[r])
-        else
-            (km % L == 0) ? (false, 0.0) : (true, cosml[km % L + 1] * sqrtl[r])
-        end
-    else
-        true, sqrtl[r]
-    end
-end
+"""
+    parity_check(reverse!, dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)
 
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Search Basis
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function paritysearch(
-    parity!, f, k::Int, p::Bool, L::Integer, sqrtl::Vector, cospl::Vector, cosml::Vector, rg::UnitRange; 
-    base::Integer=2, alloc::Integer=1000
-)
-    dgt = zeros(Int, L)
-    I, R = allocvector(Int, alloc), allocvector(Float64, alloc)
-    for i in rg
-        change!(dgt, i, base=base)
-        if f(dgt)
-            b1, b2, r, m = checkparity(parity!, dgt, i, base)
-            if b1 && (k * r % L == 0)
-                Q, N = paritynorm(b2, k, p, r, m, L, sqrtl, cospl, cosml)
-                if Q
-                    append!(I, i)
-                    append!(R, N)
-                end
+Check whether a state is a valid representing state, and whether it is reflect-translation-invariant.
+
+Inputs:
+-------
+- dgt     : Digits vector.
+- I0      : Index of the index.
+- base    : Base.
+
+Outputs:
+--------
+Tuple{Bool, Bool, Int, Int} : 
+    1. Whether `dgt` is a representing vector.
+    2. Whether `dgt` is reflect-translation-invariant.
+    3. Minimum R that Tᴿ⋅|dgt⟩ = |dgt⟩.
+    4. Minimum M that Tᴹ⋅P⋅|dgt⟩ = |dgt⟩, 0 if it is not reflect-translation-invariant.
+"""
+function parity_check(dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)::Tuple{Bool, Bool, Int, Int}
+    isrep, r = translation_check(dgt, I0, base)
+    if isrep
+        reverse!(dgt)
+        for i = 0:r-1
+            In = index(dgt, base=base)
+            if In < I0
+                change!(dgt, I0, base=base)
+                return (false, false, r, 0)
+            elseif In == I0
+                return (true, true, r, i)
             end
+            cyclebits!(dgt)
         end
+        reverse!(dgt)
+        (true, false, r, 0)
+    else
+        (false, false, r, 0) 
     end
-    Vector(I), Vector(R)
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Multi-threads
-function paritysearch_threaded(
-    parity!, f, k::Int, p::Bool, L::Integer, sqrtl::Vector, cospl::Vector, cosml::Vector;
-    base::Integer=2, alloc::Integer=1000
-)
-    nt = Threads.nthreads()
-    ni = begin
-        list = Vector{UnitRange{Int64}}(undef, nt)
-        N = base^L
-        eacht = N ÷ nt
-        for i = 1:nt-1
-            list[i] = (i-1)*eacht+1:i*eacht
-        end
-        list[nt] = eacht*(nt-1)+1:base^L
-        list
+function parity_index(dgt::AbstractVector{<:Integer}, base::Integer)
+    Im1, T1 = translation_index(dgt, base)
+    reverse!(dgt)
+    Im2, T2 = translation_index(dgt, base)
+    reverse!(dgt)
+    Im2 < Im1 ? (true, Im2, T2) : (false, Im1, T1)
+end
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function parity_norm(reflect::Bool, k::Int, p::Int, r::Int, m::Int, S::Vector{Float64})
+    if reflect
+        p * k ^ m == 1 ? (true, S[end]*S[r]) : (false, 0.0)
+    else
+        (true, S[r])
     end
-    nI, nR = Vector{Vector{Int}}(undef, nt), Vector{Vector{Float64}}(undef, nt)
-    Threads.@threads for ti in 1:nt
-        nI[ti], nR[ti] = paritysearch(parity!, f, k, p, L, sqrtl, cospl, cosml, ni[ti], base=base, alloc=alloc)
-    end
-    vcat(nI...), vcat(nR...)
 end
