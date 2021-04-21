@@ -7,7 +7,7 @@ Julia package for general many-body exact diagonalization calculation. The packa
 Run the following script in the ```Pkg REPL``` :
 
 ```julia
-pkg> add https://github.com/jayren3996/EDKit
+pkg> add EDKit
 ```
 
 ## Basis Object
@@ -109,7 +109,7 @@ end
 We can use the function
 
 ```julia
-tensorbasis(L::Integer; base::Integer=2) = TensorBasis(zeros(Int, L), base)
+tensorbasis(L::Integer; base::Integer=2)
 ```
 
 to construct a basis, though in most cases it is not necessary.
@@ -159,7 +159,7 @@ translationalbasis(k::Integer, L::Integer; base::Integer=2)
 translationalbasis(f, k::Integer, L::Integer; base::Integer=2)
 ```
 
-In the definition, `k` is the momentum sector we are interested, and `f` is a function acting on digits that tells whether a given digits is valid in this basis. Note that `k` is an integer, representing the momentum at `2πk/L`. For example, consider a S=1/2 chain with L=6 (with translational symmetry and conserve magnetic quantum number). If we consider the subspace spaned by those states with 3 up-spins with zero momentum, we can create the basis for the subspace by
+In the definition, `k` is the momentum sector we are interested, and `f` is a function acting on digits that tells whether a given digits is valid in this basis. Note that `k` is an integer, representing the momentum at `2πk/L`. For example, consider a `S=1/2` chain with `L=6` (with translational symmetry and conserve magnetic quantum number). If we consider the subspace spaned by those states with 3 up-spins with zero momentum, we can create the basis for the subspace by
 
 ```julia
 translationalbasis(x -> sum(x)==3, 0, 6; base=2)
@@ -170,7 +170,7 @@ translationalbasis(x -> sum(x)==3, 0, 6; base=2)
 We also provide a helper function to create spin-s operators (represented by matrices):
 
 ```julia
-function spin(spins...; D::Integer=2)
+spin(spins...; D::Integer=2)
 ```
 
 In the definition, `spins` are arbituary number of tuples such as `(1.0, "xzx")`. The supported characters are:
