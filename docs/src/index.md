@@ -1,6 +1,6 @@
 # EDKit.jl
 
-Julia package for general many-body exact diagonalization calculation. The package provide a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases. See [Documentation](docs/build/index.html) for detail.
+Julia package for general many-body exact diagonalization calculation. The package provide a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
 
 ## Installation
 
