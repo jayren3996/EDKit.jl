@@ -19,7 +19,7 @@ In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasi
 1. `TensorBasis`: Ordinary basis without any symmetry.
 2. `ProjectedBasis`: Basis for subspace that is spanned only by product states.
 3. `TranslationalBasis`: Basis for translational symmetric Hamiltonian.
-4. `TranslationalParityBasis` : Basis with translational and reflection symmetry. The momensum should be 0 or π.
+4. `TranslationalParityBasis` : Basis with translational as well as reflection symmetry. The momensum should be 0 or π.
 
 The basis object can be extended. To construct linear operation, we need to define 3 functions for a new basis type:
 
