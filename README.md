@@ -6,7 +6,7 @@ Julia package for general many-body exact diagonalization calculation. The packa
 
 ## Installation
 
-Run the following script in the ```Pkg REPL``` :
+Run the following script in the ```Pkg REPL``` environment:
 
 ```julia
 pkg> add EDKit
