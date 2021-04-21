@@ -2,8 +2,6 @@
 
 Julia package for general many-body exact diagonalization calculation. The package provide a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
 
-[![Documentation](https://github.com/jayren3996/EDKit.jl/actions/workflows/main.yml/badge.svg)](https://github.com/jayren3996/EDKit.jl/actions/workflows/main.yml)
-
 ## Installation
 
 Run the following script in the ```Pkg REPL``` environment:
