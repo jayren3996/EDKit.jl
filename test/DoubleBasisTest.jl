@@ -22,17 +22,19 @@ using Test
         mat[p3, p2] .= rand(ComplexF64, 1, 3)
         mat
     end
-    A = zeros(3^L, 3^L)
-    p = 3^L
-    for n = 1-L:L
-        b1 = projectedbasis(x -> sum(x)==n, L, base=3)
-        b2 = projectedbasis(x -> sum(x)==(n-1), L, base=3)
-        l1, l2 = length(b1), length(b2)
+    XY = spin((1, "+-"), (1, "-+"), (1, "z1"), (1, "1z"), D=3)
+    A = 0.0
+    for n = 1:2L
+        b1 = projectedbasis(x -> sum(x)==(n-1), L, base=3)
+        b2 = projectedbasis(x -> sum(x)==n, L, base=3)
         basis = doublebasis(b1, b2)
-        op = trans_inv_operator(mat, 3, basis) |> Array
-        A[p]
+        e1, v1 = trans_inv_operator(XY, 2, b1) |> Array |> Hermitian |> eigen
+        e2, v2 = trans_inv_operator(XY, 2, b2) |> Array |> Hermitian |> eigen
+        op = trans_inv_operator(Sp, 3, basis) |> Array
+        A += abs2.(v1' * op * v2) |> sum
     end
-    @test P == 3^L
-    vals = trans_inv_operator(mat, 3, L) |> Array |> Hermitian |> eigvals
-    @test vals ≈ sort!(E)
+    e, v = trans_inv_operator(XY, 2, L) |> Array |> Hermitian |> eigen
+    op = trans_inv_operator(Sp, 3, L) |> Array
+    B = abs2.(v' * op * v) |> sum
+    @test A ≈ B atol = 1e-7
 end

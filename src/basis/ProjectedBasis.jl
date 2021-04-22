@@ -18,14 +18,12 @@ struct ProjectedBasis <: AbstractBasis
     B::Int
 end
 eltype(::ProjectedBasis) = Int
+change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
 #-----------------------------------------------------------------------------------------------------
 function index(b::ProjectedBasis)::Tuple{Int, Int}
-    i = binary_search(b.I, b.dgt)
-    if i > 0
-        1, i
-    else
-        error("No such symmetry.")
-    end
+    i = index(b.dgt, base=b.B)
+    ind = binary_search(b.I, i)
+    ind > 0 ? (1, ind) : error("No such symmetry.")
 end
 #-----------------------------------------------------------------------------------------------------
 # Construction
