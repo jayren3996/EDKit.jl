@@ -67,14 +67,14 @@ function +(opt1::Operator, opt2::Operator)
     M = Vector{SparseMatrixCSC{Tv, Int}}(undef, n1 + n2)
     I = Vector{Vector{Int}}(undef, n1+n2)
     M[1:n1] .= opt1.M
-    I[1:n1] .= opt2.I
+    I[1:n1] .= opt1.I
     P = n1
     for i = 1:n2
         if (p = findposition(opt1.I, opt2.I[i])) > 0
             M[p] += opt2.M[i]
         else
             P += 1
-            M[n1+i], I[n1+i] = opt2.M[i], opt2.I[i]
+            M[P], I[P] = opt2.M[i], opt2.I[i]
         end
     end
     deleteat!(M, P+1:n1+n2)
