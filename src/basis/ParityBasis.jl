@@ -139,3 +139,40 @@ function parity_norm(reflect::Bool, k::Int, p::Int, r::Int, m::Int, S::Vector{Fl
         (true, S[r])
     end
 end
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# To Vector
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationParityBasis)
+    Binds = Int[i for i = 1:length(b.dgt) if !in(i, Ainds)]
+    dgt, I, R, C = b.dgt, b.I, b.R, b.C
+    for i = 1:length(v)
+        vi, n, i0 = v[i], R[i], I[i]
+        change!(dgt, I[i], base=b.B)
+        ia = index(dgt, Ainds, base=b.B)
+        ib = index(dgt, Binds, base=b.B)
+        target[ia, ib] = vi / n
+        phase = 1
+        for j = 1:length(dgt)-1
+            phase *= b.K
+            cyclebits!(dgt)
+            ia = index(dgt, Ainds, base=b.B)
+            ib = index(dgt, Binds, base=b.B)
+            target[ia, ib] += vi * phase / n
+        end
+        cyclebits!(dgt)
+        reverse!(dgt)
+        ia = index(dgt, Ainds, base=b.B)
+        ib = index(dgt, Binds, base=b.B)
+        target[ia, ib] = vi / n
+        phase = b.P
+        for j = 1:length(dgt)-1
+            phase *= b.K
+            cyclebits!(dgt)
+            ia = index(dgt, Ainds, base=b.B)
+            ib = index(dgt, Binds, base=b.B)
+            target[ia, ib] += vi * phase / n
+        end
+    end
+    target
+end

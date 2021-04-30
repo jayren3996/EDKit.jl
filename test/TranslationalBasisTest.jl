@@ -21,9 +21,9 @@ const printstate = false
     for n = 0:L, k = 0:L-1
         basis = translationalbasis(x->sum(x)==n, k, L)
         if printstate 
-            println("N = $n, k = $k: $(length(basis)) states.") 
+            println("N = $n, k = $k: $(size(basis,1)) states.") 
         end
-        if (l = length(basis)) > 0
+        if (l = size(basis,1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l
@@ -55,7 +55,7 @@ end
     P = 0
     for n = 0:L, k = 0:L-1
         basis = translationalbasis(x->sum(x)==n, k, L)
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             if printstate 
                 println("N = $n, k = $k: $l states.")
             end
@@ -87,9 +87,9 @@ end
     for n = 0:2L, k = 0:L-1
         basis = translationalbasis(x->sum(x)==n, k, L, base=3)
         if printstate 
-            println("N = $n, k = $k: $(length(basis)) states.")
+            println("N = $n, k = $k: $(size(basis, 1)) states.")
         end
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l
@@ -119,9 +119,9 @@ end
     for n = 0:2L, k = 0:L-1
         basis = translationalbasis(x->sum(x)==n, k, L, base=3)
         if printstate 
-            println("N = $n, k = $k: $(length(basis)) states.")
+            println("N = $n, k = $k: $(size(basis, 1)) states.")
         end
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l
@@ -162,9 +162,9 @@ end
     for n = 0:2L, k = 0:L-1
         basis = translationalbasis(x->sum(x)==n, k, L, base=3)
         if printstate 
-            println("N = $n, k = $k: $(length(basis)) states.")
+            println("N = $n, k = $k: $(size(basis, 1)) states.")
         end
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l
@@ -172,24 +172,4 @@ end
     end
     vals = trans_inv_operator(mat, 3, L) |> Array |> Hermitian |> eigvals
     @test vals ≈ sort!(E)
-end
-
-#-------------------------------------------------------------------------------------------------------------------------
-# Test Multi-threads
-#-------------------------------------------------------------------------------------------------------------------------
-@testset "Multi-threads" begin
-    L, k, p = 28, 0, 1
-    mat = begin
-        P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
-        X = [0 1; 1 0]
-        P * kron(I(2), X, I(2)) * P
-    end
-    pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
-    println("--------------------------------------")
-    print("Single-threads:")
-    @time bs = translationalbasis(pxpf, k, L, threaded=false)
-    print("Multi-threads :")
-    @time bm = translationalbasis(pxpf, k, L, threaded=true)
-    @test bs.I == bm.I
-    @test norm(bs.R-bm.R) ≈ 0.0
 end

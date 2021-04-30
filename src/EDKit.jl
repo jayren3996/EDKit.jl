@@ -22,6 +22,7 @@ include("basis/ParityBasis.jl")
 include("basis/DoubleBasis.jl")
 include("Operator.jl")
 include("LinearOperation.jl")
-include("Spin.jl")
+include("Entanglement.jl")
+include("Miscellaneous.jl")
 
 end # module

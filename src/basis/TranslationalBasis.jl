@@ -66,13 +66,38 @@ function translationalbasis(
 end
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# To Vector
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis)
+    Binds = Int[i for i = 1:length(b.dgt) if !in(i, Ainds)]
+    dgt, I, R, C = b.dgt, b.I, b.R, b.C
+    for i = 1:length(v)
+        vi, n, i0 = v[i], R[i], I[i]
+        change!(dgt, i0, base=b.B)
+        ia = index(dgt, Ainds, base=b.B)
+        ib = index(dgt, Binds, base=b.B)
+        target[ia, ib] = vi / n
+        phase = 1
+        for j = 1:length(dgt)-1
+            phase *= C
+            cyclebits!(dgt)
+            ia = index(dgt, Ainds, base=b.B)
+            ib = index(dgt, Binds, base=b.B)
+            target[ia, ib] += vi * phase / n
+        end
+    end
+    target
+end
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Helper Functions
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function cyclebits!(dgt::AbstractVector{<:Integer})
     p = dgt[end]
-    for i = 1:length(dgt)
-        p, dgt[i] = dgt[i], p
+    for i = length(dgt):-1:2
+        dgt[i] = dgt[i-1]
     end
+    dgt[1] = p
     dgt
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -104,4 +129,5 @@ function translation_index(dgt::AbstractVector{<:Integer}, base::Integer)
     end
     Im, T
 end
+
 

@@ -2,6 +2,7 @@
 # Spin Matrices
 #-----------------------------------------------------------------------------------------------------
 # Dictionary
+spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
 function spin_dict(D::Integer)
     J = (D-1)/2
     coeff = [sqrt(i*(D-i)) for i = 1:D-1]
@@ -37,3 +38,26 @@ function spin(spins...; D::Integer=2)
 end
 
 spin(spins::AbstractVector{<:Tuple{<:Number, String}}; D::Integer=2) = spin(spins..., D=D)
+
+#-----------------------------------------------------------------------------------------------------
+# Level statistics
+#-----------------------------------------------------------------------------------------------------
+function gapratio(dE::AbstractVector{<:Real})
+    r = zeros(length(dE)-1)
+    for i = 1:length(r)
+        if dE[i] < dE[i+1]
+            r[i] = dE[i]/dE[i+1]
+        elseif dE[i] > dE[i+1]
+            r[i] = dE[i+1]/dE[i]
+        else
+            r[i] = 1.0
+        end
+    end
+    r
+end
+
+function meangapratio(E::AbstractVector{<:Real})
+    dE = diff(E)
+    r = gapratio(dE)
+    sum(r)/length(r)
+end

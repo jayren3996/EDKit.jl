@@ -26,4 +26,14 @@ size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
 #-----------------------------------------------------------------------------------------------------
 export tensorbasis
 tensorbasis(L::Integer; base::Integer=2) = TensorBasis(zeros(Int, L), base)
-
+function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
+    Binds = Int[i for i = 1:length(b.dgt) if !in(i, Ainds)]
+    dgt = b.dgt
+    for i = 1:length(v)
+        change!(dgt, i, base=b.B)
+        ia = index(dgt, Ainds, base=b.B)
+        ib = index(dgt, Binds, base=b.B)
+        target[ia, ib] = v[i]
+    end
+    target
+end

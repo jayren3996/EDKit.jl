@@ -25,6 +25,7 @@ function index(b::ProjectedBasis)::Tuple{Int, Int}
     ind = binary_search(b.I, i)
     ind > 0 ? (1, ind) : error("No such symmetry.")
 end
+
 #-----------------------------------------------------------------------------------------------------
 # Construction
 #-----------------------------------------------------------------------------------------------------
@@ -37,4 +38,19 @@ function projectedbasis(f, L::Integer; base::Integer=2, alloc::Integer=1000, thr
         selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     end
     ProjectedBasis(dgt, I, base)
+end
+
+#-----------------------------------------------------------------------------------------------------
+# To Vector
+#-----------------------------------------------------------------------------------------------------
+function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ProjectedBasis)
+    Binds = Int[i for i = 1:length(b.dgt) if !in(i, Ainds)]
+    dgt = b.dgt
+    for i = 1:length(v)
+        change!(dgt, b.I[i], base=b.B)
+        ia = index(dgt, Ainds, base=b.B)
+        ib = index(dgt, Binds, base=b.B)
+        target[ia, ib] = v[i]
+    end
+    target
 end

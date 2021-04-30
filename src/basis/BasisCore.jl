@@ -1,29 +1,14 @@
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 # Abstract Basis Type
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-"""
-    AbstractBasis
-
-In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasis` is the abstract type of basis. 
-The basis object can be extended. To construct linear operation, we need to define 3 functions for a new basis type:
-    
-1. `size(b::AbstractBasis)` : Size of matrix representations of the operators in this subspace.
-2. `change!(b::AbstractBasis, i::Integer)` : Change the digits to ith states in this subspace.
-3. `index(b::AbstractBasis)` : Return the coefficient and index of the digits.
-    
-Optionally, we can define `eltype` for a basis object (default is `ComplexF64`).
-    
-If the calculation is done on the entire Hilbert space, the basis object need not be explicitly constructed. 
-The `Operator` will use `TensorBasis` by default. 
-The construction of other basis with symmetry concern are discussed below.
-"""
 abstract type AbstractBasis end
 eltype(::AbstractBasis) = ComplexF64
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 change!(b::AbstractBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); b.R[i])
-size(b::AbstractBasis, i::Integer) = (i == 2 || i == 1) ? length(b.I) : 1
+size(b::AbstractBasis, i::Integer) = (i == 1 || i == 2) ? length(b.I) : 1
 size(b::AbstractBasis) = (l=length(b.I); (l,l))
-length(b::AbstractBasis) = size(b, 2)
+length(b::AbstractBasis) = length(b.dgt)
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 # Digits ⟷ Index
@@ -39,7 +24,7 @@ number = bits[i] * base^(L-i) + 1
 
 in the most efficient way.
 """
-function index(dgt::AbstractVector{Int}; base::Int=2)::Int
+function index(dgt::AbstractVector{<:Integer}; base::Integer=2)::Int
     N = 0
     for i = 1:length(dgt)
         N = muladd(base, N, dgt[i])
@@ -47,7 +32,7 @@ function index(dgt::AbstractVector{Int}; base::Int=2)::Int
     N + 1
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-function index(dgt::AbstractVector{Int}, sites::Vector{Int}; base::Int=2)::Int
+function index(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}; base::Integer=2)::Int
     N = 0
     for i in sites
         N = muladd(base, N, dgt[i])
@@ -62,14 +47,14 @@ Index ⟹ Digit.
 
 The method compute the bits vector and write to bits.
 """
-function change!(dgt::Vector{Int}, ind::Int; base::Int=2)
+function change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
     N = ind - 1
     for i = length(dgt):-1:1
         N, dgt[i] = divrem(N, base)
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-function change!(dgt::Vector{Int}, sites::Vector{Int}, ind::Int; base::Int=2)
+function change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
     N = ind - 1
     for i = length(sites):-1:1
         N, dgt[sites[i]] = divrem(N, base)
@@ -96,42 +81,26 @@ function binary_search(list::AbstractVector{<:Integer}, i::Integer)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-# Pre-allocated vector
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-mutable struct AllocVector{Tv}
-    V::Vector{Tv}
-    P::Int
-    A::Int
-end
-allocvector(T::DataType, alloc::Int) = AllocVector(Vector{T}(undef, alloc), 0, alloc)
-function append!(av::AllocVector{Tv}, e::Tv) where Tv
-    if av.P == length(av.V)
-        av.V = vcat(av.V, Vector{Tv}(undef, av.A))
-    end
-    av.P += 1
-    av.V[av.P] = e 
-end
-Vector(av::AllocVector) = deleteat!(av.V, av.P+1 : length(av.V))
-
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
 # Select basis & norm
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
     dgt = zeros(Int, L)
-    I = allocvector(Int, alloc)
+    I = Int[]
+    sizehint!(I, alloc)
     for i in rg
         change!(dgt, i, base=base)
         if f(dgt)
             append!(I, i)
         end
     end
-    Vector(I)
+    I
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
     dgt = zeros(Int, L)
-    I = allocvector(Int, alloc)
-    R = allocvector(Float64, alloc)
+    I, R = Int[], Float64[]
+    sizehint!(I, alloc)
+    sizehint!(R, alloc)
     for i in rg
         change!(dgt, i, base=base)
         Q, N = f(dgt, i)
@@ -140,7 +109,7 @@ function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::I
             append!(R, N)
         end
     end
-    Vector(I), Vector(R)
+    I, R
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 # Multi-threads
@@ -183,3 +152,4 @@ function selectindexnorm_threaded(f, L::Integer; base::Integer=2, alloc::Integer
     end
     vcat(nI...), vcat(nR...)
 end
+
