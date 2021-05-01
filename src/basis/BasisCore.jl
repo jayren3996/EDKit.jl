@@ -3,82 +3,11 @@
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 abstract type AbstractBasis end
 eltype(::AbstractBasis) = ComplexF64
-
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 change!(b::AbstractBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); b.R[i])
 size(b::AbstractBasis, i::Integer) = (i == 1 || i == 2) ? length(b.I) : 1
 size(b::AbstractBasis) = (l=length(b.I); (l,l))
 length(b::AbstractBasis) = length(b.dgt)
-
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-# Digits ⟷ Index
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-"""
-    index(dgt::AbstractVector{<:Integer})
-
-Digit ⟹ index. 
-
-The method compute the polynomial
-
-number = bits[i] * base^(L-i) + 1
-
-in the most efficient way.
-"""
-function index(dgt::AbstractVector{<:Integer}; base::Integer=2)::Int
-    N = 0
-    for i = 1:length(dgt)
-        N = muladd(base, N, dgt[i])
-    end
-    N + 1
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-function index(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}; base::Integer=2)::Int
-    N = 0
-    for i in sites
-        N = muladd(base, N, dgt[i])
-    end
-    N + 1
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-"""
-    change!(dgt::Digit, index::Integer)
-
-Index ⟹ Digit. 
-
-The method compute the bits vector and write to bits.
-"""
-function change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
-    N = ind - 1
-    for i = length(dgt):-1:1
-        N, dgt[i] = divrem(N, base)
-    end
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-function change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
-    N = ind - 1
-    for i = length(sites):-1:1
-        N, dgt[sites[i]] = divrem(N, base)
-    end
-end
-
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-# Search index
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-"""
-    binary_search(list::AbstractVector{<:Integer}, i<:Integer)
-
-Return the position of i in a sorted list using binary search algorithm.
-"""
-function binary_search(list::AbstractVector{<:Integer}, i::Integer)
-    l, r = 1, length(list)
-    c = (l+r) ÷ 2
-    while true
-        t = list[c]
-        (i < t) ? (r = c - 1) : (i > t) ? (l = c + 1) : break
-        (l > r) ? (c = 0; break) : (c = (l + r) ÷ 2)
-    end
-    c
-end
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 # Select basis & norm

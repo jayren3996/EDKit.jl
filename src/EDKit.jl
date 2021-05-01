@@ -15,10 +15,12 @@ export change!, index, operator
 # INCLUDE
 #-----------------------------------------------------------------------------------------------------
 include("basis/BasisCore.jl")
+include("basis/ToolKit.jl")
 include("basis/TensorBasis.jl")
 include("basis/ProjectedBasis.jl")
 include("basis/TranslationalBasis.jl")
-include("basis/ParityBasis.jl")
+include("basis/TranslationParityBasis.jl")
+
 include("basis/DoubleBasis.jl")
 include("Operator.jl")
 include("LinearOperation.jl")

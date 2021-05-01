@@ -1,27 +1,42 @@
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Translational Basis
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
+# TranslationalBasis
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    TranslationalBasis
+
+Basis for subspace that is spanned by momentum states, which can also incorporate projected restriction.
+
+Properties:
+-----------
+- dgt : Vector{Int}
+- I   : Vector{Int}, list of indicies.
+- R   : Vector{Float64}, list of normalization.
+- C   : Vector{Float64/ComplexF64}, unit phase factor.
+- B   : Int, levels on each site.
+"""
 struct TranslationalBasis{T <: Number} <: AbstractBasis
     dgt::Vector{Int}
     I::Vector{Int}
     R::Vector{Float64}
-    C::T
+    C::Vector{T}
     B::Int
 end
 eltype(::TranslationalBasis{T}) where T = T
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function index(b::TranslationalBasis)
+#-------------------------------------------------------------------------------------------------------------------------
+function index(b::TranslationalBasis{Tc})::Tuple{Tc, Int} where Tc
     Im, T = translation_index(b.dgt, b.B)
     ind = binary_search(b.I, Im)
     if ind == 0
-        return parse(eltype(b), "0"), 1
+        parse(Tc, "0"), 1
     else
-        N = b.C ^ T * b.R[ind]
-        return N, ind
+        N::Tc = (T == 0) ? b.R[ind] : b.C[T] * b.R[ind]
+        N, ind
     end
 end
 
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
+# Judge
+#-------------------------------------------------------------------------------------------------------------------------
 struct TranslationInfo
     F
     K::Int
@@ -38,94 +53,38 @@ function (info::TranslationInfo)(dgt::Vector{Int}, i::Integer)::Tuple{Bool, Floa
     end
 end
 
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Construct
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
+# Construction
+#-------------------------------------------------------------------------------------------------------------------------
 export translationalbasis
-function translationalbasis(
-    f, k::Integer, L::Integer; 
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=false
-)
+function translationalbasis(f, k::Integer, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
     dgt = zeros(Int, L)
-    C = [L/sqrt(i) for i = 1:L]
-    info = TranslationInfo(f, k, base, C)
-    I, R = if threaded
-        selectindexnorm_threaded(info, L, base=base, alloc=alloc)
-    else
-        selectindexnorm(info, L, 1:base^L, base=base, alloc=alloc)
-    end
-    expk = (k == 0) ? 1.0 : (2k == L) ? -1.0 : exp(-1im*2π/L*k)
-    TranslationalBasis(dgt, I, R, expk, base)
+    info = TranslationInfo(f, k, base, [L/sqrt(i) for i = 1:L])
+    I, R = threaded ? selectindexnorm_threaded(info, L, base=base, alloc=alloc) : selectindexnorm(info, L, 1:base^L, base=base, alloc=alloc)
+    C = (k == 0) ? fill(1.0, L-1) : (2k == L) ? [iseven(i) ? 1.0 : -1.0 for i=1:L-1] : [exp(-1im*2π/L*k*i) for i=1:L-1]
+    TranslationalBasis(dgt, I, R, C, base)
 end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function translationalbasis(
-    k::Integer, L::Integer; 
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=false
-)
-    translationalbasis(x->true, k, L, base=base, alloc=alloc, threaded=threaded)
+#-------------------------------------------------------------------------------------------------------------------------
+function translationalbasis(k::Integer, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
+    translationalbasis(x -> true, k, L, base=base, alloc=alloc, threaded=threaded)
 end
 
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# To Vector
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
+# Reshape
+#-------------------------------------------------------------------------------------------------------------------------
 function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis)
-    Binds = Int[i for i = 1:length(b.dgt) if !in(i, Ainds)]
-    dgt, I, R, C = b.dgt, b.I, b.R, b.C
+    dgt, R, C = b.dgt, b.R, b.C[1]
+    Binds = complement(Ainds, length(dgt))
     for i = 1:length(v)
-        vi, n, i0 = v[i], R[i], I[i]
-        change!(dgt, i0, base=b.B)
-        ia = index(dgt, Ainds, base=b.B)
-        ib = index(dgt, Binds, base=b.B)
-        target[ia, ib] += vi / n
+        val = v[i] / R[i]
+        change!(dgt, b.I[i], base=b.B)
+        perm_element!(target, dgt, val, Ainds, Binds, b.B)
         phase = 1
         for j = 1:length(dgt)-1
             phase *= C
             cyclebits!(dgt)
-            ia = index(dgt, Ainds, base=b.B)
-            ib = index(dgt, Binds, base=b.B)
-            target[ia, ib] += vi * phase / n
+            perm_element!(target, dgt, phase * val, Ainds, Binds, b.B)
         end
     end
     target
-end
-
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Helper Functions
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function cyclebits!(dgt::AbstractVector{<:Integer})
-    p = dgt[end]
-    for i = length(dgt):-1:2
-        dgt[i] = dgt[i-1]
-    end
-    dgt[1] = p
-    dgt
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function translation_check(dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)
-    cyclebits!(dgt)
-    for i=1:length(dgt)-1
-        if (In = index(dgt, base=base)) < I0
-            change!(dgt, I0, base=base)
-            return false, 0
-        elseif In == I0
-            return true, i
-        end
-        cyclebits!(dgt)
-    end
-    true, length(dgt)
-end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function translation_index(dgt::AbstractVector{<:Integer}, base::Integer)
-    I0 = index(dgt, base=base)
-    Im, T = I0, 0
-    cyclebits!(dgt)
-    for i=1:length(dgt)-1
-        if (In = index(dgt, base=base)) == I0
-            break
-        elseif In < Im
-            Im, T = In, i
-        end
-        cyclebits!(dgt)
-    end
-    Im, T
 end
