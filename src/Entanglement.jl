@@ -21,8 +21,22 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Entaglement
 #-------------------------------------------------------------------------------------------------------------------------
+export ent_spec
+function ent_spec(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis)
+    m = schmidt(v, Aind, b)
+    svdvals(m)
+end
+#-------------------------------------------------------------------------------------------------------------------------
 export entropy
-function entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
+function entropy(s::AbstractVector{<:Real}; α::Real=1, cutoff::Real=1e-20)
+    if α == 1
+        shannon_entropy(s, cutoff=cutoff)
+    else
+        renyi_entropy(s, α)
+    end
+end
+
+function shannon_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
     ent::Float64 = 0.0
     for si in s
         if si > cutoff
@@ -33,10 +47,11 @@ function entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
     end
     ent
 end
-ent_spec(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis) = schmidt(v, Aind, b) |> svdvals
+
+renyi_entropy(s::AbstractVector{<:Real}, α::Real) = log(sum(s.^α)) / (1-α)
 #-------------------------------------------------------------------------------------------------------------------------
 export ent_S
-function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis; cutoff::Real=1e-20)
+function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis; α::Real=1, cutoff::Real=1e-20)
     s = ent_spec(v, Aind, b) .^ 2
-    entropy(s, cutoff=cutoff)
+    entropy(s, α=α, cutoff=cutoff)
 end

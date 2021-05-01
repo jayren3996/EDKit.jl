@@ -29,6 +29,8 @@ Optionally, we can define `eltype` for a basis object (default is `ComplexF64`).
 
 If the calculation is done on the entire Hilbert space, the basis object need not be explicitly constructed. The `Operator` will use `TensorBasis` by default. The construction of other basis with symmetry concern are discussed below.
 
+In addition, if the entaglement entropy is needed, the user-defined basis should implement a function `schmidt!(target, v, Ainds, b::AbstractBasis)`.
+
 ## Operator Object
 
 In `EDKit.jl` , a many-body operator is represented by the type `Operator`:
@@ -90,6 +92,14 @@ mul!(target::AbstractVecOrMat, opt::Operator, v::AbstractVecOrMat)
 ```
 
 to modify `target` (similarly, `target` should be initialized as a zero vector/matrix).
+
+### Compute entaglement entropy
+
+After obtaining Hamiltonian in a symmetry sector. We can calculate the entaglement entropy of an eigenvector `v` (assume the system size is `2L`, and the entropy cut is at the middel of the chain) by
+
+```julia
+ent_S(v::AbstractVector, 1:L, b::AbstractBasis)
+```
 
 ## Concrete Implementations of Basis
 

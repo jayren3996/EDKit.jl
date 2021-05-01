@@ -76,7 +76,7 @@ function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVect
         change!(dgt, i0, base=b.B)
         ia = index(dgt, Ainds, base=b.B)
         ib = index(dgt, Binds, base=b.B)
-        target[ia, ib] = vi / n
+        target[ia, ib] += vi / n
         phase = 1
         for j = 1:length(dgt)-1
             phase *= C
@@ -129,5 +129,3 @@ function translation_index(dgt::AbstractVector{<:Integer}, base::Integer)
     end
     Im, T
 end
-
-

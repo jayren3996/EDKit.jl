@@ -41,7 +41,7 @@ function projectedbasis(f, L::Integer; base::Integer=2, alloc::Integer=1000, thr
 end
 
 #-----------------------------------------------------------------------------------------------------
-# To Vector
+# Schmidt form
 #-----------------------------------------------------------------------------------------------------
 function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ProjectedBasis)
     Binds = Int[i for i = 1:length(b.dgt) if !in(i, Ainds)]
