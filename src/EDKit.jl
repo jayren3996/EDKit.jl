@@ -14,7 +14,6 @@ export change!, index, operator
 #-----------------------------------------------------------------------------------------------------
 # INCLUDE
 #-----------------------------------------------------------------------------------------------------
-include("basis/BasisCore.jl")
 include("basis/ToolKit.jl")
 include("basis/TensorBasis.jl")
 include("basis/ProjectedBasis.jl")

@@ -1,7 +1,11 @@
+include("../src/EDKit.jl")
+using LinearAlgebra
+using .EDKit
+using Test
 #-------------------------------------------------------------------------------------------------------------------------
 # Test Translational PXP
 #-------------------------------------------------------------------------------------------------------------------------
-@testset "Multi-threads" begin
+@testset "Multi-threads Translational PXP" begin
     L, k, p = 28, 0, 1
     mat = begin
         P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
@@ -21,7 +25,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Test Translational Parity PXP
 #-------------------------------------------------------------------------------------------------------------------------
-@testset "Multi-threads" begin
+@testset "Multi-threads Translational Parity PXP" begin
     L, k, p = 28, 0, 1
     mat = begin
         P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])

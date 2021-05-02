@@ -32,11 +32,7 @@ end
 export projectedbasis
 function projectedbasis(f, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
     dgt = zeros(Int, L)
-    I = if threaded
-        selectindex_threaded(f, L, base=base, alloc=alloc)
-    else
-        selectindex(f, L, 1:base^L, base=base, alloc=alloc)
-    end
+    I = threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     ProjectedBasis(dgt, I, base)
 end
 

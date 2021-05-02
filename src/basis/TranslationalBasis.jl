@@ -27,7 +27,7 @@ function index(b::TranslationalBasis{Tc})::Tuple{Tc, Int} where Tc
     Im, T = translation_index(b.dgt, b.B)
     ind = binary_search(b.I, Im)
     if ind == 0
-        parse(Tc, "0"), 1
+        zero(Tc), 1
     else
         N::Tc = (T == 0) ? b.R[ind] : b.C[T] * b.R[ind]
         N, ind
@@ -76,15 +76,20 @@ function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVect
     dgt, R, C = b.dgt, b.R, b.C[1]
     Binds = complement(Ainds, length(dgt))
     for i = 1:length(v)
-        val = v[i] / R[i]
         change!(dgt, b.I[i], base=b.B)
-        perm_element!(target, dgt, val, Ainds, Binds, b.B)
-        phase = 1
-        for j = 1:length(dgt)-1
-            phase *= C
-            cyclebits!(dgt)
-            perm_element!(target, dgt, phase * val, Ainds, Binds, b.B)
-        end
+        cycle_write!(target, dgt, v[i] / R[i], C, Ainds, Binds, b.B)
     end
     target
+end
+
+function cycle_write!(
+    target::AbstractMatrix, dgt::AbstractVector{<:Integer}, val::Number, phase::Number,
+    Ainds::AbstractVector{<:Integer}, Binds::AbstractVector{<:Integer}, base::Integer
+)
+    perm_element!(target, dgt, val, Ainds, Binds, base)
+    for j = 1:length(dgt)-1
+        val *= phase
+        cyclebits!(dgt)
+        perm_element!(target, dgt, val, Ainds, Binds, base)
+    end
 end

@@ -12,7 +12,7 @@ using Test
     P = 0
     for n = 0:L
         basis = projectedbasis(x->sum(x)==n, L)
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l
@@ -37,7 +37,7 @@ end
     P = 0
     for n = 0:L
         basis = projectedbasis(x->sum(x)==n, L)
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l
@@ -69,7 +69,7 @@ end
     pxpf(v::Vector{Int}) = all(v[i]==0 || v[i+1]==0 for i=1:length(v)-1)
     for L = 3:20
         basis = projectedbasis(pxpf, L)
-        @test length(basis) == fib(L)
+        @test size(basis, 1) == fib(L)
     end
     for L = 3:10
         basis = projectedbasis(pxpf, L)
@@ -123,7 +123,7 @@ end
     P = 0
     for n = 0:2L
         basis = projectedbasis(x->sum(x)==n, L, base=3)
-        if (l = length(basis)) > 0
+        if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
             P += l

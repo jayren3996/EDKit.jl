@@ -85,12 +85,82 @@ function complement(Ainds::AbstractVector{<:Integer}, L::Integer)
 end
 
 function perm_element!(
-    target::AbstractVector, dgt::AbstractVector{<:Integer}, val::Number, 
+    target::AbstractMatrix, dgt::AbstractVector{<:Integer}, val::Number, 
     Ainds::AbstractVector{<:Integer}, Binds::AbstractVector{<:Integer}, base::Integer
 )
     ia = index(dgt, Ainds, base=base)
     ib = index(dgt, Binds, base=base)
-    target[ia, ib] = val
+    target[ia, ib] += val
+end
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+# Select basis & norm
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
+    dgt = zeros(Int, L)
+    I = Int[]
+    sizehint!(I, alloc)
+    for i in rg
+        change!(dgt, i, base=base)
+        f(dgt) ? append!(I, i) : nothing
+    end
+    I
+end
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
+    dgt = zeros(Int, L)
+    I, R = Int[], Float64[]
+    sizehint!(I, alloc)
+    sizehint!(R, alloc)
+    for i in rg
+        change!(dgt, i, base=base)
+        Q, N = f(dgt, i)
+        if Q
+            append!(I, i)
+            append!(R, N)
+        end
+    end
+    I, R
+end
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+# Multi-threads
+function dividerange(maxnum::Integer, nthreads::Integer)
+    list = Vector{UnitRange{Int64}}(undef, nthreads)
+    eachthreads, left = divrem(maxnum, nthreads)
+    start = 1
+    for i = 1:left
+        stop  = start + eachthreads
+        list[i] = start:stop
+        start = stop+1
+    end
+    for i = left+1:nthreads-1
+        stop  = start + eachthreads - 1
+        list[i] = start:stop
+        start = stop+1
+    end
+    list[nthreads] = start:maxnum
+    list
+end
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+function selectindex_threaded(f, L::Integer; base::Integer=2, alloc::Integer=1000)
+    nt = Threads.nthreads()
+    ni = dividerange(base^L, nt)
+    nI = Vector{Vector{Int}}(undef, nt)
+    Threads.@threads for ti in 1:nt
+        nI[ti] = selectindex(f, L, ni[ti], base=base, alloc=alloc)
+    end
+    vcat(nI...)
+end
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+function selectindexnorm_threaded(f, L::Integer; base::Integer=2, alloc::Integer=1000)
+    nt = Threads.nthreads()
+    ni = dividerange(base^L, nt)
+    nI = Vector{Vector{Int}}(undef, nt)
+    nR = Vector{Vector{Float64}}(undef, nt)
+    Threads.@threads for ti in 1:nt
+        nI[ti], nR[ti] = selectindexnorm(f, L, ni[ti], base=base, alloc=alloc)
+    end
+    vcat(nI...), vcat(nR...)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
