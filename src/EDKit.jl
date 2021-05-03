@@ -16,11 +16,11 @@ export change!, index, operator
 #-----------------------------------------------------------------------------------------------------
 include("basis/ToolKit.jl")
 include("basis/TensorBasis.jl")
+include("basis/DoubleBasis.jl")
 include("basis/ProjectedBasis.jl")
 include("basis/TranslationalBasis.jl")
-include("basis/TranslationParityBasis.jl")
+include("basis/TranslationalParityBasis.jl")
 
-include("basis/DoubleBasis.jl")
 include("Operator.jl")
 include("LinearOperation.jl")
 include("Entanglement.jl")

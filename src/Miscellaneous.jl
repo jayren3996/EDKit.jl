@@ -18,9 +18,9 @@ end
 # Atomic spin matrix
 function spin_atom(s::String, dic::Dict)
     n = length(s)
-    ny = sum(si == 'y' for si in s)
-    temp = n == 1 ? dic[s[1]] : kron([dic[si] for si in s]...)
-    P = mod(ny, 2) == 0 ? (-1)^(ny÷2) : (1im)^ny
+    ny = sum(isequal(si, 'y') for si in s)
+    temp = isone(n) ? dic[s[1]] : kron([dic[si] for si in s]...)
+    P = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (1im)^ny
     P * temp
 end
 #-----------------------------------------------------------------------------------------------------

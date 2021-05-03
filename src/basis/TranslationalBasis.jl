@@ -26,10 +26,10 @@ eltype(::TranslationalBasis{T}) where T = T
 function index(b::TranslationalBasis{Tc})::Tuple{Tc, Int} where Tc
     Im, T = translation_index(b.dgt, b.B)
     ind = binary_search(b.I, Im)
-    if ind == 0
+    if iszero(ind)
         zero(Tc), 1
     else
-        N::Tc = (T == 0) ? b.R[ind] : b.C[T] * b.R[ind]
+        N::Tc = b.C[T+1] * b.R[ind]
         N, ind
     end
 end
@@ -37,20 +37,25 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Judge
 #-------------------------------------------------------------------------------------------------------------------------
-struct TranslationInfo
-    F
-    K::Int
-    B::Int
-    C::Vector{Float64}
-    TranslationInfo(F, K::Integer, B::Integer, C::AbstractVector{<:Real}) = new(F, Int(K), Int(B), Vector{Float64}(C))
+struct TranslationJudge
+    F                   # Projective selection
+    K::Int              # Momentum
+    B::Int              # Base
+    C::Vector{Float64}  # Normalization coefficient
 end
-function (info::TranslationInfo)(dgt::Vector{Int}, i::Integer)::Tuple{Bool, Float64}
-    if info.F(dgt)
-        c, r = translation_check(dgt, i, info.B)
-        (Q = c && (info.K * r % length(dgt) == 0)) ? (Q, info.C[r]) : (Q, 0.0)
+
+function (judge::TranslationJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
+    Q, N = if judge.F(dgt)
+        c, r = translation_check(dgt, i, judge.B)
+        if c && iszero( mod(r * judge.K, length(dgt) ) )
+            (true, judge.C[r])
+        else
+            (false, 0.0)
+        end
     else
-        false, 0.0
+        (false, 0.0)
     end
+    Q, N
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -59,9 +64,19 @@ end
 export translationalbasis
 function translationalbasis(f, k::Integer, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
     dgt = zeros(Int, L)
-    info = TranslationInfo(f, k, base, [L/sqrt(i) for i = 1:L])
-    I, R = threaded ? selectindexnorm_threaded(info, L, base=base, alloc=alloc) : selectindexnorm(info, L, 1:base^L, base=base, alloc=alloc)
-    C = (k == 0) ? fill(1.0, L-1) : (2k == L) ? [iseven(i) ? 1.0 : -1.0 for i=1:L-1] : [exp(-1im*2π/L*k*i) for i=1:L-1]
+    judge = TranslationJudge(f, k, base, [L/sqrt(i) for i = 1:L])
+    I, R = if threaded
+        selectindexnorm_threaded(judge, L, base=base, alloc=alloc)
+    else
+        selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+    end
+    C = if iszero(k)
+        fill(1.0, L)
+    elseif isequal(2k, L)
+        [iseven(i) ? 1.0 : -1.0 for i=0:L-1] 
+    else
+        [exp(-1im*2π/L*k*i) for i=0:L-1]
+    end
     TranslationalBasis(dgt, I, R, C, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------

@@ -29,7 +29,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 export entropy
 function entropy(s::AbstractVector{<:Real}; α::Real=1, cutoff::Real=1e-20)
-    if α == 1
+    if isone(α)
         shannon_entropy(s, cutoff=cutoff)
     else
         renyi_entropy(s, α)

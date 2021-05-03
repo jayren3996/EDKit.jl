@@ -93,9 +93,9 @@ function perm_element!(
     target[ia, ib] += val
 end
 
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
 # Select basis & norm
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------------
 function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
     dgt = zeros(Int, L)
     I = Int[]
@@ -106,7 +106,7 @@ function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integ
     end
     I
 end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
     dgt = zeros(Int, L)
     I, R = Int[], Float64[]
@@ -122,7 +122,7 @@ function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::I
     end
     I, R
 end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # Multi-threads
 function dividerange(maxnum::Integer, nthreads::Integer)
     list = Vector{UnitRange{Int64}}(undef, nthreads)
@@ -141,7 +141,7 @@ function dividerange(maxnum::Integer, nthreads::Integer)
     list[nthreads] = start:maxnum
     list
 end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function selectindex_threaded(f, L::Integer; base::Integer=2, alloc::Integer=1000)
     nt = Threads.nthreads()
     ni = dividerange(base^L, nt)
@@ -151,7 +151,7 @@ function selectindex_threaded(f, L::Integer; base::Integer=2, alloc::Integer=100
     end
     vcat(nI...)
 end
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
 function selectindexnorm_threaded(f, L::Integer; base::Integer=2, alloc::Integer=1000)
     nt = Threads.nthreads()
     ni = dividerange(base^L, nt)
@@ -203,4 +203,63 @@ function translation_index(dgt::AbstractVector{<:Integer}, base::Integer)::Tuple
         cyclebits!(dgt)
     end
     Im, T
+end
+
+#-------------------------------------------------------------------------------------------------------------------------
+# Translational + Parity
+#-------------------------------------------------------------------------------------------------------------------------
+function spinflip!(v::AbstractVector{<:Integer}, base::Integer)
+    for i = 1:length(v)
+        v[i] = base - v[i] - 1
+    end
+    v
+end
+
+"""
+    parity_check(parity!, dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)
+
+Check whether a state is a valid representing state, and whether it is reflect-translation-invariant.
+
+Inputs:
+-------
+- parity! : Parity function, can be spatio-reflection or spin-reflection.
+- dgt     : Digits vector.
+- I0      : Index of the index.
+- base    : Base.
+
+Outputs:
+--------
+Tuple{Bool, Bool, Int, Int} : 
+    1. Whether `dgt` is a representing vector.
+    2. Whether `dgt` is reflect-translation-invariant.
+    3. Minimum R that Tᴿ⋅|dgt⟩ = |dgt⟩.
+    4. Minimum M that Tᴹ⋅P⋅|dgt⟩ = |dgt⟩, 0 if it is not reflect-translation-invariant.
+"""
+function parity_check(parity!, dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)::Tuple{Bool, Bool, Int, Int}
+    isrep, r = translation_check(dgt, I0, base)
+    if isrep
+        parity!(dgt)
+        for i = 0:r-1
+            In = index(dgt, base=base)
+            if In < I0
+                change!(dgt, I0, base=base)
+                return (false, false, r, 0)
+            elseif In == I0
+                return (true, true, r, i)
+            end
+            cyclebits!(dgt)
+        end
+        parity!(dgt)
+        (true, false, r, 0)
+    else
+        (false, false, r, 0) 
+    end
+end
+
+function parity_index(parity!, dgt::AbstractVector{<:Integer}, base::Integer)
+    Im1, T1 = translation_index(dgt, base)
+    parity!(dgt)
+    Im2, T2 = translation_index(dgt, base)
+    parity!(dgt)
+    Im2 < Im1 ? (true, Im2, T2) : (false, Im1, T1)
 end

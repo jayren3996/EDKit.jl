@@ -26,7 +26,7 @@ function change!(b::DoubleBasis, i::Integer)
 end
 index(b::DoubleBasis) = index(b.B1)
 size(b::DoubleBasis) = size(b.B1, 2), size(b.B2, 2)
-size(b::DoubleBasis, i::Integer) = (i == 1) ? size(b.B1, 2) : (i == 2) ? size(b.B2, 2) : 1
+size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 2) : isequal(i, 2) ? size(b.B2, 2) : 1
 #-----------------------------------------------------------------------------------------------------
 export doublebasis
 function doublebasis(B1::Tb, B2::Tb) where Tb <: AbstractBasis
