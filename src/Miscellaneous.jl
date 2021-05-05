@@ -66,9 +66,24 @@ function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBas
     operator(mat, inds, basis)
 end
 
-function trans_inv_operator(s::String, inds, basis::AbstractBasis)
+function operator(s::String, inds::AbstractVector{<:Integer}, L::Integer; base::Integer=2)
+    basis = tensorbasis(L, base=base)
+    operator(s, inds, basis)
+end
+
+function trans_inv_operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
     mat = spin(s, base(basis))
     trans_inv_operator(mat, inds, basis)
+end
+
+function trans_inv_operator(s::String, basis::AbstractBasis)
+    mat = spin(s, base(basis))
+    trans_inv_operator(mat, length(s), basis)
+end
+
+function trans_inv_operator(s::String, L::Integer; base::Integer=2)
+    basis = tensorbasis(L, base=base)
+    trans_inv_operator(s, basis)
 end
 
 #-----------------------------------------------------------------------------------------------------
