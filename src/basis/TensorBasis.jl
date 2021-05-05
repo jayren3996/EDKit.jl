@@ -8,7 +8,7 @@ change!(b::AbstractBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); b.R[i
 size(b::AbstractBasis, i::Integer) = isone(i) || isequal(i, 2) ? length(b.I) : 1
 size(b::AbstractBasis) = (l=length(b.I); (l,l))
 length(b::AbstractBasis) = length(b.dgt)
-
+base(b::AbstractBasis) = b.B
 #-----------------------------------------------------------------------------------------------------
 # Tensor Basis
 #-----------------------------------------------------------------------------------------------------

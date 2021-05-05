@@ -88,11 +88,11 @@ end
 # Reshape
 #-------------------------------------------------------------------------------------------------------------------------
 function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis)
-    dgt, R, C = b.dgt, b.R, b.C[1]
+    dgt, R, phase = b.dgt, b.R, b.C[2]
     Binds = complement(Ainds, length(dgt))
     for i = 1:length(v)
         change!(dgt, b.I[i], base=b.B)
-        cycle_write!(target, dgt, v[i] / R[i], C, Ainds, Binds, b.B)
+        cycle_write!(target, dgt, v[i] / R[i], phase, Ainds, Binds, b.B)
     end
     target
 end

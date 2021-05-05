@@ -175,10 +175,11 @@ function cyclebits!(dgt::AbstractVector{<:Integer})
     dgt
 end
 
-function translation_check(dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)::Tuple{Bool, Int}
+function translation_check(dgt::AbstractVector{<:Integer}, I0::Integer, base::Integer)
     cyclebits!(dgt)
     for i=1:length(dgt)-1
-        if (In = index(dgt, base=base)) < I0
+        In = index(dgt, base=base)
+        if In < I0
             change!(dgt, I0, base=base)
             return (false, 0)
         elseif In == I0
@@ -191,11 +192,11 @@ end
 
 function translation_index(dgt::AbstractVector{<:Integer}, base::Integer)::Tuple{Int, Int}
     I0 = index(dgt, base=base)
-    Im::Int = I0
-    T::Int = 0
+    Im::Int, T::Int = I0, 0
     cyclebits!(dgt)
     for i=1:length(dgt)-1
-        if (In = index(dgt, base=base)) == I0
+        In = index(dgt, base=base)
+        if In == I0
             break
         elseif In < Im
             Im, T = In, i
@@ -213,6 +214,22 @@ function spinflip!(v::AbstractVector{<:Integer}, base::Integer)
         v[i] = base - v[i] - 1
     end
     v
+end
+
+function translation_check!(parity!, dgt::AbstractVector{<:Integer}, I0::Integer, R::Integer, base::Integer)::Tuple{Bool, Bool, Int}
+    for i=0:R-1
+        In = index(dgt, base=base)
+        if In < I0
+            change!(dgt, I0, base=base)
+            return (false, false, 0)
+        elseif In == I0
+            parity!(dgt)
+            return (true, true, i)
+        end
+        cyclebits!(dgt)
+    end
+    parity!(dgt)
+    return (true, false, 0)
 end
 
 """
@@ -239,18 +256,8 @@ function parity_check(parity!, dgt::AbstractVector{<:Integer}, I0::Integer, base
     isrep, r = translation_check(dgt, I0, base)
     if isrep
         parity!(dgt)
-        for i = 0:r-1
-            In = index(dgt, base=base)
-            if In < I0
-                change!(dgt, I0, base=base)
-                return (false, false, r, 0)
-            elseif In == I0
-                return (true, true, r, i)
-            end
-            cyclebits!(dgt)
-        end
-        parity!(dgt)
-        (true, false, r, 0)
+        isrep, isreflect, m = translation_check!(parity!, dgt, I0, r, base)
+        (isrep, isreflect, r, m)
     else
         (false, false, r, 0) 
     end

@@ -140,14 +140,19 @@ function translationparitybasis(
     TranslationParityBasis(zeros(Int, L), I, R, C, P, base)
 end
 
+translationparitybasis(
+    K::Integer, P::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded=false
+) = translationparitybasis(x -> true, K, P, L, base=base, alloc=alloc, threaded=threaded)
+
 function translationflipbasis(
     f, K::Integer, P::Integer, L::Integer; 
     base::Integer=2, alloc::Integer=1000, threaded=false
 )
     @assert isone(P) || isequal(P, -1) "Invalid parity"
     judge = begin
-        N2 = [L / sqrt(i) for i = 1:L]
-        N1 = sqrt(2) .* N1
+        N2 = [2L / sqrt(i) for i = 1:L]
+        N1 = N2 ./ sqrt(2)
         TranslationParityJudge(f, x -> spinflip!(x, base), K, P, L, base, vcat(N1, N2))
     end
 
@@ -168,6 +173,11 @@ function translationflipbasis(
     TranslationFlipBasis(zeros(Int, L), I, R, C, P, base)
 end
 
+translationflipbasis(
+    K::Integer, P::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded=false
+) = translationflipbasis(x -> true, K, P, L, base=base, alloc=alloc, threaded=threaded)
+
 #-------------------------------------------------------------------------------------------------------------------------
 # Schmidt Form
 #-------------------------------------------------------------------------------------------------------------------------
@@ -175,15 +185,15 @@ function parity_schmidt!(
     parity!, target::AbstractMatrix, v::AbstractVector, 
     Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis
 )
-    dgt, R = b.dgt, b.R
+    dgt, R, phase = b.dgt, b.R, b.C[2]
     Binds = complement(Ainds, length(dgt))
     for i = 1:length(v)
         val = v[i] / R[i]
-        change!(dgt, I[i], base=b.B)
-        cycle_write!(target, dgt, val, b.K, Ainds, Binds, b.B)
+        change!(dgt, b.I[i], base=b.B)
+        cycle_write!(target, dgt, val, phase, Ainds, Binds, b.B)
         cyclebits!(dgt)
         parity!(dgt)
-        cycle_write!(target, dgt, b.P * val, b.K, Ainds, Binds, b.B)
+        cycle_write!(target, dgt, b.P * val, phase, Ainds, Binds, b.B)
     end
     target
 end

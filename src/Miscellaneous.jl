@@ -3,46 +3,80 @@
 #-----------------------------------------------------------------------------------------------------
 # Dictionary
 spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
-function spin_dict(D::Integer)
-    J = (D-1)/2
-    coeff = [sqrt(i*(D-i)) for i = 1:D-1]
+spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
+spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
+
+function spin_Sx(D::Integer)
+    coeff = spin_coeff(D)
     sp = sparse(1:D-1, 2:D, coeff, D, D)
-    sm = sp'
-    sx = (sp+sm)/2
-    sy = (sp-sm)/2
-    sz = sparse(1:D, 1:D, J:-1:-J)
-    s0 = sparse(1.0I, D, D)
-    Dict([('+', sp), ('-', sm), ('x', sx), ('y', sy), ('z', sz), ('1', s0)])
+    sp + sp'
 end
-#-----------------------------------------------------------------------------------------------------
-# Atomic spin matrix
-function spin_atom(s::String, dic::Dict)
-    n = length(s)
-    ny = sum(isequal(si, 'y') for si in s)
-    temp = isone(n) ? dic[s[1]] : kron([dic[si] for si in s]...)
-    P = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (1im)^ny
-    P * temp
+
+function spin_iSy(D::Integer)
+    coeff = spin_coeff(D)
+    sp = sparse(1:D-1, 2:D, coeff, D, D)
+    sp - sp'
 end
-#-----------------------------------------------------------------------------------------------------
+
+function spin_Sz(D::Integer)
+    J = (D-1) / 2
+    sparse(1:D, 1:D, J:-1:-J)
+end
+
+function spin_dict(c::Char, D::Integer)
+    if     isequal(c, '+') spin_Sp(D)
+    elseif isequal(c, '-') spin_Sm(D)
+    elseif isequal(c, 'x') spin_Sx(D)
+    elseif isequal(c, 'y') spin_iSy(D)
+    elseif isequal(c, 'z') spin_Sz(D)
+    elseif isequal(c, '1') spdiagm(ones(D))
+    else error("Invalid spin symbol: $c.")
+    end
+end
+
+# Spin matrix
 export spin
 """
-    spin(spins; D=2)
+    spin(s::String, D::Integer)
+
+Return matrix for spin operators. 
+"""
+function spin(s::String, D::Integer)
+    ny = sum(isequal(si, 'y') for si in s)
+    mat = isone(length(s)) ? spin_dict(s[1], D) : kron([spin_dict(si, D) for si in s]...)
+    sign = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (1im)^ny
+    sign * mat
+end
+
+
+"""
+    spin(spins::Tuple{<:Number, String}...; D::Integer=2)
 
 Return matrix for spin operators. 
 The spins should be an iterable onject, each item is of the form (::Number, ::String).
 """
-function spin(spins...; D::Integer=2)
-    dic = spin_dict(D)
-    res = sum(ci * spin_atom(si, dic) for (ci, si) in spins)
-    Array(res)
+function spin(spins::Tuple{<:Number, String}...; D::Integer=2)
+    sum(ci * spin(si, D) for (ci, si) in spins)
 end
 
 spin(spins::AbstractVector{<:Tuple{<:Number, String}}; D::Integer=2) = spin(spins..., D=D)
 
+function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
+    mat = spin(s, base(basis))
+    operator(mat, inds, basis)
+end
+
+function trans_inv_operator(s::String, inds, basis::AbstractBasis)
+    mat = spin(s, base(basis))
+    trans_inv_operator(mat, inds, basis)
+end
+
 #-----------------------------------------------------------------------------------------------------
 # Level statistics
 #-----------------------------------------------------------------------------------------------------
-function gapratio(dE::AbstractVector{<:Real})
+export gapratio, meangapratio
+function gapratio(E::AbstractVector{<:Real})
+    dE = diff(E)
     r = zeros(length(dE)-1)
     for i = 1:length(r)
         if dE[i] < dE[i+1]
@@ -56,8 +90,4 @@ function gapratio(dE::AbstractVector{<:Real})
     r
 end
 
-function meangapratio(E::AbstractVector{<:Real})
-    dE = diff(E)
-    r = gapratio(dE)
-    sum(r)/length(r)
-end
+meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
