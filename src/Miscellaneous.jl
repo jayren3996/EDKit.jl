@@ -13,7 +13,7 @@ function spin_Sx(D::Integer)
 end
 
 function spin_iSy(D::Integer)
-    coeff = spin_coeff(D) /2
+    coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp - sp'
 end
