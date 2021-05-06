@@ -7,13 +7,13 @@ spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
 spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
 
 function spin_Sx(D::Integer)
-    coeff = spin_coeff(D)
+    coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp + sp'
 end
 
 function spin_iSy(D::Integer)
-    coeff = spin_coeff(D)
+    coeff = spin_coeff(D) /2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp - sp'
 end
