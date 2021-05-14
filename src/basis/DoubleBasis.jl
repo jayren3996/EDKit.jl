@@ -14,7 +14,7 @@ B2  : Basis of the starting symmetry sector.
 B   : Base.
 """
 struct DoubleBasis{Tb<:AbstractBasis} <: AbstractBasis
-    dgt::Vector{Int}
+    dgt::Vector{BITTYPE}
     B1::Tb
     B2::Tb
     B::Int

@@ -12,7 +12,7 @@ using Test
         X = [0 1; 1 0]
         P * kron(I(2), X, I(2)) * P
     end
-    pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
+    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     println("--------------------------------------")
     print("Single-threads:")
     @time bs = translationalbasis(pxpf, k, L, threaded=false)
@@ -32,7 +32,7 @@ end
         X = [0 1; 1 0]
         P * kron(I(2), X, I(2)) * P
     end
-    pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
+    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     println("--------------------------------------")
     print("Single-threads:")
     @time bs = translationparitybasis(pxpf, k, p, L, threaded=false)

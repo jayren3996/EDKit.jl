@@ -8,14 +8,14 @@ Basis for subspace that is spanned by momentum states, which can also incorporat
 
 Properties:
 -----------
-- dgt : Vector{Int}
+- dgt : Vector{BITTYPE}
 - I   : Vector{Int}, list of indicies.
 - R   : Vector{Float64}, list of normalization.
 - C   : Vector{Float64/ComplexF64}, unit phase factor.
 - B   : Int, levels on each site.
 """
 struct TranslationalBasis{T <: Number} <: AbstractBasis
-    dgt::Vector{Int}
+    dgt::Vector{BITTYPE}
     I::Vector{Int}
     R::Vector{Float64}
     C::Vector{T}
@@ -63,7 +63,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 export translationalbasis
 function translationalbasis(f, k::Integer, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
-    dgt = zeros(Int, L)
+    dgt = zeros(BITTYPE, L)
     judge = TranslationJudge(f, k, base, [L/sqrt(i) for i = 1:L])
     I, R = if threaded
         selectindexnorm_threaded(judge, L, base=base, alloc=alloc)

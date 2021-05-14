@@ -130,7 +130,7 @@ end
         P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
         P * kron(I(2), X, I(2)) * P
     end
-    pxpf(v::Vector{Int}) = all(v[i]==0 || v[i+1]==0 for i=1:length(v)-1)
+    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[i+1]==0 for i=1:length(v)-1)
     for L = 3:20
         basis = projectedbasis(pxpf, L)
         @test size(basis, 1) == fib(L)
@@ -151,7 +151,7 @@ end
         P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
         P * kron(I(2), X, I(2)) * P
     end
-    pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
+    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     for L = 3:14
         basis = projectedbasis(pxpf, L)
         E = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
@@ -361,7 +361,7 @@ end
         P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
         P * kron(I(2), X, I(2)) * P
     end
-    pxpf(v::Vector{Int}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
+    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     for L = 4:2:20
         for k in [0, L ÷ 2]
             be = translationparitybasis(pxpf, k, +1, L)

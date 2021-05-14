@@ -19,11 +19,11 @@ Basis without any symmetries.
 
 Properties:
 -----------
-- dgt : Vector{Int}, Digits.
+- dgt : Vector{BITTYPE}, Digits.
 - B   : Int, levels on each site.
 """
 struct TensorBasis <: AbstractBasis
-    dgt::Vector{Int}
+    dgt::Vector{BITTYPE}
     B::Int
 end
 eltype(::TensorBasis) = Int

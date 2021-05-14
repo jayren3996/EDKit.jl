@@ -8,12 +8,12 @@ Basis for subspace that is spanned only by product states.
 
 Properties:
 -----------
-- dgt : Vector{Int}
+- dgt : Vector{BITTYPE}
 - I   : Vector{Int}, list of indicies.
 - B   : Int, levels on each site.
 """
 struct ProjectedBasis <: AbstractBasis
-    dgt::Vector{Int}
+    dgt::Vector{BITTYPE}
     I::Vector{Int}
     B::Int
 end
@@ -31,7 +31,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 export projectedbasis
 function projectedbasis(f, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
-    dgt = zeros(Int, L)
+    dgt = zeros(BITTYPE, L)
     I = threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     ProjectedBasis(dgt, I, base)
 end

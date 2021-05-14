@@ -97,7 +97,7 @@ end
 # Select basis & norm
 #-------------------------------------------------------------------------------------------------------------------------
 function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
-    dgt = zeros(Int, L)
+    dgt = zeros(BITTYPE, L)
     I = Int[]
     sizehint!(I, alloc)
     for i in rg
@@ -108,7 +108,7 @@ function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integ
 end
 
 function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
-    dgt = zeros(Int, L)
+    dgt = zeros(BITTYPE, L)
     I, R = Int[], Float64[]
     sizehint!(I, alloc)
     sizehint!(R, alloc)

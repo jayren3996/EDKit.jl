@@ -106,3 +106,21 @@ function gapratio(E::AbstractVector{<:Real})
 end
 
 meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
+
+#-----------------------------------------------------------------------------------------------------
+# Meassurement
+#-----------------------------------------------------------------------------------------------------
+export covmat
+function covmat(ol::AbstractVector{T}, v::AbstractVector{<:Number}) where T <: Union{<:AbstractMatrix, <:Operator}
+    n = length(ol)
+    vs = [ol[i] * v]
+    am = [dot(v, vsi) for vsi in vs]
+    cm = Matrix{Float64}(undef, n, n)
+
+    for i=1:n
+        for j=i:n
+            cm[i, j] = real(dot(vs[i], vs[j])) - am[i] * am[j]
+        end
+    end
+    Hermitian(cm)
+end

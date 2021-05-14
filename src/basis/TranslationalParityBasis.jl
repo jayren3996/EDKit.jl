@@ -13,7 +13,7 @@ Basis with translational and reflection symmetries.
 
 Properties:
 -----------
-- dgt::Vector{Int}    : Digits
+- dgt::Vector{BITTYPE}    : Digits
 - I::Vector{Int}      : Representing states
 - R::Vector{Float64}  : Normalization
 - K::Int              : {±1}, momentum phase
@@ -21,7 +21,7 @@ Properties:
 - B::Int              : Base
 """
 struct TranslationParityBasis <: AbstractTranslationalParityBasis
-    dgt::Vector{Int}        # Digits
+    dgt::Vector{BITTYPE}    # Digits
     I::Vector{Int}          # Representing states
     R::Vector{Float64}      # Normalization
     C::Vector{Int}          # Momentum phase exp(1im * 0/π) = {±1}
@@ -36,7 +36,7 @@ Basis with translational and spin-flip symmetries.
 
 Properties:
 -----------
-- dgt::Vector{Int}    : Digits
+- dgt::Vector{BITTYPE}    : Digits
 - I::Vector{Int}      : Representing states
 - R::Vector{Float64}  : Normalization
 - C::Vector{T}        : Momentum phase
@@ -44,7 +44,7 @@ Properties:
 - B::Int              : Base
 """
 struct TranslationFlipBasis{T} <: AbstractTranslationalParityBasis
-    dgt::Vector{Int}        # Digits
+    dgt::Vector{BITTYPE}    # Digits
     I::Vector{Int}          # Representing states
     R::Vector{Float64}      # Normalization
     C::Vector{T}            # Momentum phase exp(-1im * 2π/L * K)
@@ -170,7 +170,7 @@ function translationflipbasis(
         [exp(-1im * 2π/L * K * i) for i=0:L-1]
     end
 
-    TranslationFlipBasis(zeros(Int, L), I, R, C, P, base)
+    TranslationFlipBasis(zeros(BITTYPE, L), I, R, C, P, base)
 end
 
 translationflipbasis(
