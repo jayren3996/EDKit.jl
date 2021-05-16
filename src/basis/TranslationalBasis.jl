@@ -19,7 +19,8 @@ struct TranslationalBasis{T <: Number} <: AbstractBasis
     I::Vector{Int}
     R::Vector{Float64}
     C::Vector{T}
-    B::Int
+    B::UInt8
+    TranslationalBasis(dgt::Vector{BITTYPE}, I, R, C::Vector{T}, B::Integer) where T = new{T}(dgt, I, R, C, UInt8(B))
 end
 eltype(::TranslationalBasis{T}) where T = T
 #-------------------------------------------------------------------------------------------------------------------------
@@ -68,7 +69,7 @@ function translationalbasis(f, k::Integer, L::Integer; base::Integer=2, alloc::I
     I, R = if threaded
         selectindexnorm_threaded(judge, L, base=base, alloc=alloc)
     else
-        selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+        selectindexnorm(judge, L, 1:Int(base)^L, base=base, alloc=alloc)
     end
     C = if iszero(k)
         fill(1.0, L)
@@ -102,7 +103,7 @@ function cycle_write!(
     Ainds::AbstractVector{<:Integer}, Binds::AbstractVector{<:Integer}, base::Integer
 )
     perm_element!(target, dgt, val, Ainds, Binds, base)
-    for j = 1:length(dgt)-1
+    for _ = 1:length(dgt)-1
         val *= phase
         cyclebits!(dgt)
         perm_element!(target, dgt, val, Ainds, Binds, base)
