@@ -3,6 +3,16 @@ include("../src/EDKit.jl")
 using .EDKit
 using Test
 
+@testset "Basic" begin
+    L = 10
+    b1 = translationalbasis(x -> sum(x) == 2, 0, L)
+    b2 = translationalbasis(x -> sum(x) == 0, 1, L)
+    b = doublebasis(b1, b2)
+    mat = rand(2,2) |> Hermitian
+    H = trans_inv_operator(mat, 1, b) |> Array
+    @test size(H) == (5, 0)
+end
+
 @testset "Spin-1 Random" begin
     L = 6
     Sp = begin

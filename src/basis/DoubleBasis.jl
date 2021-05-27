@@ -13,10 +13,10 @@ B1  : Basis of the target symmetry sector.
 B2  : Basis of the starting symmetry sector.
 B   : Base.
 """
-struct DoubleBasis{Tb<:AbstractBasis} <: AbstractBasis
+struct DoubleBasis{Tb1<:AbstractBasis, Tb2<:AbstractBasis} <: AbstractBasis
     dgt::Vector{BITTYPE}
-    B1::Tb
-    B2::Tb
+    B1::Tb1
+    B2::Tb2
     B::UInt8
 end
 #-----------------------------------------------------------------------------------------------------
@@ -31,6 +31,6 @@ size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
 size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
 #-----------------------------------------------------------------------------------------------------
 export doublebasis
-function doublebasis(B1::Tb, B2::Tb) where Tb <: AbstractBasis
+function doublebasis(B1::AbstractBasis, B2::AbstractBasis)
     DoubleBasis(B1.dgt, B1, B2, B2.B)
 end
