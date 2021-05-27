@@ -1,7 +1,6 @@
 module EDKit
 
-using LinearAlgebra
-using SparseArrays
+using LinearAlgebra, SparseArrays, JLD2
 #-----------------------------------------------------------------------------------------------------
 import Base: +, -, *, /
 import Base: eltype, view, length, size, append!
