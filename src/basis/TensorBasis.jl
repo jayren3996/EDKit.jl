@@ -1,6 +1,4 @@
-#-----------------------------------------------------------------------------------------------------
-# Abstract Basis Type
-#-----------------------------------------------------------------------------------------------------
+include("ToolKit.jl")
 abstract type AbstractBasis end
 eltype(::AbstractBasis) = ComplexF64
 #-----------------------------------------------------------------------------------------------------
@@ -48,3 +46,8 @@ function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVect
     end
     target
 end
+
+include("DoubleBasis.jl")
+include("ProjectedBasis.jl")
+include("TranslationalBasis.jl")
+include("TranslationalParityBasis.jl")

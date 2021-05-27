@@ -14,16 +14,10 @@ const BITTYPE = UInt8
 #-----------------------------------------------------------------------------------------------------
 # INCLUDE
 #-----------------------------------------------------------------------------------------------------
-include("basis/ToolKit.jl")
 include("basis/TensorBasis.jl")
-include("basis/DoubleBasis.jl")
-include("basis/ProjectedBasis.jl")
-include("basis/TranslationalBasis.jl")
-include("basis/TranslationalParityBasis.jl")
-
 include("Operator.jl")
 include("LinearOperation.jl")
 include("Entanglement.jl")
 include("Miscellaneous.jl")
-
+include("algorithms/BlockDiagonal.jl")
 end # module
