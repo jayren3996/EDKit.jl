@@ -44,7 +44,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Helper Functions
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Real=1)
+function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
     change = false
@@ -58,7 +58,7 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
     change ? change!(b.dgt, I, j, base=b.B) : nothing
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Real=1)
+function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number=1)
     b, M, I = opt.B, opt.M, opt.I
     C = coeff / change!(b, j)
     for i = 1:length(M)
