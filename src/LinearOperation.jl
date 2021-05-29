@@ -35,10 +35,15 @@ function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     target
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function *(opt::Operator, vom::AbstractVecOrMat)
+function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(vom))
-    M = zeros(ctype, size(opt, 1), size(vom, 2))
-    mul!(M, opt, vom)
+    M = zeros(ctype, size(opt, 1))
+    mul!(M, opt, v)
+end
+function *(opt::Operator, m::AbstractMatrix)
+    ctype = promote_type(eltype(opt), eltype(vom))
+    M = zeros(ctype, size(opt, 1), size(m, 2))
+    mul!(M, opt, m)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
