@@ -37,7 +37,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function *(opt::Operator, vom::AbstractVecOrMat)
     ctype = promote_type(eltype(opt), eltype(vom))
-    M = zeros(ctype, size(vom))
+    M = zeros(ctype, size(opt, 1), size(vom, 2))
     mul!(M, opt, vom)
 end
 
