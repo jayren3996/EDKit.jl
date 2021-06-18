@@ -2,30 +2,32 @@
 # Digits ⟷ Index
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    index(dgt::AbstractVector{<:Integer}; base::Integer=2)
+    index(dgt::AbstractVector{T}; base=2) where T <: Integer
 
 Digit ⟹ index. 
 
 The method compute the polynomial
 
-number = bits[i] * base^(L-i) + 1
+`number = bits[i] * base^(L-i) + 1`
 
 in the most efficient way.
 """
-function index(dgt::AbstractVector{<:Integer}; base::Integer=0x02)
-    N::UInt64 = 0
+function index(dgt::AbstractVector{T}; base::Integer=2) where T <: Integer
+    N = zero(T)
     for i = 1:length(dgt)
-        N = muladd(base, N, dgt[i])
+        N *= base
+        N += dgt[i]
     end
-    N + 1
+    N + one(T)
 end
 
-function index(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}; base::Integer=0x02)
-    N::UInt64 = 0
+function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2) where T <: Integer
+    N = zero(T)
     for i in sites
-        N = muladd(base, N, dgt[i])
+        N *= base
+        N += dgt[i]
     end
-    N + 1
+    N + one(T)
 end
 
 """
@@ -35,15 +37,15 @@ Index ⟹ Digit.
 
 The method compute the bits vector and write to bits.
 """
-function change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=0x02)
-    N = ind - 1
+function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T <: Integer
+    N = convert(T, ind) - one(T)
     for i = length(dgt):-1:1
         N, dgt[i] = divrem(N, base)
     end
 end
 
-function change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=0x02)
-    N = ind - 1
+function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) where T <: Integer
+    N = convert(T, ind) - one(T)
     for i = length(sites):-1:1
         N, dgt[sites[i]] = divrem(N, base)
     end
@@ -74,8 +76,8 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 function complement(Ainds::AbstractVector{T}, L::Integer) where T <: Integer
     Binds = Vector{T}(undef, L-length(Ainds))
-    P = one(T)
-    for i = 1:L
+    P = 1
+    for i in range(one(T), stop=convert(T, L))
         if !in(i, Ainds)
             Binds[P] = i
             P += 1
@@ -85,8 +87,12 @@ function complement(Ainds::AbstractVector{T}, L::Integer) where T <: Integer
 end
 
 function perm_element!(
-    target::AbstractMatrix, dgt::AbstractVector{<:Integer}, val::Number, 
-    Ainds::AbstractVector{<:Integer}, Binds::AbstractVector{<:Integer}, base::Integer
+    target::AbstractMatrix, 
+    dgt::AbstractVector{<:Integer}, 
+    val::Number, 
+    Ainds::AbstractVector{<:Integer}, 
+    Binds::AbstractVector{<:Integer}, 
+    base::Integer
 )
     ia = index(dgt, Ainds, base=base)
     ib = index(dgt, Binds, base=base)
@@ -96,7 +102,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Select basis & norm
 #-------------------------------------------------------------------------------------------------------------------------
-function selectindex(f, L::Integer, rg::UnitRange; base::Integer=0x02, alloc::Integer=1000)
+function selectindex(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
     dgt = zeros(BITTYPE, L)
     I = Int[]
     sizehint!(I, alloc)
@@ -107,7 +113,7 @@ function selectindex(f, L::Integer, rg::UnitRange; base::Integer=0x02, alloc::In
     I
 end
 
-function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=0x02, alloc::Integer=1000)
+function selectindexnorm(f, L::Integer, rg::UnitRange; base::Integer=2, alloc::Integer=1000)
     dgt = zeros(BITTYPE, L)
     I, R = Int[], Float64[]
     sizehint!(I, alloc)
@@ -142,9 +148,9 @@ function dividerange(maxnum::Integer, nthreads::Integer)
     list
 end
 
-function selectindex_threaded(f, L::Integer; base::Integer=0x02, alloc::Integer=1000)
+function selectindex_threaded(f, L::Integer; base::Integer=2, alloc::Integer=1000)
     nt = Threads.nthreads()
-    ni = dividerange(Int(base)^L, nt)
+    ni = dividerange(base^L, nt)
     nI = Vector{Vector{Int}}(undef, nt)
     Threads.@threads for ti in 1:nt
         nI[ti] = selectindex(f, L, ni[ti], base=base, alloc=alloc)
@@ -152,9 +158,9 @@ function selectindex_threaded(f, L::Integer; base::Integer=0x02, alloc::Integer=
     vcat(nI...)
 end
 
-function selectindexnorm_threaded(f, L::Integer; base::Integer=0x02, alloc::Integer=1000)
+function selectindexnorm_threaded(f, L::Integer; base::Integer=2, alloc::Integer=1000)
     nt = Threads.nthreads()
-    ni = dividerange(Int(base)^L, nt)
+    ni = dividerange(base^L, nt)
     nI = Vector{Vector{Int}}(undef, nt)
     nR = Vector{Vector{Float64}}(undef, nt)
     Threads.@threads for ti in 1:nt

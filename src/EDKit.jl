@@ -19,4 +19,5 @@ include("LinearOperation.jl")
 include("Entanglement.jl")
 include("Miscellaneous.jl")
 include("algorithms/BlockDiagonal.jl")
+
 end # module

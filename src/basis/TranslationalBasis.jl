@@ -99,8 +99,13 @@ function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVect
 end
 
 function cycle_write!(
-    target::AbstractMatrix, dgt::AbstractVector{<:Integer}, val::Number, phase::Number,
-    Ainds::AbstractVector{<:Integer}, Binds::AbstractVector{<:Integer}, base::Integer
+    target::AbstractMatrix, 
+    dgt::AbstractVector{<:Integer}, 
+    val::Number, 
+    phase::Number,
+    Ainds::AbstractVector{<:Integer}, 
+    Binds::AbstractVector{<:Integer}, 
+    base::Integer
 )
     perm_element!(target, dgt, val, Ainds, Binds, base)
     for _ = 1:length(dgt)-1
