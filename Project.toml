@@ -1,7 +1,7 @@
 name = "EDKit"
 uuid = "f6058819-fd6f-45d3-a3c8-4753d8c54d1a"
 authors = ["JayRen <jieren3996@foxmail.com>"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"

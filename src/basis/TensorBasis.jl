@@ -22,21 +22,21 @@ Properties:
 """
 struct TensorBasis <: AbstractBasis
     dgt::Vector{BITTYPE}
-    B::UInt8
-    TensorBasis(dgt::Vector{BITTYPE}, B::Integer) = new(dgt, UInt8(B))
+    B::UInt64
+    TensorBasis(dgt::Vector{BITTYPE}, B::Integer) = new(dgt, UInt64(B))
     TensorBasis(dgt::AbstractVector{<:Integer}, B::Integer) = new(collect(BITTYPE, dgt), B)
 end
 eltype(::TensorBasis) = Int
 #-----------------------------------------------------------------------------------------------------
 index(b::TensorBasis) = 1, index(b.dgt, base=b.B)
 change!(b::TensorBasis, i::Integer) = (change!(b.dgt, i, base=b.B); 1)
-size(b::TensorBasis, i::Integer) = isone(i) || isequal(i, 2) ? Int(b.B) ^ length(b.dgt) : 1
-size(b::TensorBasis) = (l=Int(b.B)^length(b.dgt); (l, l))
+size(b::TensorBasis, i::Integer) = isone(i) || isequal(i, 2) ? b.B^length(b.dgt) : 1
+size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
 #-----------------------------------------------------------------------------------------------------
 # Construction
 #-----------------------------------------------------------------------------------------------------
 export tensorbasis
-tensorbasis(L::Integer; base::Integer=0x02) = TensorBasis(zeros(BITTYPE, L), base)
+tensorbasis(L::Integer; base::Integer=2) = TensorBasis(zeros(BITTYPE, L), base)
 function schmidt!(target::AbstractMatrix, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
     dgt = b.dgt
     Binds = complement(Ainds, length(dgt))

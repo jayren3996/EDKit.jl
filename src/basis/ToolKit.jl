@@ -13,7 +13,7 @@ number = bits[i] * base^(L-i) + 1
 in the most efficient way.
 """
 function index(dgt::AbstractVector{<:Integer}; base::Integer=0x02)
-    N::Int = 0
+    N::UInt64 = 0
     for i = 1:length(dgt)
         N = muladd(base, N, dgt[i])
     end
@@ -21,7 +21,7 @@ function index(dgt::AbstractVector{<:Integer}; base::Integer=0x02)
 end
 
 function index(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}; base::Integer=0x02)
-    N::Int = 0
+    N::UInt64 = 0
     for i in sites
         N = muladd(base, N, dgt[i])
     end

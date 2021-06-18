@@ -26,8 +26,8 @@ struct TranslationParityBasis <: AbstractTranslationalParityBasis
     R::Vector{Float64}      # Normalization
     C::Vector{Int}          # Momentum phase exp(1im * 0/π) = {±1}
     P::Int                  # {±1}, parity
-    B::UInt8                # Base
-    TranslationParityBasis(dgt, I, R, C, P, B::Integer) = new(dgt, I, R, C, P, UInt8(B))
+    B::UInt64                # Base
+    TranslationParityBasis(dgt, I, R, C, P, B::Integer) = new(dgt, I, R, C, P, UInt64(B))
 end
 
 """
@@ -129,7 +129,7 @@ function translationparitybasis(
     I, R = if threaded
         selectindexnorm_threaded(judge, L, base=base, alloc=alloc)
     else
-        selectindexnorm(judge, L, 1:Int(base)^L, base=base, alloc=alloc)
+        selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
     end
 
     C = if iszero(K)

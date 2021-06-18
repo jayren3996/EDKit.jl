@@ -17,7 +17,7 @@ struct DoubleBasis{Tb1<:AbstractBasis, Tb2<:AbstractBasis} <: AbstractBasis
     dgt::Vector{BITTYPE}
     B1::Tb1
     B2::Tb2
-    B::UInt8
+    B::UInt64
 end
 #-----------------------------------------------------------------------------------------------------
 eltype(b::DoubleBasis) = promote_type(eltype(b.B1), eltype(b.B2))

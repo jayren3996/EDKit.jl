@@ -19,8 +19,8 @@ struct TranslationalBasis{T <: Number} <: AbstractBasis
     I::Vector{Int}
     R::Vector{Float64}
     C::Vector{T}
-    B::UInt8
-    TranslationalBasis(dgt::Vector{BITTYPE}, I, R, C::Vector{T}, B::Integer) where T = new{T}(dgt, I, R, C, UInt8(B))
+    B::UInt64
+    TranslationalBasis(dgt::Vector{BITTYPE}, I, R, C::Vector{T}, B::Integer) where T = new{T}(dgt, I, R, C, UInt64(B))
 end
 eltype(::TranslationalBasis{T}) where T = T
 #-------------------------------------------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ function translationalbasis(f, k::Integer, L::Integer; base::Integer=2, alloc::I
     I, R = if threaded
         selectindexnorm_threaded(judge, L, base=base, alloc=alloc)
     else
-        selectindexnorm(judge, L, 1:Int(base)^L, base=base, alloc=alloc)
+        selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
     end
     C = if iszero(k)
         fill(1.0, L)

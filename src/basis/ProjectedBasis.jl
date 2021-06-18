@@ -15,8 +15,8 @@ Properties:
 struct ProjectedBasis <: AbstractBasis
     dgt::Vector{BITTYPE}
     I::Vector{Int}
-    B::UInt8
-    ProjectedBasis(dgt::Vector{BITTYPE}, I::Vector{Int}, B::Integer) = new(dgt, I, UInt8(B))
+    B::UInt64
+    ProjectedBasis(dgt::Vector{BITTYPE}, I::Vector{Int}, B::Integer) = new(dgt, I, UInt64(B))
 end
 eltype(::ProjectedBasis) = Int
 change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
@@ -31,9 +31,9 @@ end
 # Construction
 #-------------------------------------------------------------------------------------------------------------------------
 export projectedbasis
-function projectedbasis(f, L::Integer; base::Integer=0x02, alloc::Integer=1000, threaded::Bool=false)
+function projectedbasis(f, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
     dgt = zeros(BITTYPE, L)
-    I = threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:Int(base)^L, base=base, alloc=alloc)
+    I = threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     ProjectedBasis(dgt, I, base)
 end
 
