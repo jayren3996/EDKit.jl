@@ -15,7 +15,7 @@ np = pyimport("numpy")
     end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     print("Searching time :")
-    @time basis = translationparitybasis(pxpf, k, p, L, threaded=true)
+    @time basis = TranslationParityBasis(pxpf, k, p, L, threaded=true)
     H = trans_inv_operator(mat, 2, basis) |> Array
     E = np.linalg.eigvalsh(H)
     PXPE = readdlm("evals_periodic_N26_k0_p0.npy.txt")
@@ -31,7 +31,7 @@ end
     end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     print("Searching time :")
-    @time basis = translationparitybasis(pxpf, k, p, L, threaded=true)
+    @time basis = TranslationParityBasis(pxpf, k, p, L, threaded=true)
     H = trans_inv_operator(mat, 2, basis) |> Array
     E = np.linalg.eigvalsh(H)
     PXPE = readdlm("evals_periodic_N28_k0_p0.npy.txt")

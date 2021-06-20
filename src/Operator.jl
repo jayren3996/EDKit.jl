@@ -25,6 +25,7 @@ size(opt::Operator, i::Integer) = size(opt.B, i)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Construction
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+export operator
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
     M, I = standard_format(mats, inds)
     Operator(M, I, B)
@@ -32,7 +33,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
     M, I = standard_format(mats, inds)
-    B = tensorbasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
+    B = TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
     Operator(M, I, B)
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -50,7 +51,7 @@ function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer},
     Operator(mats, inds, B)
 end
 function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, L::Integer)
-    B = tensorbasis(L, base=find_base(size(mat, 1), length(ind)))
+    B = TensorBasis(L, base=find_base(size(mat, 1), length(ind)))
     trans_inv_operator(mat, ind, B)
 end
 trans_inv_operator(mat::AbstractMatrix, M::Integer, C) = trans_inv_operator(mat, 1:M, C)
@@ -96,7 +97,7 @@ standard_ind(inds::Vector{Vector{Int}}) = inds
 standard_ind(inds::AbstractVector{<:AbstractVector{<:Integer}}) = standard_ind.(inds)
 standard_format(mats, inds) = standard_mat(mats), standard_ind(inds)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function find_base(a::Integer, b::Integer)::Int
+function find_base(a::Integer, b::Integer)
     if b == 1
         return a
     else
@@ -109,7 +110,7 @@ function find_base(a::Integer, b::Integer)::Int
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-function findposition(l::Vector, b)::Int
+function findposition(l::Vector, b)
     for i in length(l)
         if l[i] == b
             return i

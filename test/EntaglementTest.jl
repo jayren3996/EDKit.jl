@@ -29,14 +29,14 @@ using LinearAlgebra, Test
     for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
         ts = Float64[]
         for i = 0:L-1
-            tb = translationalbasis(i, L, base = 3)
+            tb = TranslationalBasis(i, L, base = 3)
             H  = trans_inv_operator(rh, 2, tb)
             H += trans_inv_operator(spin((h, "z"), D=3), 1, tb)
             e, v = Array(H) |> Hermitian |> eigen
             ee = [ent_S(v[:, i], inds, tb) for i=1:size(v, 2)]
             append!(ts, ee)
         end
-        EE = [ent_S(V[:, i], inds, tensorbasis(L, base=3)) for i=1:size(V, 2)]
+        EE = [ent_S(V[:, i], inds, TensorBasis(L, base=3)) for i=1:size(V, 2)]
         @test norm(sort(EE) - sort(ts)) ≈ 0.0 atol = 1e-7
     end
 end
@@ -70,9 +70,9 @@ end
     EE(v, inds, basis) = [ent_S(v[:, i], inds, basis) for i=1:size(v, 2)]
 
     # K = 0
-    ba = translationalbasis(0, L, base=3)
-    be = translationparitybasis(0, +1, L, base=3)
-    bo = translationparitybasis(0, -1, L, base=3)
+    ba = TranslationalBasis(0, L, base=3)
+    be = TranslationParityBasis(0, +1, L, base=3)
+    bo = TranslationParityBasis(0, -1, L, base=3)
     va, ve, vo = solve(ba), solve(be), solve(bo)
     for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
         eea = EE(va, inds, ba)
@@ -82,9 +82,9 @@ end
     end
 
     # K = π
-    ba = translationalbasis(L÷2, L, base=3)
-    be = translationparitybasis(L÷2, +1, L, base=3)
-    bo = translationparitybasis(L÷2, -1, L, base=3)
+    ba = TranslationalBasis(L÷2, L, base=3)
+    be = TranslationParityBasis(L÷2, +1, L, base=3)
+    bo = TranslationParityBasis(L÷2, -1, L, base=3)
     va, ve, vo = solve(ba), solve(be), solve(bo)
     for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
         eea = EE(va, inds, ba)
@@ -113,9 +113,9 @@ end
     EE(v, inds, basis) = [ent_S(v[:, i], inds, basis) for i=1:size(v, 2)]
 
     for i = 0:L-1
-        ba = translationalbasis(i, L, base=3)
-        be = translationflipbasis(i, +1, L, base=3)
-        bo = translationflipbasis(i, -1, L, base=3)
+        ba = TranslationalBasis(i, L, base=3)
+        be = TranslationFlipBasis(i, +1, L, base=3)
+        bo = TranslationFlipBasis(i, -1, L, base=3)
         va, ve, vo = solve(ba), solve(be), solve(bo)
         for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
             eea = EE(va, inds, ba)

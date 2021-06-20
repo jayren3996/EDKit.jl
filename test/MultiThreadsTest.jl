@@ -15,9 +15,9 @@ using Test
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     println("--------------------------------------")
     print("Single-threads:")
-    @time bs = translationalbasis(pxpf, k, L, threaded=false)
+    @time bs = TranslationalBasis(pxpf, k, L, threaded=false)
     print("Multi-threads :")
-    @time bm = translationalbasis(pxpf, k, L, threaded=true)
+    @time bm = TranslationalBasis(pxpf, k, L, threaded=true)
     @test bs.I == bm.I
     @test norm(bs.R-bm.R) ≈ 0.0
 end
@@ -35,9 +35,9 @@ end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     println("--------------------------------------")
     print("Single-threads:")
-    @time bs = translationparitybasis(pxpf, k, p, L, threaded=false)
+    @time bs = TranslationParityBasis(pxpf, k, p, L, threaded=false)
     print("Multi-threads :")
-    @time bm = translationparitybasis(pxpf, k, p, L, threaded=true)
+    @time bm = TranslationParityBasis(pxpf, k, p, L, threaded=true)
     @test bs.I == bm.I
     @test norm(bs.R-bm.R) ≈ 0.0
 end

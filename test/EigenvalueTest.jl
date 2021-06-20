@@ -76,7 +76,7 @@ println("--------------------------------------------------")
     E = zeros(2^L)
     P = 0
     for n = 0:L
-        basis = projectedbasis(x->sum(x)==n, L)
+        basis = ProjectedBasis(x->sum(x)==n, L)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -101,7 +101,7 @@ end
     E = zeros(2^L)
     P = 0
     for n = 0:L
-        basis = projectedbasis(x->sum(x)==n, L)
+        basis = ProjectedBasis(x->sum(x)==n, L)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -132,11 +132,11 @@ end
     end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[i+1]==0 for i=1:length(v)-1)
     for L = 3:20
-        basis = projectedbasis(pxpf, L)
+        basis = ProjectedBasis(pxpf, L)
         @test size(basis, 1) == fib(L)
     end
     for L = 3:10
-        basis = projectedbasis(pxpf, L)
+        basis = ProjectedBasis(pxpf, L)
         mats = fill(mat, L-2)
         inds = [[i,i+1, i+2] for i=1:L-2]
         E = operator(mats, inds, basis) |> Array |> Hermitian |> eigvals
@@ -153,7 +153,7 @@ end
     end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     for L = 3:14
-        basis = projectedbasis(pxpf, L)
+        basis = ProjectedBasis(pxpf, L)
         E = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
         H = trans_inv_operator(mat, 3, L) |> Array
         vals = H[basis.I, basis.I] |> Hermitian |> eigvals
@@ -182,7 +182,7 @@ end
     E = zeros(3^L)
     P = 0
     for n = 0:2L
-        basis = projectedbasis(x->sum(x)==n, L, base=3)
+        basis = ProjectedBasis(x->sum(x)==n, L, base=3)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -209,7 +209,8 @@ println("--------------------------------------------------")
     E = zeros(2^L)
     P = 0
     for n = 0:L, k = 0:L-1
-        basis = translationalbasis(x->sum(x)==n, k, L)
+        basis = TranslationalBasis(x->sum(x)==n, k, L)
+        #println(size(basis,1))
         if (l = size(basis,1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -234,7 +235,7 @@ end
     E = zeros(2^L)
     P = 0
     for n = 0:L, k = 0:L-1
-        basis = translationalbasis(x->sum(x)==n, k, L)
+        basis = TranslationalBasis(x->sum(x)==n, k, L)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -253,7 +254,7 @@ end
     E = zeros(3^L)
     P = 0
     for n = 0:2L, k = 0:L-1
-        basis = translationalbasis(x->sum(x)==n, k, L, base=3)
+        basis = TranslationalBasis(x->sum(x)==n, k, L, base=3)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -274,7 +275,7 @@ end
     E = zeros(3^L)
     P = 0
     for n = 0:2L, k = 0:L-1
-        basis = translationalbasis(x->sum(x)==n, k, L, base=3)
+        basis = TranslationalBasis(x->sum(x)==n, k, L, base=3)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 2, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -306,7 +307,7 @@ end
     E = zeros(3^L)
     P = 0
     for n = 0:2L, k = 0:L-1
-        basis = translationalbasis(x->sum(x)==n, k, L, base=3)
+        basis = TranslationalBasis(x->sum(x)==n, k, L, base=3)
         if (l = size(basis, 1)) > 0
             vals = trans_inv_operator(mat, 3, basis) |> Array |> Hermitian |> eigvals
             E[P+1:P+l] = vals
@@ -328,9 +329,9 @@ println("--------------------------------------------------")
     mat = spin((1, "+-"), (1, "-+"), (1, "z1"), (1, "1z"))
     for L = 2:2:10
         for n = 0:L, k in [0, L ÷ 2]
-            be = translationparitybasis(x->sum(x)==n, k, +1, L)
-            bo = translationparitybasis(x->sum(x)==n, k, -1, L)
-            ba = translationalbasis(x->sum(x)==n, k, L)
+            be = TranslationParityBasis(x->sum(x)==n, k, +1, L)
+            bo = TranslationParityBasis(x->sum(x)==n, k, -1, L)
+            ba = TranslationalBasis(x->sum(x)==n, k, L)
             ve = trans_inv_operator(mat, 2, be) |> Array |> Hermitian |> eigvals
             vo = trans_inv_operator(mat, 2, bo) |> Array |> Hermitian |> eigvals
             va = trans_inv_operator(mat, 2, ba) |> Array |> Hermitian |> eigvals
@@ -344,9 +345,9 @@ end
     mat = spin((1, "+-"), (1, "-+"), (1, "z1"), (1, "1z"), D=3)
     for L = 2:2:6
         for n = 0:2L, k in [0, L ÷ 2]
-            be = translationparitybasis(x->sum(x)==n, k, +1, L, base=3)
-            bo = translationparitybasis(x->sum(x)==n, k, -1, L, base=3)
-            ba = translationalbasis(x->sum(x)==n, k, L, base=3)
+            be = TranslationParityBasis(x->sum(x)==n, k, +1, L, base=3)
+            bo = TranslationParityBasis(x->sum(x)==n, k, -1, L, base=3)
+            ba = TranslationalBasis(x->sum(x)==n, k, L, base=3)
             ve = trans_inv_operator(mat, 2, be) |> Array |> Hermitian |> eigvals
             vo = trans_inv_operator(mat, 2, bo) |> Array |> Hermitian |> eigvals
             va = trans_inv_operator(mat, 2, ba) |> Array |> Hermitian |> eigvals
@@ -364,9 +365,9 @@ end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     for L = 4:2:20
         for k in [0, L ÷ 2]
-            be = translationparitybasis(pxpf, k, +1, L)
-            bo = translationparitybasis(pxpf, k, -1, L)
-            ba = translationalbasis(pxpf, k, L)
+            be = TranslationParityBasis(pxpf, k, +1, L)
+            bo = TranslationParityBasis(pxpf, k, -1, L)
+            ba = TranslationalBasis(pxpf, k, L)
             ve = trans_inv_operator(mat, 2, be) |> Array |> Hermitian |> eigvals
             vo = trans_inv_operator(mat, 2, bo) |> Array |> Hermitian |> eigvals
             va = trans_inv_operator(mat, 2, ba) |> Array |> Hermitian |> eigvals
@@ -382,9 +383,9 @@ end
     for L = 4:2:12
         E = zeros(2^L)
         for k in 0:L-1
-            ba = translationalbasis(k, L)
-            be = translationflipbasis(k, 1, L)
-            bo = translationflipbasis(k, -1, L)
+            ba = TranslationalBasis(k, L)
+            be = TranslationFlipBasis(k, 1, L)
+            bo = TranslationFlipBasis(k, -1, L)
             va = trans_inv_operator(zz, 2, ba) + trans_inv_operator(x, 1, ba) |> Array |> Hermitian |> eigvals
             ve = trans_inv_operator(zz, 2, be) + trans_inv_operator(x, 1, be) |> Array |> Hermitian |> eigvals
             vo = trans_inv_operator(zz, 2, bo) + trans_inv_operator(x, 1, bo) |> Array |> Hermitian |> eigvals
