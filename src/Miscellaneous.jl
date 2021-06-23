@@ -1,24 +1,22 @@
 #-----------------------------------------------------------------------------------------------------
 # Spin Matrices
 #-----------------------------------------------------------------------------------------------------
+export spin
 # Dictionary
-spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
-spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
-spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
-
-function spin_Sx(D::Integer)
+@inline spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
+@inline spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
+@inline spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
+@inline function spin_Sx(D::Integer)
     coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp + sp'
 end
-
-function spin_iSy(D::Integer)
+@inline function spin_iSy(D::Integer)
     coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp - sp'
 end
-
-function spin_Sz(D::Integer)
+@inline function spin_Sz(D::Integer)
     J = (D-1) / 2
     sparse(1:D, 1:D, J:-1:-J)
 end
@@ -34,8 +32,6 @@ function spin_dict(c::Char, D::Integer)
     end
 end
 
-# Spin matrix
-export spin
 """
     spin(s::String, D::Integer)
 
@@ -47,7 +43,6 @@ function spin(s::String, D::Integer)
     sign = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (1im)^ny
     sign * mat
 end
-
 
 """
     spin(spins::Tuple{<:Number, String}...; D::Integer=2)

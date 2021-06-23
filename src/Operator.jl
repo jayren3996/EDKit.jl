@@ -18,10 +18,10 @@ struct Operator{Tv<:Number, Tb<:AbstractBasis}
     B::Tb
 end
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-eltype(opt::Operator{Tv, Tb}) where Tv where Tb = promote_type(Tv, eltype(opt.B))
-length(opt::Operator) = length(opt.M)
-size(opt::Operator) = size(opt.B)
-size(opt::Operator, i::Integer) = size(opt.B, i)
+@inline eltype(opt::Operator{Tv, Tb}) where Tv where Tb = promote_type(Tv, eltype(opt.B))
+@inline length(opt::Operator) = length(opt.M)
+@inline size(opt::Operator) = size(opt.B)
+@inline size(opt::Operator, i::Integer) = size(opt.B, i)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Construction
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ Convert a digits to the integer index using the relation:
 
 The summaton is evaluate using the efficieint polynomial evaluation method.
 """
-function index(dgt::AbstractVector{T}; base::Integer=2) where T <: Integer
+@inline function index(dgt::AbstractVector{T}; base::Integer=2) where T <: Integer
     N = zero(T)
     for i = 1:length(dgt)
         N *= base
@@ -21,7 +21,7 @@ end
 
 Convert a sub-digits (subarray of `dgt`) to the integer index.
 """
-function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2) where T <: Integer
+@inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2) where T <: Integer
     N = zero(T)
     for i in sites
         N *= base
@@ -36,7 +36,7 @@ end
 Change the digits to that with the target index.  
 This method is the inverse of `index`.
 """
-function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T <: Integer
+@inline function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T <: Integer
     N = convert(T, ind) - one(T)
     for i = length(dgt):-1:1
         N, dgt[i] = divrem(N, base)
@@ -49,7 +49,7 @@ end
 Change the sub-digits to that with the target index.  
 This method is the inverse of `index`.
 """
-function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) where T <: Integer
+@inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) where T <: Integer
     N = convert(T, ind) - one(T)
     for i = length(sites):-1:1
         N, dgt[sites[i]] = divrem(N, base)

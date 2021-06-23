@@ -5,7 +5,9 @@ export TensorBasis
 """
     TensorBasis
 
-Basis without any symmetries.
+Basis without any symmetries. The index is computed by:
+
+`I(i₁, i₂, ⋯, iₙ) = i₁ B^(n-1) + i₂ B^(n-2) + ⋯ + iₙ`
 """
 struct TensorBasis <: AbstractBasis
     dgt::Vector{Int64}
@@ -231,8 +233,8 @@ struct TranslationFlipBasis{T} <: AbstractTranslationalParityBasis
     B::Int                  # Base
 end
 
-eltype(::TranslationParityBasis) = Float64
-eltype(::TranslationFlipBasis{T}) where T = T
+@inline eltype(::TranslationParityBasis) = Float64
+@inline eltype(::TranslationFlipBasis{T}) where T = T
 
 function translation_parity_index(parity, b::AbstractTranslationalParityBasis)
     reflect, i, t = translation_parity_index(parity, b.dgt, b.B)
@@ -246,8 +248,8 @@ function translation_parity_index(parity, b::AbstractTranslationalParityBasis)
     N, I
 end
 
-index(b::TranslationParityBasis) = translation_parity_index(reverse, b)
-index(b::TranslationFlipBasis) = translation_parity_index(x -> spinflip(x, b.B), b)
+@inline index(b::TranslationParityBasis) = translation_parity_index(reverse, b)
+@inline index(b::TranslationFlipBasis) = translation_parity_index(x -> spinflip(x, b.B), b)
 
 struct TranslationParityJudge
     F                   # Projective selection
@@ -391,12 +393,12 @@ struct DoubleBasis{Tb1<:AbstractBasis, Tb2<:AbstractBasis} <: AbstractBasis
     DoubleBasis(B1::AbstractBasis, B2::AbstractBasis) = new{typeof(B1), typeof(B2)}(B1.dgt, B1, B2, B2.B)
 end
 
-eltype(b::DoubleBasis) = promote_type(eltype(b.B1), eltype(b.B2))
-function change!(b::DoubleBasis, i::Integer)
+@inline eltype(b::DoubleBasis) = promote_type(eltype(b.B1), eltype(b.B2))
+@inline function change!(b::DoubleBasis, i::Integer)
     N = change!(b.B2, i)
     b.dgt .= b.B2.dgt
     N
 end
-index(b::DoubleBasis) = index(b.B1)
-size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
-size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
+@inline index(b::DoubleBasis) = index(b.B1)
+@inline size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
+@inline size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
