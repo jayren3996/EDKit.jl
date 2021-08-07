@@ -57,6 +57,7 @@ Given an index `Im`, cycle the digits to see:
 3. If the shifted digits have the same index as `Im`, find the cycling number.
 
 Check if the digits is of minimum index under cycling.
+This function may change vector `dgt`.
 
 Inputs:
 -------

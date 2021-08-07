@@ -1,5 +1,6 @@
 module EDKit
 
+using LinearAlgebra: AbstractMatrix
 using LinearAlgebra, SparseArrays, JLD2
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits
@@ -50,6 +51,7 @@ include("Operator.jl")
 include("LinearOperation.jl")
 include("Miscellaneous.jl")
 include("algorithms/BlockDiagonal.jl")
+include("algorithms/QIM.jl")
 
 # Default function definitions:
 @inline digits(b::AbstractBasis) = b.dgt

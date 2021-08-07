@@ -77,7 +77,7 @@ function trans_inv_operator(s::String, basis::AbstractBasis)
 end
 
 function trans_inv_operator(s::String, L::Integer; base::Integer=2)
-    basis = tensorbasis(L, base=base)
+    basis = TensorBasis(L, base=base)
     trans_inv_operator(s, basis)
 end
 
@@ -102,20 +102,3 @@ end
 
 meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
 
-#-----------------------------------------------------------------------------------------------------
-# Meassurement
-#-----------------------------------------------------------------------------------------------------
-export covmat
-function covmat(ol::AbstractVector{T}, v::AbstractVector{<:Number}) where T <: Union{<:AbstractMatrix, <:Operator}
-    n = length(ol)
-    vs = [ol[i] * v]
-    am = [dot(v, vsi) for vsi in vs]
-    cm = Matrix{Float64}(undef, n, n)
-
-    for i=1:n
-        for j=i:n
-            cm[i, j] = real(dot(vs[i], vs[j])) - am[i] * am[j]
-        end
-    end
-    Hermitian(cm)
-end
