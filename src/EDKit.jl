@@ -1,13 +1,12 @@
 module EDKit
 
-using LinearAlgebra: AbstractMatrix
-using LinearAlgebra, SparseArrays, JLD2
+using LinearAlgebra, SparseArrays
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits
 import LinearAlgebra: norm, mul!
 import SparseArrays: sparse
 
-export content, base, index, change!
+export AbstractBasis, content, base, index, change!
 
 """
     AbstractBasis
@@ -43,15 +42,16 @@ If we want to calculate the schmidt decomposition (in real space), we can use th
 abstract type AbstractBasis end
 
 include("ToolKit.jl")
-include("Search.jl")
 include("Schmidt.jl")
 include("Symmetries.jl")
 include("Basis.jl")
 include("Operator.jl")
-include("LinearOperation.jl")
-include("Miscellaneous.jl")
-include("algorithms/BlockDiagonal.jl")
-include("algorithms/QIM.jl")
+
+for file in readdir("$(@__DIR__)/algorithms/")
+    if file[end-2:end] == ".jl"
+        include("$(@__DIR__)/algorithms/$file")
+    end
+end
 
 # Default function definitions:
 @inline digits(b::AbstractBasis) = b.dgt
