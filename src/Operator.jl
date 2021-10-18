@@ -236,9 +236,10 @@ function spin_dict(c::Char, D::Integer)
     elseif isequal(c, 'z') spin_Sz(D)
     elseif isequal(c, '1') spdiagm(ones(D))
     elseif isequal(D, 2)
-        if     isequal(c, "X") sparse([0 1; 1  0])
-        elseif isequal(c, "Y") sparse([0 1;-1  0])
-        elseif isequal(c, "Z") sparse([1 0; 0 -1])
+        if     isequal(c, 'X') sparse([0 1; 1  0])
+        elseif isequal(c, 'Y') sparse([0 1;-1  0])
+        elseif isequal(c, 'Z') sparse([1 0; 0 -1])
+        else error("Invalid spin symbol: $c.")
         end
     else error("Invalid spin symbol: $c.")
     end
