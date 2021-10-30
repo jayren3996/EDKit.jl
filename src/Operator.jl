@@ -257,7 +257,7 @@ function spin(s::String; D::Integer=2)
         sum(isequal(si, 'y') for si in s)
     end
     mat = isone(length(s)) ? spin_dict(s[1], D) : kron([spin_dict(si, D) for si in s]...)
-    sign = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (1im)^ny
+    sign = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (-1im)^ny
     sign * mat
 end
 spin(c::Number, s::String; D::Integer=2) = c * spin(s, D=D)
