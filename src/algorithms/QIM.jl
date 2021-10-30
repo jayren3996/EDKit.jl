@@ -6,7 +6,7 @@ Calculate Hamiltonian from eigen state(s).
 
 
 inner_product(v1::AbstractVector{<:Number}, v2::AbstractVector{<:Number}) = dot(v1, v2)
-inner_product(v1::AbstractMatrix{<:Number}, v2::AbstractMatrix{<:Number}) = sum(dot(v1[:, i], v2[:, i]) for i in 1:size(v1, 2)) / size(v1, 1)
+inner_product(v1::AbstractMatrix{<:Number}, v2::AbstractMatrix{<:Number}) = sum(dot(v1[:, i], v2[:, i]) for i in 1:size(v1, 2)) / size(v1, 2)
 
 export covmat
 function covmat(ol::AbstractVector{T}, v::AbstractVecOrMat{<:Number}) where T <: Union{<:AbstractMatrix, <:Operator}
