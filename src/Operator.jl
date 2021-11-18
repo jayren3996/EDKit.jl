@@ -29,11 +29,17 @@ end
 
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
     M, I = standard_format(mats, inds)
+    zero_at = iszero.(M)
+    deleteat!(M, zero_at)
+    deleteat!(I, zero_at)
     Operator(M, I, B)
 end
 
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
     M, I = standard_format(mats, inds)
+    zero_at = iszero.(M)
+    deleteat!(M, zero_at)
+    deleteat!(I, zero_at)
     B = TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
     Operator(M, I, B)
 end
