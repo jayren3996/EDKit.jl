@@ -9,10 +9,7 @@ Calculate Hamiltonian from eigen state(s).
 @inline inner_product(v1::AbstractMatrix{<:Number}, v2::AbstractMatrix{<:Number}) = dot(v1, v2) / size(v1, 2)
 
 export covmat
-function covmat(
-    ol::AbstractVector, 
-    v::AbstractVecOrMat{<:Number}
-)
+function covmat(ol::AbstractVector, v::AbstractVecOrMat{<:Number})
     n = length(ol)
     vs = [oi * v for oi in ol]
     am = [real(inner_product(v, vsi)) for vsi in vs]

@@ -26,22 +26,37 @@ end
 @inline length(opt::Operator) = length(opt.M)
 @inline size(opt::Operator) = size(opt.B)
 @inline size(opt::Operator, i::Integer) = size(opt.B, i)
+function Base.display(opt::Operator)
+    println("Operator of size $(size(opt)) with $(length(opt)) terms.")
+end
 
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
-    M, I = standard_format(mats, inds)
-    zero_at = iszero.(M)
-    deleteat!(M, zero_at)
-    deleteat!(I, zero_at)
+    num = length(mats)
+    @assert num == length(inds) "Numbers mismatch: $num matrices and $(length(inds)) indices."
+    dtype = promote_type(eltype.(mats)...)
+    M = Vector{SparseMatrixCSC{dtype, Int64}}(undef, num)
+    I = Vector{Vector{Int64}}(undef, num)
+    N = 0
+    for i = 1:num
+        iszero(mats[i]) && continue
+        ind = inds[i]
+        pos = findfirst(x -> isequal(x, ind), view(I, 1:N))
+        if isnothing(pos)
+            N += 1
+            I[N] = ind
+            M[N] = sparse(mats[i])
+        else
+            M[pos] += mats[i]
+        end
+    end
+    deleteat!(M, N+1:num)
+    deleteat!(I, N+1:num)
     Operator(M, I, B)
 end
 
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
-    M, I = standard_format(mats, inds)
-    zero_at = iszero.(M)
-    deleteat!(M, zero_at)
-    deleteat!(I, zero_at)
     B = TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
-    Operator(M, I, B)
+    operator(mats, inds, B)
 end
 
 operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:Integer}, C) = operator(mats, [[i] for i in inds], C)
@@ -54,7 +69,7 @@ function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer},
     smat = sparse(mat)
     mats = fill(smat, L)
     inds = [mod.(ind .+ i, L) .+ 1 for i = -1:L-2]
-    Operator(mats, inds, B)
+    operator(mats, inds, B)
 end
 
 function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, L::Integer)
@@ -64,43 +79,18 @@ end
 
 trans_inv_operator(mat::AbstractMatrix, M::Integer, C) = trans_inv_operator(mat, 1:M, C)
 
-*(c::Number, opt::Operator) = Operator(c .* opt.M, opt.I, opt.B)
+*(c::Number, opt::Operator) = operator(c .* opt.M, opt.I, opt.B)
 *(opt::Operator, c::Number) = c * opt
-/(opt::Operator, c::Number) = Operator(opt.M ./ c, opt.I, opt.B)
-
+/(opt::Operator, c::Number) = operator(opt.M ./ c, opt.I, opt.B)
 function +(opt1::Operator, opt2::Operator)
-    n1, n2 = length(opt1), length(opt2)
-    Tv = promote_type(eltype(opt1), eltype(opt2))
-    M = Vector{SparseMatrixCSC{Tv, Int}}(undef, n1 + n2)
-    I = Vector{Vector{Int}}(undef, n1+n2)
-    M[1:n1] .= opt1.M
-    I[1:n1] .= opt1.I
-    P = n1
-    for i = 1:n2
-        if (p = findposition(opt1.I, opt2.I[i])) > 0
-            M[p] += opt2.M[i]
-        else
-            P += 1
-            M[P], I[P] = opt2.M[i], opt2.I[i]
-        end
-    end
-    deleteat!(M, P+1:n1+n2)
-    deleteat!(I, P+1:n1+n2)
-    Operator(M, I, opt1.B)
+    mats = vcat(opt1.M, opt2.M)
+    inds = vcat(opt1.I, opt2.I)
+    operator(mats, inds, opt1.B)
 end
-
++(opt1::Operator, ::Nothing) = opt1
++(::Nothing, opt1::Operator) = opt1
 -(opt::Operator) = Operator(-opt.M, opt.I, opt.B)
 -(opt1::Operator, opt2::Operator) = opt1 + (-opt2)
-
-# Helper Functions
-@inline standard_mat(Tv::DataType, mat::AbstractMatrix) = Tv.(mat) |> sparse
-@inline standard_mat(mats::Vector{SparseMatrixCSC{Tv, Int}}) where Tv = mats
-@inline standard_mat(mats::AbstractVector{<:AbstractMatrix}) = standard_mat.(promote_type(eltype.(mats)...), mats)
-@inline standard_ind(ind::Vector{Int}) = ind
-@inline standard_ind(ind::AbstractVector{<:Integer}) = Int.(ind)
-@inline standard_ind(inds::Vector{Vector{Int}}) = inds
-@inline standard_ind(inds::AbstractVector{<:AbstractVector{<:Integer}}) = standard_ind.(inds)
-@inline standard_format(mats, inds) = standard_mat(mats), standard_ind(inds)
 
 @inline function find_base(a::Integer, b::Integer)
     if b == 1
@@ -115,15 +105,6 @@ end
     end
 end
 
-@inline function findposition(l::AbstractVector, b)
-    for i in length(l)
-        if l[i] == b
-            return i
-        end
-    end
-    0
-end
-
 # Operator to matrices
 export addto!
 function addto!(M::AbstractMatrix, opt::Operator)
@@ -135,6 +116,14 @@ end
 
 function Array(opt::Operator)
     M = zeros(eltype(opt), size(opt))
+    if size(M, 1) > 0 && size(M, 2) > 0
+        addto!(M, opt)
+    end
+    M
+end
+
+function sparse(opt::Operator)
+    M = spzeros(eltype(opt), size(opt)...)
     if size(M, 1) > 0 && size(M, 2) > 0
         addto!(M, opt)
     end

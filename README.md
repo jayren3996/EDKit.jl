@@ -10,6 +10,60 @@ Run the following script in the ```Pkg REPL``` environment:
 pkg> add EDKit
 ```
 
+## Examples
+
+### Transverse Field Ising Model
+
+Consider the transverse insing model with the parameters:
+
+```julia
+J, h, L = 1.0, 0.5, 10
+```
+
+The Hamiltonian operator can be constructed as:
+
+```julia
+julia> H = J * trans_inv_operator("XX", L) + h * trans_inv_operator("Z", L)
+Operator of size (1024, 1024) with 20 terms.
+```
+
+Use the function `Array` to create the dense matrix:
+
+```julia
+julia> Array(H)
+1024×1024 Matrix{Float64}:
+ 5.0  0.0  0.0  1.0  …   0.0   0.0   0.0
+ 0.0  4.0  1.0  0.0      0.0   0.0   0.0
+ 0.0  1.0  4.0  0.0      0.0   0.0   0.0
+ 1.0  0.0  0.0  3.0      0.0   0.0   0.0
+ 0.0  0.0  1.0  0.0      0.0   0.0   0.0
+ 0.0  0.0  0.0  1.0  …   0.0   0.0   0.0
+ ⋮                   ⋱              
+ 0.0  0.0  0.0  0.0      0.0   0.0   0.0
+ 0.0  0.0  0.0  0.0      1.0   0.0   0.0
+ 0.0  0.0  0.0  0.0  …   0.0   0.0   1.0
+ 0.0  0.0  0.0  0.0     -4.0   1.0   0.0
+ 0.0  0.0  0.0  0.0      1.0  -4.0   0.0
+ 0.0  0.0  0.0  0.0      0.0   0.0  -5.0
+```
+
+Or use the function `sparse` to create the sparse matrix (requires the module `SparseArrays` being imported):
+
+```julia
+julia> sparse(H)
+1024×1024 SparseMatrixCSC{Float64, Int64} with 11264 stored entries:
+⣿⣿⣷⡘⠦⠀⠀⠳⣄⠘⢦⡀⠀⠀⠳⣄⠀⠀⠀
+⣙⠻⣿⣿⣶⢦⡀⠀⠈⠃⠀⠙⢦⡀⠀⠈⠳⣄⠀
+⠈⠃⠸⣟⢻⣶⣽⠆⢦⡰⣄⠀⠀⠙⢦⡀⠀⠈⠓
+⢤⡀⠀⠈⠳⠟⣿⣿⣦⡅⠈⠳⣄⠀⠀⠙⢦⡀⠀
+⣀⠙⠦⠀⢈⡳⠌⠿⠿⢇⣀⣀⢈⡳⠄⠀⣀⠙⠦
+⠈⠳⣄⠀⠀⠙⢦⡀⠀⢸⣿⣿⣦⢙⡂⠀⠈⠳⣄
+⠀⠀⠈⠳⣄⠀⠀⠙⢦⡰⣌⢛⣿⣿⡝⢦⡀⠀⠀
+⠙⢦⡀⠀⠈⠳⣄⠀⠀⠁⠈⠈⠳⣍⣿⣿⣧⡘⠦
+⠀⠀⠙⢦⡀⠀⠈⠳⣄⠘⢦⡀⠀⠈⣉⠻⣿⣿⣷
+⠀⠀⠀⠀⠙⠀⠀⠀⠈⠃⠀⠙⠀⠀⠈⠃⠙⠛⠛
+```
+
 ## Basis Object
 
 In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasis` is the abstract type of basis. Currently there are 4 concrete basis:
@@ -174,19 +228,3 @@ In the definition, `k` is the momentum sector we are interested, and `f` is a fu
 ```julia
 translationalbasis(x -> sum(x)==3, 0, 6; base=2)
 ```
-
-## Spin tools
-
-We also provide a helper function to create spin-s operators (represented by matrices):
-
-```julia
-spin(spins...; D::Integer=2)
-```
-
-In the definition, `spins` are arbituary number of tuples such as `(1.0, "xzx")`. The supported characters are:
-
-```julia
-"x", "y", "z", "1", "+", "-"
-```
-
-The other input `D` is the dimension of the matrix (`D = 2s+1`).
