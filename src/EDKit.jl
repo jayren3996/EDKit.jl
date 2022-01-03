@@ -1,6 +1,6 @@
 module EDKit
 
-using LinearAlgebra, SparseArrays, ITensors
+using LinearAlgebra, SparseArrays
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits
 import LinearAlgebra: norm, mul!
