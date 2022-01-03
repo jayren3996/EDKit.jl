@@ -257,6 +257,17 @@ function spin(s::String; D::Integer=2)
 end
 spin(c::Number, s::String; D::Integer=2) = c * spin(s, D=D)
 
+# Precompile the functions
+precompile(spin_coeff, (Int64,))
+precompile(spin_Sp, (Int64,))
+precompile(spin_Sm, (Int64,))
+precompile(spin_Sx, (Int64,))
+precompile(spin_iSy, (Int64,))
+precompile(spin_Sz, (Int64,))
+precompile(spin_dict, (Char, Int64))
+spin("x")
+spin("xyz", D=3)
+
 """
     spin(spins::Tuple{<:Number, String}...; D::Integer=2)
 
