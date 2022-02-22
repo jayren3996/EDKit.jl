@@ -156,6 +156,8 @@ julia> H = trans_inv_operator(mat, 1:2, B)
 Operator of size (84, 84) with 8 terms.
 ```
 
+
+
 ## Basis Object
 
 In `EDKit.jl`, the fundamental objects are basis and operator. The `AbstractBasis` is the abstract type of basis. Currently there are 4 concrete basis:
@@ -176,6 +178,8 @@ Optionally, we can define `eltype` for a basis object (default is `ComplexF64`).
 If the calculation is done on the entire Hilbert space, the basis object need not be explicitly constructed. The `Operator` will use `TensorBasis` by default. The construction of other basis with symmetry concern are discussed below.
 
 In addition, if the entaglement entropy is needed, the user-defined basis should implement a function `schmidt!(target, v, Ainds, b::AbstractBasis)`.
+
+
 
 ## Operator Object
 
@@ -246,6 +250,8 @@ After obtaining Hamiltonian in a symmetry sector. We can calculate the entagleme
 ```julia
 ent_S(v::AbstractVector, 1:L, b::AbstractBasis)
 ```
+
+
 
 ## Concrete Implementations of Basis
 
