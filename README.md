@@ -10,6 +10,10 @@ Run the following script in the ```Pkg REPL``` environment:
 pkg> add EDKit
 ```
 
+## Documentation
+
+https://docs.juliahub.com/EDKit/JkYPS/
+
 ## Examples
 
 ### Radom XXZ Model with Random
