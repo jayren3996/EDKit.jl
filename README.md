@@ -12,7 +12,7 @@ pkg> add EDKit
 
 ## Documentation
 
-https://docs.juliahub.com/EDKit/JkYPS/
+https://docs.juliahub.com/EDKit/JkYPS/0.3.11/
 
 ## Examples
 
