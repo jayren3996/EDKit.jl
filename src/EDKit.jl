@@ -46,6 +46,7 @@ include("Schmidt.jl")
 include("Symmetries.jl")
 include("Basis.jl")
 include("Operator.jl")
+include("Lindblad.jl")
 
 for file in readdir("$(@__DIR__)/algorithms/")
     if file[end-2:end] == ".jl"

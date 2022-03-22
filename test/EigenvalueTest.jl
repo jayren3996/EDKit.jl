@@ -1,5 +1,4 @@
 include("../src/EDKit.jl")
-include("deprecate/ExactDiagonalization.jl")
 using .EDKit
 using LinearAlgebra
 using Test

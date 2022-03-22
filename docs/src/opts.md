@@ -1,7 +1,3 @@
-# Operators
-
-## Operator Object
-
 In `EDKit.jl` , a many-body operator is represented by the type `Operator`:
 
 ```julia
@@ -14,28 +10,38 @@ end
 
 In this definition, `M` is the list of matrix representations of local operators, `I` is the list of indices of sites it acts on.
 
-### Construction
 
-To construct an `Operator` object, we need 3 inputs:
 
-```julia
-M <: AbstractVector{<:AbstractMatrix}
-I <: AbstractVector{<:AbstractVector{<:Integer}}
-B <: AbstractBasis
-```
+## Construction
 
-where `M` is the list of matrices representing the local operators, `I` is the list of vectors representing the sites it acts on. `B` is a basis object. If use `TensorBasis`, we can directly using the constructing method
+To construct an `Operator` object, we need 3 inputs `M`, `I`, and `B`, where `M` is the list of matrices representing the local operators, `I` is the list of vectors representing the sites it acts on. `B` is a basis object. If use `TensorBasis`, we can directly using the constructing method
 
 ```julia
-operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
+operator(mats, inds, basis)
 ```
 
-### Convert to matrix
+For translation invariant system we can also use the command
 
-An `Operator` object is basically like a matrix, and it can be convert to dense matrix using the function
+```julia
+trans_inv_operator(mat, ind, basis)
+```
+
+Here `mat` is a single matrix, `ind` is the sites a single operator act on (e.g, `ind=1:2` for nearest neighbor coupling translational invairant system).
+
+
+
+## Convert to matrix
+
+An `Operator` object is basically like a matrix, and it can be converted to dense matrix using the function
 
 ```julia
 Array(opt::Operation)
+```
+
+Also, an `Operator` can be converted to a sparse matrix (the package `SparseArrays` should be inported beforehand)
+
+```julia
+sparse(opt::Operation)
 ```
 
 It can also write to a given matrix with correct dimension using function
@@ -46,7 +52,9 @@ addto!(M::AbstractMatrix, opt::Operator)
 
 Note that to get correct answer, `M` should de initialized as a zero matrix.
 
-### Multiply to vector or matrix
+
+
+## Multiply to vector or matrix
 
 We can directly using
 
@@ -62,7 +70,9 @@ mul!(target::AbstractVecOrMat, opt::Operator, v::AbstractVecOrMat)
 
 to modify `target` (similarly, `target` should be initialized as a zero vector/matrix).
 
-### Compute entaglement entropy
+
+
+## Compute entaglement entropy
 
 After obtaining Hamiltonian in a symmetry sector. We can calculate the entaglement entropy of an eigenvector `v` (assume the system size is `2L`, and the entropy cut is at the middel of the chain) by
 

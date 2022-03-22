@@ -19,11 +19,9 @@ If the calculation is done on the entire Hilbert space, the basis object need no
 
 In addition, if the entaglement entropy is needed, the user-defined basis should implement a function `schmidt!(target, v, Ainds, b::AbstractBasis)`.
 
-## Concrete Implementations of Basis
-
 Here we introduce 3 concrete implementation of `AbstractBasis`.
 
-### TensorBasis
+## TensorBasis
 
 The type `TensorBasis` has the fields:
 
@@ -42,7 +40,7 @@ tensorbasis(L::Integer; base::Integer=2)
 
 to construct a basis, though in most cases it is not necessary.
 
-### ProjectedBasis
+## ProjectedBasis
 
 The type `ProjectedBasis` has the fields:
 
@@ -66,7 +64,7 @@ In the definition, `f` is a function acting on digits that tells whether a given
 projectedbasis(x -> sum(x)==3, 6; base=2)
 ```
 
-### TranslationalBasis
+## TranslationalBasis
 
 The type `TranslationalBasis` has the fields:
 

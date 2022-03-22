@@ -3,7 +3,7 @@ Operator
 
 Construction of `Operator` object.
 """
-
+#---------------------------------------------------------------------------------------------------
 export operator, trans_inv_operator
 """
     Operator{Tv}
@@ -21,7 +21,7 @@ struct Operator{Tv<:Number, Tb<:AbstractBasis}
     I::Vector{Vector{Int}}
     B::Tb
 end
-
+#---------------------------------------------------------------------------------------------------
 @inline eltype(opt::Operator{Tv, Tb}) where Tv where Tb = promote_type(Tv, eltype(opt.B))
 @inline length(opt::Operator) = length(opt.M)
 @inline size(opt::Operator) = size(opt.B)
@@ -29,7 +29,7 @@ end
 function Base.display(opt::Operator)
     println("Operator of size $(size(opt)) with $(length(opt)) terms.")
 end
-
+#---------------------------------------------------------------------------------------------------
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
     num = length(mats)
     @assert num == length(inds) "Numbers mismatch: $num matrices and $(length(inds)) indices."
@@ -53,17 +53,17 @@ function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<
     deleteat!(I, N+1:num)
     Operator(M, I, B)
 end
-
+#---------------------------------------------------------------------------------------------------
 function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
     B = TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
     operator(mats, inds, B)
 end
-
+#---------------------------------------------------------------------------------------------------
 operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:Integer}, C) = operator(mats, [[i] for i in inds], C)
 operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, C) = operator([mat], [ind], C)
 operator(mats::AbstractVector{<:AbstractMatrix}, L::Integer) = operator(mats, [[i] for i in 1:L], L)
 operator(mats::AbstractVector{<:AbstractMatrix}, B::AbstractBasis) = operator(mats, [[i] for i in 1:length(B.dgt)], B)
-
+#---------------------------------------------------------------------------------------------------
 function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, B::AbstractBasis)
     L = length(B.dgt)
     smat = sparse(mat)
@@ -78,7 +78,7 @@ function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer},
 end
 
 trans_inv_operator(mat::AbstractMatrix, M::Integer, C) = trans_inv_operator(mat, 1:M, C)
-
+#---------------------------------------------------------------------------------------------------
 *(c::Number, opt::Operator) = operator(c .* opt.M, opt.I, opt.B)
 *(opt::Operator, c::Number) = c * opt
 /(opt::Operator, c::Number) = operator(opt.M ./ c, opt.I, opt.B)
@@ -91,7 +91,7 @@ end
 +(::Nothing, opt1::Operator) = opt1
 -(opt::Operator) = Operator(-opt.M, opt.I, opt.B)
 -(opt1::Operator, opt2::Operator) = opt1 + (-opt2)
-
+#---------------------------------------------------------------------------------------------------
 @inline function find_base(a::Integer, b::Integer)
     if b == 1
         return a
@@ -104,7 +104,7 @@ end
         error("Incompatible dimension: ($a, $b)")
     end
 end
-
+#---------------------------------------------------------------------------------------------------
 # Operator to matrices
 export addto!
 function addto!(M::AbstractMatrix, opt::Operator)
@@ -113,7 +113,7 @@ function addto!(M::AbstractMatrix, opt::Operator)
     end
     M
 end
-
+#---------------------------------------------------------------------------------------------------
 function Array(opt::Operator)
     M = zeros(eltype(opt), size(opt))
     if size(M, 1) > 0 && size(M, 2) > 0
@@ -121,7 +121,7 @@ function Array(opt::Operator)
     end
     M
 end
-
+#---------------------------------------------------------------------------------------------------
 function sparse(opt::Operator)
     M = spzeros(eltype(opt), size(opt)...)
     if size(M, 1) > 0 && size(M, 2) > 0
@@ -129,34 +129,43 @@ function sparse(opt::Operator)
     end
     M
 end
-
+#---------------------------------------------------------------------------------------------------
+LinearAlgebra.Hermitian(opt::Operator) = Array(opt) |> Hermitian
+LinearAlgebra.Symmetric(opt::Operator) = Array(opt) |> Symmetric
+LinearAlgebra.eigen(opt::Operator) = Array(opt) |> eigen!
+LinearAlgebra.eigvals(opt::Operator) = Array(opt) |>eigvals!
+LinearAlgebra.svd(opt::Operator) = Array(opt) |> svd!
+LinearAlgebra.svdvals(opt::Operator) = Array(opt) |> svdvals!
+#---------------------------------------------------------------------------------------------------
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     for j = 1:length(v)
         colmn!(target, opt, j, v[j])
     end
     target
 end
-
+#---------------------------------------------------------------------------------------------------
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     for j = 1:size(m, 1)
         colmn!(target, opt, j, view(m, j, :))
     end
     target
 end
-
+#---------------------------------------------------------------------------------------------------
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     M = zeros(ctype, size(opt, 1))
     mul!(M, opt, v)
 end
-
+#---------------------------------------------------------------------------------------------------
 function *(opt::Operator, m::AbstractMatrix)
     ctype = promote_type(eltype(opt), eltype(m))
     M = zeros(ctype, size(opt, 1), size(m, 2))
     mul!(M, opt, m)
 end
 
+#---------------------------------------------------------------------------------------------------
 # Helper functions
+#---------------------------------------------------------------------------------------------------
 function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
@@ -170,7 +179,7 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
     end
     change ? change!(b.dgt, I, j, base=b.B) : nothing
 end
-
+#---------------------------------------------------------------------------------------------------
 function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number=1)
     b, M, I = opt.B, opt.M, opt.I
     C = coeff / change!(b, j)
@@ -178,7 +187,7 @@ function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number
         colmn!(target, M[i], I[i], b, C)
     end
 end
-
+#---------------------------------------------------------------------------------------------------
 function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::AbstractVector{<:Number})
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
@@ -192,7 +201,7 @@ function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::A
     end
     change ? change!(b.dgt, I, j, base=b.B) : nothing
 end
-
+#---------------------------------------------------------------------------------------------------
 function colmn!(target::AbstractMatrix, opt::Operator, j::Integer, coeff::AbstractVector{<:Number})
     b, M, I = opt.B, opt.M, opt.I
     N = change!(b, j) .* coeff
@@ -201,10 +210,10 @@ function colmn!(target::AbstractMatrix, opt::Operator, j::Integer, coeff::Abstra
     end
 end
 
-
+#---------------------------------------------------------------------------------------------------
 # Spin Matrices
+#---------------------------------------------------------------------------------------------------
 export spin
-
 @inline spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
 @inline spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
 @inline spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
@@ -222,7 +231,7 @@ end
     J = (D-1) / 2
     sparse(1:D, 1:D, J:-1:-J)
 end
-
+#---------------------------------------------------------------------------------------------------
 function spin_dict(c::Char, D::Integer)
     if     isequal(c, '+') spin_Sp(D)
     elseif isequal(c, '-') spin_Sm(D)
@@ -239,7 +248,7 @@ function spin_dict(c::Char, D::Integer)
     else error("Invalid spin symbol: $c.")
     end
 end
-
+#---------------------------------------------------------------------------------------------------
 """
     spin(s::String; D::Integer=2)
 
@@ -256,18 +265,7 @@ function spin(s::String; D::Integer=2)
     sign * mat
 end
 spin(c::Number, s::String; D::Integer=2) = c * spin(s, D=D)
-
-# Precompile the functions
-precompile(spin_coeff, (Int64,))
-precompile(spin_Sp, (Int64,))
-precompile(spin_Sm, (Int64,))
-precompile(spin_Sx, (Int64,))
-precompile(spin_iSy, (Int64,))
-precompile(spin_Sz, (Int64,))
-precompile(spin_dict, (Char, Int64))
-spin("x")
-spin("xyz", D=3)
-
+#---------------------------------------------------------------------------------------------------
 """
     spin(spins::Tuple{<:Number, String}...; D::Integer=2)
 
@@ -279,14 +277,14 @@ function spin(spins::Tuple{<:Number, String}...; D::Integer=2)
 end
 
 spin(spins::AbstractVector{<:Tuple{<:Number, String}}; D::Integer=2) = spin(spins..., D=D)
-
+#---------------------------------------------------------------------------------------------------
 function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
     mat = spin(s, D=base(basis))
     operator(mat, inds, basis)
 end
 
 function operator(s::String, inds::AbstractVector{<:Integer}, L::Integer; base::Integer=2)
-    basis = tensorbasis(L, base=base)
+    basis = TensorBasis(L, base=base)
     operator(s, inds, basis)
 end
 
