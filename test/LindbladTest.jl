@@ -78,9 +78,7 @@ function manybody(L, r, a, b, c)
     ρ = begin
         Z2 = [mod(i-1,2) for i=1:L]
         ind = index(Z2)
-        mat = zeros(2^L, 2^L)
-        mat[ind, ind] = 1 
-        mat
+        densitymatrix(ind, L)
     end
     EL, ρ
 end
@@ -88,19 +86,12 @@ end
 #---------------------------------------------------------------------------------------------------
 # Helper
 #---------------------------------------------------------------------------------------------------
-function covariancematrix(n::AbstractVector)
-    L = length(n)
-    D = diagm(-2n .+ 1)
-    Z = zeros(L, L)
-    [Z D; -D Z]
-end
-
-function density(ρ)
-    L = round(Int, log(2, size(ρ, 1)))
+function density(dm)
+    L = round(Int, log(2, size(dm.ρ, 1)))
     n = zeros(L)
     Base.Threads.@threads for i=1:L 
-        ni = operator([1 0;0 0], [i], L) |> Array
-        n[i] = real(tr(ρ * ni))
+        ni = operator([1 0;0 0], [i], L) |> Hermitian
+        n[i] = expectation(ni, dm)
     end
     n
 end
@@ -117,13 +108,13 @@ function test(steps=30)
 
     n1 = zeros(steps, L)
     for i=1:steps 
-        Γ = evo(QL, Γ)
-        n1[i, :] = fermioncorrelation(Γ)[1] |> diag |> real
+        Γ = QL(Γ)
+        n1[i, :] = fermioncorrelation(Γ, 1) |> diag |> real
     end
 
     n2 = zeros(steps, L)
     for i=1:steps 
-        ρ = evo(EL, ρ)
+        ρ = EL(ρ)
         n2[i,:] = density(ρ)
         println("Finish $i/$steps, error = $(norm(n2[i,:]-n1[i,:])).")
     end
@@ -132,16 +123,3 @@ function test(steps=30)
 end
 
 n1, n2 = test()
-
-function evo_print(lb, ρ, dt=0.05; order=5)
-    mat = Array(ρ)
-    dρ = dt * (lb * ρ)
-    println("1st: $(norm(dρ))")
-    mat += dρ
-    for i = 2:order 
-        dρ = (dt/i) * (lb * dρ)
-        println("$(i)th: $(norm(dρ))")
-        mat += dρ
-    end
-    mat
-end
