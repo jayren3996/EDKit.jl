@@ -184,7 +184,7 @@ function ProjectedBasis(
     ;L::Integer, N::Integer, base::Integer=2, 
     alloc::Integer=1000, threaded::Bool=true
 )
-    ProjectedBasis(x->sum(x)==N, L, base=base, alloc=alloc, threaded=threaded)
+    ProjectedBasis(x->sum(x)==L*base-N, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
