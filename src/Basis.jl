@@ -171,7 +171,7 @@ Construction method for `ProjectedBasis` with fixed particle number (or total U(
 Inputs:
 -------
 - `L`       : Length of the system.
-- `N`       : Total particle number / U(1) charge.
+- `N`       : Quantum number of up spins / particle number / U(1) charge.
 - `base`    : Base, default = 2.
 - `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
 - `threaded`: Whether use the multithreading, default = true.
@@ -184,7 +184,7 @@ function ProjectedBasis(
     ;L::Integer, N::Integer, base::Integer=2, 
     alloc::Integer=1000, threaded::Bool=true
 )
-    ProjectedBasis(x->sum(x)==L*base-N, L, base=base, alloc=alloc, threaded=threaded)
+    ProjectedBasis(x->sum(x)==L*(base-1)-N, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
