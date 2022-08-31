@@ -1,7 +1,7 @@
 ## Lindblad Equation
 The Lindblad master equation for Makovian open system is
 ```math
-\frac{d}{dt} \hat\rho = -i[\hat H, \hat \rho] + \sum_{\mu=1}^{m} \hat L_\mu \hat\rho \hat L_\mu^\dagger -\frac{1}{2} \sum_{\mu=1}^{m} \{\hat L_\mu^\dagger \hat L_\mu, \hat \rho\}
+\frac{d}{dt} \rho = -i[H, \rho] + \sum_{\mu=1}^{m}  L_\mu \rho  L_\mu^\dagger -\frac{1}{2} \sum_{\mu=1}^{m} \{ L_\mu^\dagger  L_\mu,  \rho\}
 ```
 The Lindblad super-operator is represented by object `Lindblad`:
 ```julia
@@ -41,11 +41,11 @@ When the jump operators contain only the linear Majorana operators, the Lindblad
 ```
 A fermion bilinear of the form
 ```math
-\hat H_{\mathrm{free}} = \sum_{i,j=1}^N A_{ij} c_i^\dagger c_j + \frac{1}{2}\sum_{i,j=1}^N B_{ij} c_i c_j + \frac{1}{2}\sum_{i,j=1}^N B_{ij}^* c_j^\dagger c_i^\dagger
+ H_{\mathrm{free}} = \sum_{i,j=1}^N A_{ij} c_i^\dagger c_j + \frac{1}{2}\sum_{i,j=1}^N B_{ij} c_i c_j + \frac{1}{2}\sum_{i,j=1}^N B_{ij}^* c_j^\dagger c_i^\dagger
 ```
 can be brought to Majorana form
 ```math
-\hat H_{\mathrm{free}} = -\frac{i}{4} \sum_{i,j=1}^{2N} H_{ij} \omega_i \omega_j,
+ H_{\mathrm{free}} = -\frac{i}{4} \sum_{i,j=1}^{2N} H_{ij} \omega_i \omega_j,
 ```
 where the single-body matrix $H$ is a `2N * 2N` real anti-symmetric matrix:
 ```math
@@ -59,7 +59,7 @@ This can be done using the function `majoranaform(A::AbstractMatrix, B::Abstract
 
 We assume that the jump operator has up to quadratic Majorana terms. In particular, we denote the linear terms and the Hermitian quadratic terms as
 ```math
-\hat L_r = \sum_{j=1}^{2N} L^r_{j} \omega_j, \quad \hat L_s = \sum_{j,k=1}^{2N} M^s_{jk} \omega_j \omega_k.
+ L_r = \sum_{j=1}^{2N} L^r_{j} \omega_j, \quad  L_s = \sum_{j,k=1}^{2N} M^s_{jk} \omega_j \omega_k.
 ```
 Consider the *covariance matrix*
 ```math

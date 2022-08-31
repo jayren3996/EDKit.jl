@@ -10,7 +10,7 @@ All information we need to specify a *local operator* in the many-body Hilbert s
 
 For example, the AKLT model (with size ``L=8``)
 ```math
-H = \sum_{i=1}^{8}\left[\vec S_i \cdot \vec S_{i+1} + \frac{1}{3}\left(\vec S_i \cdot \vec S_{i+1}\right)^2\right],
+H = \sum_{i=1}^{8}\left[\vec{S}_i \cdot \vec{S}_{i+1} + \frac{1}{3}\left(\vec{S}_i \cdot \vec{S}_{i+1}\right)^2\right],
 ```
 can be easyly constructed using the command:
 ```julia

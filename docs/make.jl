@@ -12,3 +12,6 @@ makedocs(
     ]
 )
 
+deploydocs(
+    repo = "github.com/jayren3996/EDKit.jl.git"
+)

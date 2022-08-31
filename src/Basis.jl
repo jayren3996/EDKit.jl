@@ -1,3 +1,51 @@
+export AbstractBasis, content, base, index, change!
+
+"""
+    AbstractBasis
+
+Abstract type for all concrete `Basis` types. 
+A typical concrete `Basis` type usually has the field:
+
+- `dgt`: Digits representation of a state. For a symmetric basis like translational-invariant basis, `dgt` is just a representation of the state.
+- `I`  : List of indices in this basis.
+- `R`  : List of normalization of each state in the basis.
+- `B`  : Base of the basis.
+
+Correspondingly, there are property functions for a `Basis` type:
+
+- `digits` : Return digits representation.
+- `content`: Return list of indices in this basis.
+- `norm`   : Return list of norm.
+- `base`   : Return the base of the basis.
+
+In addition, we have the following property functions:
+
+- `eltype` : Used for type promotion when constructing matrix representation of an `Operator`.
+- `length` : Return the length of the digits of the basis.
+- `size`   : Return the size of the matrix that can be constructed for an `Operator`.
+
+The most inportant function for a `Basis` type is the index of a given digits and the digits representation of its ith content:
+
+- `index`  : Return the norm and the index of the digits of the given basis.
+- `change!`: Change the digits to the target index, and return the new normalization.
+
+If we want to calculate the schmidt decomposition (in real space), we can use the `schmidt` function.
+"""
+abstract type AbstractBasis end
+
+# Default function definitions:
+@inline digits(b::AbstractBasis) = b.dgt
+@inline content(b::AbstractBasis) = b.I
+@inline content(b::AbstractBasis, i::Integer) = b.I[i]
+@inline norm(b::AbstractBasis) = b.R
+@inline norm(b::AbstractBasis, i::Integer) = b.R[i]
+@inline base(b::AbstractBasis) = b.B
+@inline eltype(::AbstractBasis) = ComplexF64
+@inline length(b::AbstractBasis) = length(b.dgt)
+@inline size(b::AbstractBasis, i::Integer) = isone(i) || isequal(i, 2) ? length(b.I) : 1
+@inline size(b::AbstractBasis) = (size(b, 1), size(b, 2))
+@inline change!(b::AbstractBasis, i::Integer) = (change!(b.dgt, content(b, i), base=b.B); norm(b, i))
+
 #-----------------------------------------------------------------------------------------------------
 # Tensor Basis
 #-----------------------------------------------------------------------------------------------------
@@ -26,6 +74,20 @@ end
 @inline size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
 @inline index(b::TensorBasis) = 1, index(b.dgt, base=b.B)
 
+"""
+    schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
+
+Schmidt decomposition of state `v`, with respect to given lattice bipartition.
+
+Inputs:
+-------
+- `v`    : State represented by a (abstract) vector. 
+- `Ainds`: List of indices in subsystem `A`, the remaining indices are regarded as subsystem `B`.
+- `b`    : Basis.
+
+Outputs:
+- `S`: Matrix S in the decomposition: |v⟩ = Sᵢⱼ |Aᵢ⟩|Bⱼ⟩.
+"""
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
     S = SchmidtMatrix(eltype(v), b, Ainds)
     for i = 1:length(v)
@@ -43,6 +105,13 @@ export ProjectedBasis
     ProjectedBasis
 
 Basis for subspace that is spanned only by product states.
+It is basically like the `TensorBasis`, but contains only a subset of all basis vectors, selected by a given function.
+
+Properties:
+-----------
+- `dgt`: Digits.
+- `I`  : List of indicies.
+- `B`  : Base.
 """
 struct ProjectedBasis <: AbstractBasis
     dgt::Vector{Int64}
@@ -59,12 +128,70 @@ end
     ind > 0 ? (1, ind) : error("No such symmetry.")
 end
 
-function ProjectedBasis(f, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
+"""
+    ProjectedBasis(f, L; base=2, alloc=1000, threaded=false)
+
+Construction method for `ProjectedBasis`.
+
+Inputs:
+-------
+- `f`       : Selection function for the basis contents.
+- `L`       : Length of the system.
+- `base`    : Base, default = 2.
+- `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
+- `threaded`: Whether use the multithreading, default = true.
+
+Outputs:
+--------
+- `b`: ProjectedBasis.
+"""
+function ProjectedBasis(
+    f, L::Integer; 
+    base::Integer=2, 
+    alloc::Integer=1000, 
+    threaded::Bool=true
+)
     dgt = zeros(Int64, L)
     I = threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     ProjectedBasis(dgt, I, base)
 end
 
+function ProjectedBasis(
+    ;f, L::Integer, base::Integer=2, 
+    alloc::Integer=1000, threaded::Bool=true
+)
+    ProjectedBasis(f, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+"""
+    ProjectedBasis(;L, N, base=2, alloc=1000, threaded=true)
+
+Construction method for `ProjectedBasis` with fixed particle number (or total U(1) charge).
+
+Inputs:
+-------
+- `L`       : Length of the system.
+- `N`       : Total particle number / U(1) charge.
+- `base`    : Base, default = 2.
+- `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
+- `threaded`: Whether use the multithreading, default = true.
+
+Outputs:
+--------
+- `b` : ProjectedBasis.
+"""
+function ProjectedBasis(
+    ;L::Integer, N::Integer, base::Integer=2, 
+    alloc::Integer=1000, threaded::Bool=true
+)
+    ProjectedBasis(x->sum(x)==N, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+"""
+    schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ProjectedBasis)
+
+Schmidt decomposition for `ProjectedBasis`.
+"""
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ProjectedBasis)
     S = SchmidtMatrix(eltype(v), b, Ainds)
     for i = 1:length(v)
@@ -105,6 +232,19 @@ end
 """
     index(b::TranslationalBasis)
 
+Index of the state in `TranslationalBasis`, together with the normalization.
+
+Inputs:
+-------
+- `b`: TranslationalBasis.
+
+Outputs:
+--------
+- `N`  : Normalization for the state `b.dgt`.
+- `ind`: Index for the state `b.dgt`.
+
+Notes:
+------
 To calculate the index of a given digits, we first shift the digits to that of the minimum index, then search for the place in the basis.
 Because of the restriction from the momentum, some state with zero normalization (which is not included in the basis) will appear.
 To avoid exception in the matrix constructon of `Operation`, we allow the index to not in the basis content.
@@ -123,6 +263,11 @@ When this happend, we return index 1, and normalization 0, so it has no effect o
     N, ind
 end
 
+"""
+    TranslationJudge
+
+Structure used for selecting the basis contents.
+"""
 struct TranslationJudge
     F                   # Projective selection
     K::Int              # Momentum
@@ -144,7 +289,28 @@ function (judge::TranslationJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
     Q, N
 end
 
-function TranslationalBasis(f, k::Integer, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
+"""
+    TranslationalBasis(f, k, L; base=2, alloc=1000, threaded=true)
+
+Construction for `TranslationalBasis`.
+
+Inputs:
+-------
+- `f`       : Selection function for the basis contents.
+- `k`       : Momentum number from 0 to L-1.
+- `L`       : Length of the system.
+- `base`    : Base, default = 2.
+- `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
+- `threaded`: Whether use the multithreading, default = true.
+
+Outputs:
+--------
+- `b`: TranslationalBasis.
+"""
+function TranslationalBasis(
+    f, k::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+)
     dgt = zeros(Int64, L)
     judge = TranslationJudge(f, k, base, [L/sqrt(i) for i = 1:L])
     I, R = if threaded
@@ -162,10 +328,23 @@ function TranslationalBasis(f, k::Integer, L::Integer; base::Integer=2, alloc::I
     TranslationalBasis(dgt, I, R, C, base)
 end
 
-function TranslationalBasis(k::Integer, L::Integer; base::Integer=2, alloc::Integer=1000, threaded::Bool=false)
+function TranslationalBasis(
+    k::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+)
     TranslationalBasis(x -> true, k, L, base=base, alloc=alloc, threaded=threaded)
 end
 
+function TranslationalBasis(
+    ;L::Integer, f=x->true, k::Integer=0, 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+)
+    TranslationalBasis(f, k, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+"""
+Schmidt decomposition for `TranslationalBasis`.
+"""
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis)
     dgt, R, phase = b.dgt, b.R, b.C[2]
     S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
@@ -284,9 +463,28 @@ function (judge::TranslationParityJudge)(dgt::AbstractVector{<:Integer}, i::Inte
     Q, N
 end
 
+"""
+    TranslationParityBasis(f, k, p, L; base=2, alloc=1000, threaded=true)
+
+Construction for `TranslationParityBasis`.
+
+Inputs:
+-------
+- `f`       : Selection function for the basis contents.
+- `k`       : Momentum number from 0 to L-1.
+- `p`       : Parity number ±1.
+- `L`       : Length of the system.
+- `base`    : Base, default = 2.
+- `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
+- `threaded`: Whether use the multithreading, default = true.
+
+Outputs:
+--------
+- `b`: TranslationParityBasis.
+"""
 function TranslationParityBasis(
     f, K::Integer, P::Integer, L::Integer; 
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=false
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 )
     @assert iszero(K) || isequal(2K, L) "Momentum incompatible with parity."
     @assert isone(P) || isequal(P, -1) "Invalid parity"
@@ -311,8 +509,39 @@ function TranslationParityBasis(
     TranslationParityBasis(zeros(Int, L), I, R, C, P, base)
 end
 
-TranslationParityBasis(K, P, L; base=2, alloc=1000, threaded=false) = TranslationParityBasis(x -> true, K, P, L, base=base, alloc=alloc, threaded=threaded)
+function TranslationParityBasis(
+    K::Integer, P::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+) 
+    TranslationParityBasis(x -> true, K, P, L, base=base, alloc=alloc, threaded=threaded)
+end
 
+function TranslationParityBasis(
+    ;L::Integer, f=x->true, k::Integer=0, p::Integer=1, 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+) 
+    TranslationParityBasis(f, k, p, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+"""
+TranslationFlipBasis(f, k, p, L; base=2, alloc=1000, threaded=true)
+
+Construction for `TranslationFlipBasis`.
+
+Inputs:
+-------
+- `f`       : Selection function for the basis contents.
+- `k`       : Momentum number from 0 to L-1.
+- `p`       : Parity number (under spin flip) ±1.
+- `L`       : Length of the system.
+- `base`    : Base, default = 2.
+- `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
+- `threaded`: Whether use the multithreading, default = true.
+
+Outputs:
+--------
+- `b`: TranslationFlipBasis.
+"""
 function TranslationFlipBasis(
     f, K::Integer, P::Integer, L::Integer; 
     base::Integer=2, alloc::Integer=1000, threaded::Bool=false
@@ -341,8 +570,23 @@ function TranslationFlipBasis(
     TranslationFlipBasis(zeros(Int64, L), I, R, C, P, base)
 end
 
-TranslationFlipBasis(K, P, L; base=2, alloc=1000, threaded=false) = TranslationFlipBasis(x -> true, K, P, L, base=base, alloc=alloc, threaded=threaded)
+function TranslationFlipBasis(
+    K::Integer, P::Integer, L::Integer; 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=false
+) 
+    TranslationFlipBasis(x -> true, K, P, L, base=base, alloc=alloc, threaded=threaded)
+end
 
+function TranslationFlipBasis(
+    ;f=x->true, k::Integer=0, p::Integer=1, L::Integer,
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=false
+) 
+    TranslationFlipBasis(f, k, p, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+"""
+Helper function for `schmidt` on parity basis.
+"""
 function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis)
     dgt, R, phase = b.dgt, b.R, b.C[2]
     S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
@@ -353,7 +597,6 @@ function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integ
             addto!(S, val)
             cyclebits!(dgt)
             val *= phase
-            
         end
         dgt .= parity(dgt)
         val *= b.P
@@ -368,6 +611,7 @@ end
 
 schmidt(v, Ainds, b::TranslationParityBasis) = parity_schmidt(reverse, v, Ainds, b)
 schmidt(v, Ainds, b::TranslationFlipBasis) = parity_schmidt(x -> spinflip(x, b.B), v, Ainds, b)
+
 
 #-----------------------------------------------------------------------------------------------------
 # Double Basis
@@ -402,3 +646,28 @@ end
 @inline index(b::DoubleBasis) = index(b.B1)
 @inline size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
 @inline size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
+
+#-----------------------------------------------------------------------------------------------------
+# State
+#-----------------------------------------------------------------------------------------------------
+export productstate
+"""
+    productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
+
+Construction for product state.
+
+Inputs:
+-------
+- `v`: Vector representing the product state.
+- `B`: Basis.
+
+Outputs:
+- `s`: Vector representing the many-body state.
+"""
+function productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
+    s = zeros(size(B, 1))
+    B.dgt .= v 
+    I = index(B)[2]
+    s[I] = 1 
+    s
+end

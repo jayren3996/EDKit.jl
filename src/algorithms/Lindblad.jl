@@ -12,6 +12,9 @@ struct Lindblad{T1, T2}
     L::Vector{Matrix{T2}}
 end
 
+"""
+Construction for `Lindblad`.
+"""
 lindblad(H, L) = Lindblad(Array(H), [Array(l) for l in L])
 eltype(::Lindblad{T1, T2}) where {T1, T2} = promote_type(T1, T2)
 
@@ -34,7 +37,10 @@ function densitymatrix(i::Integer, L::Integer; base::Integer=2)
     DensityMatrix(ρ)
 end
 #---------------------------------------------------------------------------------------------------
-Array(dm::DensityMatrix) = dm.ρ
+Array(dm::DensityMatrix) = Hermitian(dm.ρ)
+"""
+Normalize the density operator so that tr[ρ]=1.
+"""
 function LinearAlgebra.normalize!(dm::DenseMatrix)
     dm.ρ ./= tr(dm.ρ)
 end

@@ -1,3 +1,6 @@
+#-------------------------------------------------------------------------------------------------------------------------
+# Index
+#-------------------------------------------------------------------------------------------------------------------------
 """
     index(dgt::AbstractVector{T}; base::Integer=2) where T <: Integer
 
@@ -126,11 +129,8 @@ Outputs:
 - `R`: List of normalization for each states.
 """
 function selectindexnorm(
-    f, 
-    L::Integer, 
-    rg::UnitRange; 
-    base::Integer=2, 
-    alloc::Integer=1000
+    f, L::Integer, rg::UnitRange; 
+    base::Integer=2, alloc::Integer=1000
 )
     dgt = zeros(Int64, L)
     I, R = Int[], Float64[]
@@ -196,10 +196,8 @@ Outputs:
 - `I`: List of indices in a basis.
 """
 function selectindex_threaded(
-    f, 
-    L::Integer; 
-    base::Integer=2, 
-    alloc::Integer=1000
+    f, L::Integer; 
+    base::Integer=2, alloc::Integer=1000
 )
     nt = Threads.nthreads()
     ni = dividerange(base^L, nt)
@@ -229,10 +227,8 @@ Outputs:
 - `R`: List of normalization for each states.
 """
 function selectindexnorm_threaded(
-    f, 
-    L::Integer; 
-    base::Integer=2, 
-    alloc::Integer=1000
+    f, L::Integer; 
+    base::Integer=2, alloc::Integer=1000
 )
     nt = Threads.nthreads()
     ni = dividerange(base^L, nt)
@@ -245,8 +241,9 @@ function selectindexnorm_threaded(
     I, R
 end
 
-
+#-------------------------------------------------------------------------------------------------------------------------
 # Level statistics
+#-------------------------------------------------------------------------------------------------------------------------
 export gapratio, meangapratio
 function gapratio(E::AbstractVector{<:Real})
     dE = diff(E)
@@ -264,3 +261,40 @@ function gapratio(E::AbstractVector{<:Real})
 end
 
 meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
+
+#-------------------------------------------------------------------------------------------------------------------------
+# LinearAlgebra
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    expm(A, order::Integer=10)
+
+Matrix exponential using Taylor expansion.
+"""
+function expm(A; order::Integer=10)
+    mat = I + A / order
+    order -= 1
+    while order > 0
+        mat = A * mat
+        mat ./= order
+        mat += I
+        order -= 1
+    end
+    mat
+end
+
+"""
+    expv(A, v::AbstractVecOrMat; order=10, λ=1)
+
+Compute exp(λA)*v using Taylor expansion
+"""
+function expv(A, v::AbstractVecOrMat; order::Integer=10, λ::Number=1)
+    vec = v + λ * A * v / order
+    order -= 1
+    while order > 0
+        vec = λ * A * vec
+        vec ./= order
+        vec += v
+        order -= 1
+    end
+    vec
+end

@@ -30,7 +30,26 @@ function Base.display(opt::Operator)
     println("Operator of size $(size(opt)) with $(length(opt)) terms.")
 end
 #---------------------------------------------------------------------------------------------------
-function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
+"""
+    operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
+
+Constructor for `Operator`. 
+
+Inputs:
+-------
+- `mats`: List of matrices for local operators.
+- `inds`: List of sites on which local operators act.
+- `B`   : Basis. 
+
+Outputs:
+--------
+- `O` : Operator.
+"""
+function operator(
+    mats::AbstractVector{<:AbstractMatrix}, 
+    inds::AbstractVector{<:AbstractVector}, 
+    B::AbstractBasis
+)
     num = length(mats)
     @assert num == length(inds) "Numbers mismatch: $num matrices and $(length(inds)) indices."
     dtype = promote_type(eltype.(mats)...)
@@ -53,16 +72,45 @@ function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<
     deleteat!(I, N+1:num)
     Operator(M, I, B)
 end
-#---------------------------------------------------------------------------------------------------
-function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
+
+function operator(
+    mats::AbstractVector{<:AbstractMatrix}, 
+    inds::AbstractVector{<:AbstractVector}, 
+    L::Integer
+)
     B = TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
     operator(mats, inds, B)
 end
-#---------------------------------------------------------------------------------------------------
-operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:Integer}, C) = operator(mats, [[i] for i in inds], C)
-operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, C) = operator([mat], [ind], C)
-operator(mats::AbstractVector{<:AbstractMatrix}, L::Integer) = operator(mats, [[i] for i in 1:L], L)
-operator(mats::AbstractVector{<:AbstractMatrix}, B::AbstractBasis) = operator(mats, [[i] for i in 1:length(B.dgt)], B)
+
+function operator(
+    mats::AbstractVector{<:AbstractMatrix}, 
+    inds::AbstractVector{<:Integer}, 
+    C
+) 
+    operator(mats, [[i] for i in inds], C)
+end
+
+function operator(
+    mat::AbstractMatrix, 
+    ind::AbstractVector{<:Integer}, 
+    C
+)
+    operator([mat], [ind], C)
+end
+
+function operator(
+    mats::AbstractVector{<:AbstractMatrix}, 
+    L::Integer
+) 
+    operator(mats, [[i] for i in 1:L], L)
+end
+
+function operator(
+    mats::AbstractVector{<:AbstractMatrix}, 
+    B::AbstractBasis
+) 
+    operator(mats, [[i] for i in 1:length(B.dgt)], B)
+end
 #---------------------------------------------------------------------------------------------------
 function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, B::AbstractBasis)
     L = length(B.dgt)
@@ -101,12 +149,13 @@ end
                 return i
             end
         end
-        error("Incompatible dimension: ($a, $b)")
+        error("Incompatible dimension: ($a, $b).")
     end
 end
+
 #---------------------------------------------------------------------------------------------------
 # Operator to matrices
-export addto!
+#---------------------------------------------------------------------------------------------------
 function addto!(M::AbstractMatrix, opt::Operator)
     for j = 1:size(opt.B, 2)
         colmn!(view(M, :, j), opt, j)
@@ -132,10 +181,10 @@ end
 #---------------------------------------------------------------------------------------------------
 LinearAlgebra.Hermitian(opt::Operator) = Array(opt) |> Hermitian
 LinearAlgebra.Symmetric(opt::Operator) = Array(opt) |> Symmetric
-LinearAlgebra.eigen(opt::Operator) = Array(opt) |> eigen!
-LinearAlgebra.eigvals(opt::Operator) = Array(opt) |>eigvals!
-LinearAlgebra.svd(opt::Operator) = Array(opt) |> svd!
-LinearAlgebra.svdvals(opt::Operator) = Array(opt) |> svdvals!
+LinearAlgebra.eigen(opt::Operator) = Array(opt) |> eigen
+LinearAlgebra.eigvals(opt::Operator) = Array(opt) |>eigvals
+LinearAlgebra.svd(opt::Operator) = Array(opt) |> svd
+LinearAlgebra.svdvals(opt::Operator) = Array(opt) |> svdvals
 #---------------------------------------------------------------------------------------------------
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     for j = 1:length(v)
@@ -143,20 +192,20 @@ function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     end
     target
 end
-#---------------------------------------------------------------------------------------------------
+
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     for j = 1:size(m, 1)
         colmn!(target, opt, j, view(m, j, :))
     end
     target
 end
-#---------------------------------------------------------------------------------------------------
+
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     M = zeros(ctype, size(opt, 1))
     mul!(M, opt, v)
 end
-#---------------------------------------------------------------------------------------------------
+
 function *(opt::Operator, m::AbstractMatrix)
     ctype = promote_type(eltype(opt), eltype(m))
     M = zeros(ctype, size(opt, 1), size(m, 2))
@@ -179,7 +228,7 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
     end
     change ? change!(b.dgt, I, j, base=b.B) : nothing
 end
-#---------------------------------------------------------------------------------------------------
+
 function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number=1)
     b, M, I = opt.B, opt.M, opt.I
     C = coeff / change!(b, j)
@@ -187,7 +236,7 @@ function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number
         colmn!(target, M[i], I[i], b, C)
     end
 end
-#---------------------------------------------------------------------------------------------------
+
 function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::AbstractVector{<:Number})
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
@@ -201,7 +250,7 @@ function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::A
     end
     change ? change!(b.dgt, I, j, base=b.B) : nothing
 end
-#---------------------------------------------------------------------------------------------------
+
 function colmn!(target::AbstractMatrix, opt::Operator, j::Integer, coeff::AbstractVector{<:Number})
     b, M, I = opt.B, opt.M, opt.I
     N = change!(b, j) .* coeff

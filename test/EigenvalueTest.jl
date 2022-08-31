@@ -364,8 +364,8 @@ end
     pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
     for L = 4:2:20
         for k in [0, L ÷ 2]
-            be = TranslationParityBasis(pxpf, k, +1, L)
-            bo = TranslationParityBasis(pxpf, k, -1, L)
+            be = TranslationParityBasis(f=pxpf, k=k, p=1, L=L)
+            bo = TranslationParityBasis(f=pxpf, k=k, p=-1, L=L)
             ba = TranslationalBasis(pxpf, k, L)
             ve = trans_inv_operator(mat, 2, be) |> Array |> Hermitian |> eigvals
             vo = trans_inv_operator(mat, 2, bo) |> Array |> Hermitian |> eigvals
@@ -383,8 +383,8 @@ end
         E = zeros(2^L)
         for k in 0:L-1
             ba = TranslationalBasis(k, L)
-            be = TranslationFlipBasis(k, 1, L)
-            bo = TranslationFlipBasis(k, -1, L)
+            be = TranslationFlipBasis(k=k, p=1, L=L)
+            bo = TranslationFlipBasis(k=k, p=-1, L=L)
             va = trans_inv_operator(zz, 2, ba) + trans_inv_operator(x, 1, ba) |> Array |> Hermitian |> eigvals
             ve = trans_inv_operator(zz, 2, be) + trans_inv_operator(x, 1, be) |> Array |> Hermitian |> eigvals
             vo = trans_inv_operator(zz, 2, bo) + trans_inv_operator(x, 1, bo) |> Array |> Hermitian |> eigvals
