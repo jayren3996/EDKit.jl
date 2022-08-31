@@ -157,7 +157,7 @@ function ProjectedBasis(
 end
 
 function ProjectedBasis(
-    ;f, L::Integer, base::Integer=2, 
+    f; L::Integer, base::Integer=2, 
     alloc::Integer=1000, threaded::Bool=true
 )
     ProjectedBasis(f, L, base=base, alloc=alloc, threaded=threaded)
