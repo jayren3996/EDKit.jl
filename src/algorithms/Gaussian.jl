@@ -1,7 +1,3 @@
-module GaussianStates
-using LinearAlgebra, Random, SparseArrays
-import Base: *
-
 #--------------------------------------------------------------------------------
 # Gaussian States
 #--------------------------------------------------------------------------------
@@ -59,15 +55,17 @@ function GaussianState(dtype::DataType, vec::AbstractVector{Bool})
     end
     GaussianState(dtype, pos, length(vec))
 end
-GaussianState(vec::AbstractVector{Bool}) = GaussianState(ComplexF64, vec)
-#--------------------------------------------------------------------------------
-export init_state
-"""
-    init_state(L::Integer, N::Integer; config::String="Z2")
 
-More initial configuration
+function GaussianState(vec::AbstractVector{Bool}) 
+    GaussianState(ComplexF64, vec)
+end
+
 """
-function init_state(L::Integer, N::Integer; config::String="Z2")
+    GaussianState(;L::Integer, N::Integer, config::String="Z2")
+
+More initial configuration.
+"""
+function GaussianState(;L::Integer, N::Integer, config::String="Z2")
     pos = if config == "center"
         l = (L-N)÷2
         l+1:l+N
@@ -131,7 +129,6 @@ end
 
 orthogonalize(B::AbstractMatrix) = Matrix(qr(B).Q)
 #--------------------------------------------------------------------------------
-export entropy
 """
     entropy(s::GaussianState, i::AbstractVector{<:Integer})
 
@@ -517,5 +514,3 @@ function insert_vector(A::AbstractMatrix, v::AbstractVector)
     orthogonalize(mat)
 end
 
-
-end
