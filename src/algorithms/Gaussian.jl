@@ -398,7 +398,7 @@ Projective Measure
 """
 function measure(qm::QuasiMode, s::GaussianState)
     v = vector(qm)
-    p = parent(v' * s.B)
+    p = (v' * s.B)[:]
     if rand() < real(dot(p, p))
         B = replace_vector(s.B, v, p)
         true, GaussianState(B, true)
