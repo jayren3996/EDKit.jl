@@ -131,3 +131,9 @@ function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBa
     s = ent_spec(v, Aind, b) .^ 2
     entropy(s, α=α, cutoff=cutoff)
 end
+
+function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, L::Integer; α::Real=1, cutoff::Real=1e-20)
+    b = TensorBasis(L, base=round(Int, length(v)^(1/L) ) )
+    s = ent_spec(v, Aind, b) .^ 2
+    entropy(s, α=α, cutoff=cutoff)
+end

@@ -65,6 +65,8 @@ struct TensorBasis <: AbstractBasis
     TensorBasis(L::Integer; base::Integer=2) = new(zeros(Int64, L), Int64(base))
 end
 
+TensorBasis(;L::Integer, base::Integer=2) = TensorBasis(L, base=base)
+
 @inline content(b::TensorBasis) = 1:b.B^length(b.dgt)
 @inline content(::TensorBasis, i::Integer) = i
 @inline norm(b::TensorBasis) = ones(Int64, B^length(b.dgt))
@@ -184,7 +186,8 @@ function ProjectedBasis(
     ;L::Integer, N::Integer, base::Integer=2, 
     alloc::Integer=1000, threaded::Bool=true
 )
-    ProjectedBasis(x->sum(x)==L*(base-1)-N, L, base=base, alloc=alloc, threaded=threaded)
+    num = L*(base-1)-N
+    ProjectedBasis(x->sum(x)==num, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
@@ -340,6 +343,14 @@ function TranslationalBasis(
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 )
     TranslationalBasis(f, k, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+function TranslationalBasis(
+    ;L::Integer, N::Integer, k::Integer=0, 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+)
+    num = L*(base-1)-N
+    TranslationalBasis(x->sum(x)==num, k, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
@@ -521,6 +532,14 @@ function TranslationParityBasis(
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 ) 
     TranslationParityBasis(f, k, p, L, base=base, alloc=alloc, threaded=threaded)
+end
+
+function TranslationParityBasis(
+    ;L::Integer, N::Integer, k::Integer=0, p::Integer=1, 
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+) 
+    num = L*(base-1)-N
+    TranslationParityBasis(x->sum(x)==num, k, p, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
