@@ -342,11 +342,13 @@ function TranslationalBasis(
     ;L::Integer, f=x->true, k::Integer=0, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 )
-    if !isnothing(N)
+    g = if !isnothing(N)
         num = L*(base-1)-N
-        f = x -> sum(x) == num && f(x)
+        f = x -> (sum(x) == num && f(x))
+    else 
+        f
     end
-    TranslationalBasis(f, k, L, base=base, alloc=alloc, threaded=threaded)
+    TranslationalBasis(g, k, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
