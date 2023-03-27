@@ -344,7 +344,7 @@ function TranslationalBasis(
 )
     g = if !isnothing(N)
         num = L*(base-1)-N
-        f = x -> (sum(x) == num && f(x))
+        x -> (sum(x) == num && f(x))
     else 
         f
     end
@@ -529,11 +529,13 @@ function TranslationParityBasis(
     ;L::Integer, f=x->true, k::Integer=0, p::Integer=1, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 ) 
-    if !isnothing(N)
+    g = if !isnothing(N)
         num = L*(base-1)-N
-        f = x -> sum(x) == num && f(x)
+        x -> (sum(x) == num && f(x))
+    else 
+        f
     end
-    TranslationParityBasis(f, k, p, L, base=base, alloc=alloc, threaded=threaded)
+    TranslationParityBasis(g, k, p, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 
