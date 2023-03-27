@@ -339,18 +339,14 @@ function TranslationalBasis(
 end
 
 function TranslationalBasis(
-    ;L::Integer, f=x->true, k::Integer=0, 
+    ;L::Integer, f=x->true, k::Integer=0, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 )
+    if !isnothing(N)
+        num = L*(base-1)-N
+        f = x -> sum(x) == num && f(x)
+    end
     TranslationalBasis(f, k, L, base=base, alloc=alloc, threaded=threaded)
-end
-
-function TranslationalBasis(
-    ;L::Integer, N::Integer, k::Integer=0, 
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
-)
-    num = L*(base-1)-N
-    TranslationalBasis(x->sum(x)==num, k, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
@@ -528,19 +524,17 @@ function TranslationParityBasis(
 end
 
 function TranslationParityBasis(
-    ;L::Integer, f=x->true, k::Integer=0, p::Integer=1, 
+    ;L::Integer, f=x->true, k::Integer=0, p::Integer=1, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 ) 
+    if !isnothing(N)
+        num = L*(base-1)-N
+        f = x -> sum(x) == num && f(x)
+    end
     TranslationParityBasis(f, k, p, L, base=base, alloc=alloc, threaded=threaded)
 end
 
-function TranslationParityBasis(
-    ;L::Integer, N::Integer, k::Integer=0, p::Integer=1, 
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
-) 
-    num = L*(base-1)-N
-    TranslationParityBasis(x->sum(x)==num, k, p, L, base=base, alloc=alloc, threaded=threaded)
-end
+
 
 """
 TranslationFlipBasis(f, k, p, L; base=2, alloc=1000, threaded=true)
