@@ -23,6 +23,7 @@ In addition, we have the following property functions:
 - `eltype` : Used for type promotion when constructing matrix representation of an `Operator`.
 - `length` : Return the length of the digits of the basis.
 - `size`   : Return the size of the matrix that can be constructed for an `Operator`.
+- `copy`   : Copy basis with a deep copied `dgt`.
 
 The most inportant function for a `Basis` type is the index of a given digits and the digits representation of its ith content:
 
@@ -75,7 +76,7 @@ TensorBasis(;L::Integer, base::Integer=2) = TensorBasis(L, base=base)
 @inline size(b::TensorBasis, i::Integer) = isone(i) || isequal(i, 2) ? b.B^length(b.dgt) : 1
 @inline size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
 @inline index(b::TensorBasis) = 1, index(b.dgt, base=b.B)
-
+@inline copy(b::TensorBasis) = TensorBasis(deepcopy(b.dgt), b.B)
 """
     schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
 
@@ -128,6 +129,11 @@ end
     i = index(b.dgt, base=b.B)
     ind = binary_search(b.I, i)
     ind > 0 ? (1, ind) : error("No such symmetry.")
+end
+
+function copy(b::ProjectedBasis) 
+    dgt = deepcopy(b.dgt)
+    ProjectedBasis(dgt, b.I, b.B)
 end
 
 """
@@ -264,6 +270,11 @@ When this happend, we return index 1, and normalization 0, so it has no effect o
         b.C[T+1] * b.R[i], i
     end
     N, ind
+end
+
+function copy(b::TranslationalBasis) 
+    dgt = deepcopy(b.dgt)
+    TranslationalBasis(dgt, b.I, b.R, b.C, b.B)
 end
 
 """
@@ -423,6 +434,14 @@ end
 
 @inline eltype(::TranslationParityBasis) = Float64
 @inline eltype(::TranslationFlipBasis{T}) where T = T
+function copy(b::TranslationParityBasis) 
+    dgt = deepcopy(b.dgt)
+    TranslationParityBasis(dgt, b.I, b.R, b.C, b.P, b.B)
+end
+function copy(b::TranslationFlipBasis)
+    dgt = deepcopy(b.dgt)
+    TranslationFlipBasis(dgt, b.I, b.R, b.C, b.P, b.B)
+end
 
 function translation_parity_index(parity, b::AbstractTranslationalParityBasis)
     reflect, i, t = translation_parity_index(parity, b.dgt, b.B)

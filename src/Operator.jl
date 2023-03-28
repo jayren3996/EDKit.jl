@@ -45,11 +45,7 @@ Outputs:
 --------
 - `O` : Operator.
 """
-function operator(
-    mats::AbstractVector{<:AbstractMatrix}, 
-    inds::AbstractVector{<:AbstractVector}, 
-    B::AbstractBasis
-)
+function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, B::AbstractBasis)
     num = length(mats)
     @assert num == length(inds) "Numbers mismatch: $num matrices and $(length(inds)) indices."
     dtype = promote_type(eltype.(mats)...)
@@ -73,44 +69,15 @@ function operator(
     Operator(M, I, B)
 end
 
-function operator(
+operator(
     mats::AbstractVector{<:AbstractMatrix}, 
     inds::AbstractVector{<:AbstractVector}, 
     L::Integer
-)
-    B = TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1])))
-    operator(mats, inds, B)
-end
-
-function operator(
-    mats::AbstractVector{<:AbstractMatrix}, 
-    inds::AbstractVector{<:Integer}, 
-    C
-) 
-    operator(mats, [[i] for i in inds], C)
-end
-
-function operator(
-    mat::AbstractMatrix, 
-    ind::AbstractVector{<:Integer}, 
-    C
-)
-    operator([mat], [ind], C)
-end
-
-function operator(
-    mats::AbstractVector{<:AbstractMatrix}, 
-    L::Integer
-) 
-    operator(mats, [[i] for i in 1:L], L)
-end
-
-function operator(
-    mats::AbstractVector{<:AbstractMatrix}, 
-    B::AbstractBasis
-) 
-    operator(mats, [[i] for i in 1:length(B.dgt)], B)
-end
+) = operator(mats, inds, TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1]))))
+operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:Integer}, C) = operator(mats, [[i] for i in inds], C)
+operator(mats::AbstractVector{<:AbstractMatrix}, L::Integer) = operator(mats, [[i] for i in 1:L], L)
+operator(mats::AbstractVector{<:AbstractMatrix}, B::AbstractBasis) = operator(mats, [[i] for i in 1:length(B.dgt)], B)
+operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, C) = operator([mat], [ind], C)
 #---------------------------------------------------------------------------------------------------
 function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, B::AbstractBasis)
     L = length(B.dgt)
@@ -195,6 +162,7 @@ function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     target
 end
 
+export mul
 """
 Multi-threaded operator multiplication.
 """
@@ -204,7 +172,7 @@ function mul(opt::Operator, v::AbstractVector)
     ni = dividerange(length(v), nt)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        opt_c = Operator(opt.M, opt.I, deepcopy(opt.B))
+        opt_c = Operator(opt.M, opt.I, copy(opt.B))
         for j in ni[i]
             colmn!(Ms[i], opt_c, j, v[j])
         end
@@ -212,13 +180,29 @@ function mul(opt::Operator, v::AbstractVector)
     sum(m for m in Ms)
 end
 
+function mul(opt::Operator, m::AbstractMatrix)
+    ctype = promote_type(eltype(opt), eltype(m))
+    nt = Threads.nthreads()
+    ni = dividerange(size(m,1), nt)
+    Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
+    Threads.@threads for i in 1:nt
+        opt_c = Operator(opt.M, opt.I, copy(opt.B))
+        for j in ni[i]
+            colmn!(Ms[i], opt_c, j, view(m, j, :))
+        end
+    end
+    sum(m for m in Ms)
+end
+
 function *(opt::Operator, v::AbstractVector)
+    length(v) > 5000 && Threads.nthreads() > 1 && return mul(opt, v)
     ctype = promote_type(eltype(opt), eltype(v))
     M = zeros(ctype, size(opt, 1))
     mul!(M, opt, v)
 end
 
 function *(opt::Operator, m::AbstractMatrix)
+    size(opt, 1) > 5000 && Threads.nthreads() > 1 && return mul(opt, m)
     ctype = promote_type(eltype(opt), eltype(m))
     M = zeros(ctype, size(opt, 1), size(m, 2))
     mul!(M, opt, m)
@@ -231,8 +215,9 @@ end
     colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
 
 Central helper function for operator multiplication. 
-For a local matrix `M` acting on indices `I`, `colmn!` return the j-th colume (given by `b.dgt`) in the many-body basis.
-The result is writen inplace on the vector `target`.
+
+For a local matrix `M` acting on indices `I`, `colmn!` return the j-th colume (given by `b.dgt`) in 
+the many-body basis. The result is writen inplace on the vector `target`.
 """
 function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
     rows, vals = rowvals(M), nonzeros(M)
@@ -245,7 +230,7 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
         target[pos] += isone(coeff) ? C * val : coeff * C * val
         change = true
     end
-    change && change!(b.dgt, I, j, base=b.B)
+    change && change!(b.dgt, I, j, base=b.B) 
     nothing
 end
 
@@ -258,6 +243,9 @@ function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number
     end
 end
 
+"""
+colume function for matrix.
+"""
 function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::AbstractVector{<:Number})
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
@@ -269,7 +257,8 @@ function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::A
         target[pos, :] .+= (C * val) .* coeff
         change = true
     end
-    change ? change!(b.dgt, I, j, base=b.B) : nothing
+    change && change!(b.dgt, I, j, base=b.B) 
+    nothing
 end
 
 function colmn!(target::AbstractMatrix, opt::Operator, j::Integer, coeff::AbstractVector{<:Number})

@@ -2,7 +2,7 @@ module EDKit
 
 using LinearAlgebra, SparseArrays, Random
 
-import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits
+import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, copy
 import LinearAlgebra: norm, mul!
 import SparseArrays: sparse
 
