@@ -31,6 +31,9 @@ end
 @inline index(b::DoubleBasis) = index(b.B1)
 @inline size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
 @inline size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
-
+function copy(b::DoubleBasis)
+    dgt = deepcopy(b.dgt) 
+    DoubleBasis(dgt, b.B1, b.B2, b.B)
+end
 
 
