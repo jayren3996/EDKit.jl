@@ -7,6 +7,7 @@ import LinearAlgebra: norm, mul!
 import SparseArrays: sparse
 
 include("Basis.jl")
+include("LinearMap.jl")
 include("Schmidt.jl")
 include("Symmetries.jl")
 include("Operator.jl")

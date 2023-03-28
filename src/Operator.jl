@@ -141,16 +141,11 @@ end
 -(opt1::Operator, opt2::Operator) = opt1 + (-opt2)
 #---------------------------------------------------------------------------------------------------
 @inline function find_base(a::Integer, b::Integer)
-    if b == 1
-        return a
-    else
-        for i=2:a
-            if i^b == a
-                return i
-            end
-        end
-        error("Incompatible dimension: ($a, $b).")
+    isone(b) && return a
+    for i in 2:a
+        i^b == a && return i
     end
+    error("Incompatible dimension: ($a, $b).")
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -200,6 +195,23 @@ function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     target
 end
 
+"""
+Multi-threaded operator multiplication.
+"""
+function mul(opt::Operator, v::AbstractVector)
+    ctype = promote_type(eltype(opt), eltype(v))
+    nt = Threads.nthreads()
+    ni = dividerange(length(v), nt)
+    Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
+    Threads.@threads for i in 1:nt
+        opt_c = Operator(opt.M, opt.I, deepcopy(opt.B))
+        for j in ni[i]
+            colmn!(Ms[i], opt_c, j, v[j])
+        end
+    end
+    sum(m for m in Ms)
+end
+
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     M = zeros(ctype, size(opt, 1))
@@ -215,6 +227,13 @@ end
 #---------------------------------------------------------------------------------------------------
 # Helper functions
 #---------------------------------------------------------------------------------------------------
+"""
+    colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
+
+Central helper function for operator multiplication. 
+For a local matrix `M` acting on indices `I`, `colmn!` return the j-th colume (given by `b.dgt`) in the many-body basis.
+The result is writen inplace on the vector `target`.
+"""
 function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
@@ -223,15 +242,17 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
         row, val = rows[i], vals[i]
         change!(b.dgt, I, row, base=b.B)
         C, pos = index(b)
-        target[pos] += coeff * C * val
+        target[pos] += isone(coeff) ? C * val : coeff * C * val
         change = true
     end
-    change ? change!(b.dgt, I, j, base=b.B) : nothing
+    change && change!(b.dgt, I, j, base=b.B)
+    nothing
 end
 
 function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number=1)
     b, M, I = opt.B, opt.M, opt.I
-    C = coeff / change!(b, j)
+    r = change!(b, j)
+    C = isone(r) ? coeff : coeff / r
     for i = 1:length(M)
         colmn!(target, M[i], I[i], b, C)
     end
