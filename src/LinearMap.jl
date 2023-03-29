@@ -19,9 +19,9 @@ struct DoubleBasis{Tb1<:AbstractBasis, Tb2<:AbstractBasis} <: AbstractBasis
     B1::Tb1
     B2::Tb2
     B::Int64
-    DoubleBasis(B1::AbstractBasis, B2::AbstractBasis) = new{typeof(B1), typeof(B2)}(B1.dgt, B1, B2, B2.B)
 end
 
+DoubleBasis(B1::AbstractBasis, B2::AbstractBasis) = DoubleBasis(B1.dgt, B1, B2, B2.B)
 @inline eltype(b::DoubleBasis) = promote_type(eltype(b.B1), eltype(b.B2))
 @inline function change!(b::DoubleBasis, i::Integer)
     N = change!(b.B2, i)
@@ -36,4 +36,22 @@ function copy(b::DoubleBasis)
     DoubleBasis(dgt, b.B1, b.B2, b.B)
 end
 
+#-----------------------------------------------------------------------------------------------------
+# Projector
+#-----------------------------------------------------------------------------------------------------
+function proj(B::DoubleBasis, v::AbstractVecOrMat)
+    B1, B2 = B.B1, B.B2
+    v2 = if isa(v, AbstractVector) 
+        zeros(eltype(v), size(B1, 1))
+    else
+        zeros(eltype(v), size(B1, 1), size(v, 2))
+    end
+    for i in 1:size(B,1)
+        R1 = change!(B1, i)
+        B2.dgt .= B1.dgt 
+        _, j = index(B2)
+        isa(v, AbstractVector) ? v2[i] = v[j]/R1 : v2[i, :] = v[j, :]/R1
+    end
+    v2
+end
 
