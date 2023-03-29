@@ -32,8 +32,7 @@ end
 @inline size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
 @inline size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
 function copy(b::DoubleBasis)
-    dgt = deepcopy(b.dgt) 
-    DoubleBasis(dgt, copy(b.B1), copy(b.B2), b.B)
+    DoubleBasis(copy(b.B1), copy(b.B2))
 end
 
 #-----------------------------------------------------------------------------------------------------
