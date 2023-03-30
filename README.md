@@ -10,15 +10,15 @@ Run the following script in the ```Pkg REPL``` environment:
 pkg> add EDKit
 ```
 
-## Documentation
-
-https://docs.juliahub.com/EDKit/JkYPS/0.4.0/
-
 ## Examples
 
-### Radom XXZ Model with Random
+## XXZ Model with Random Field
 
-Consider the Hamiltonian `H = ∑ᵢ (σᵢˣσᵢ₊₁ˣ + σᵢʸσᵢ₊₁ʸ + hᵢσᵢᶻσᵢ₊₁ᶻ)`. We choose the system size to be `L=10`. The Hamiltonian need 3 generic information: 
+Consider the Hamiltonian 
+```math
+H = \sum_i\left(\sigma_i^x \sigma^x_{i+1} + \sigma^y_i\sigma^y_{i+1} + h_i \sigma^z_i\sigma^z_{i+1}\right).
+```
+We choose the system size to be ``L=10``. The Hamiltonian need 3 generic information: 
 
 1. Local operators represented by matrices;
 2. Site indices where each local operator acts on;
@@ -108,9 +108,15 @@ julia> sparse(H)
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠙⠻⣦
 ```
 
-### Translational-invariant Systems
 
-Consider the AKLT model `H = ∑ᵢ S⃗ᵢ⋅S⃗ᵢ₊₁ + 1/3 ∑ᵢ (S⃗ᵢ⋅S⃗ᵢ₊₁)²`, with system size chosen to be `L=8`. The Hamiltonian operator for this translational-invariant Hamiltonian can be constructed using the `trans_inv_operator` function:
+
+## Solving AKLT Model Using Symmetries
+
+Consider the AKLT model 
+```math
+H = \sum_i\left[\vec S_i \cdot \vec S_{i+1} + \frac{1}{3}\left(\vec S_i \cdot \vec S_{i+1}\right)^2\right],
+```
+with system size chosen to be ``L=8``. The Hamiltonian operator for this translational-invariant Hamiltonian can be constructed using the `trans_inv_operator` function:
 
 ```julia
 L = 8
@@ -124,23 +130,23 @@ The second input specifies the indices the operators act on.
 Because of the translational symmetry, we can simplify the problem by considering the symmetry. We construct a translational-symmetric basis by:
 
 ```julia
-B = TranslationalBasis(0, 8, base=3)
+B = TranslationalBasis(L=8, k=8, base=3)
 ```
 
-Here the first argument labels the momentum `k = 0,...,L-1`, the second argument is the length of the system. The function `TranslationalBasis` return a basis object containing 834 states. We can obtain the Hamiltonian in this sector by:
+Here, `L` is the length of the system, and `k` labels the momentum ``k = 0,...,L-1`` (integer multiply of 2π/L). The function `TranslationalBasis` return a basis object containing 834 states. We can obtain the Hamiltonian in this sector by:
 
 ```julia
 julia> H = trans_inv_operator(mat, 1:2, B)
 Operator of size (834, 834) with 8 terms.
 ```
 
-In addition, we can take into account the total `Sz` conservation, by constructing the basis
+In addition, we can take into account the total ``S^z`` conservation, by constructing the basis
 
 ```julia
-B = TranslationalBasis(x -> sum(x) == 8, 0, 8, base=3)
+B = TranslationalBasis(L=8, N=8, k=0, base=3)
 ```
 
-where the first argument is the selection function. The function `(x -> sum(x) == 8)` means we select those states whose total `Sz` equalls 0 (note that we use 0,1,2 to label the `Sz=1,0,-1` states). This gives a further reduced Hamiltonian matrix:
+where the `N` is the filling number with respect to all-spin-down state. N=L means we select those states whose total `Sz` equalls 0 (note that we use 0,1,2 to label the `Sz=1,0,-1` states). This gives a further reduced Hamiltonian matrix:
 
 ```julia
 julia> H = trans_inv_operator(mat, 1:2, B)
@@ -150,12 +156,41 @@ Operator of size (142, 142) with 8 terms.
 We can go on step further by considering the spatial reflection symmetry.
 
 ```julia
-B = TranslationParityBasis(x -> sum(x) == 8, 0, 1, L, base=3)
+B = TranslationParityBasis(L=8, N=0, k=0, p=1, base=3)
 ```
 
-where the second argument is the momentum, the third argument is the parity `p = ±1`.
+where the `p` argument is the parity `p = ±1`.
 
 ```julia
 julia> H = trans_inv_operator(mat, 1:2, B)
 Operator of size (84, 84) with 8 terms.
 ```
+
+
+
+## PXP Model and Entanglement Entropy
+
+Consider the PXP model
+```math
+H = \sum_i \left(P^0_{i-1} \sigma^x_i P^0_{i+1}\right).
+```
+Note that the model is defined on the Hilbert space where there is no local ``|11\rangle\rangle`` configuration. For system size ``L=20`` and in sector ``k=0,p=+1``, the Hamiltonian is constructed by:
+```julia
+mat = begin
+    P = [1 0; 0 0]
+    kron(P, spin("X"), P)
+end
+pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
+basis = TranslationParityBasis(L=20, f=pxpf, k=0, p=1)
+H = trans_inv_operator(mat, 2, basis)
+```
+where `f` augument is the selection function for the basis state that can be user defined. We can then diagonalize the Hamiltonian. The bipartite entanglement entropy for each eigenstates can be computed by
+```julia
+vals, vecs = Array(H) |> Hermitian |> eigen
+EE = [ent_S(vecs[:,i], 1:L÷2, basis) for i=1:size(basis,1)]
+scatter(vals, EE, xlabel="E",ylabel="S",legend=false)
+```
+
+The plot is
+
+![](docs/src/EE.png)
