@@ -195,14 +195,12 @@ function mul(opt::Operator, m::AbstractMatrix)
 end
 
 function *(opt::Operator, v::AbstractVector)
-    length(v) > 5000 && Threads.nthreads() > 1 && return mul(opt, v)
     ctype = promote_type(eltype(opt), eltype(v))
     M = zeros(ctype, size(opt, 1))
     mul!(M, opt, v)
 end
 
 function *(opt::Operator, m::AbstractMatrix)
-    size(opt, 1) > 5000 && Threads.nthreads() > 1 && return mul(opt, m)
     ctype = promote_type(eltype(opt), eltype(m))
     M = zeros(ctype, size(opt, 1), size(m, 2))
     mul!(M, opt, m)
