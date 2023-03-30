@@ -174,7 +174,7 @@ Consider the PXP model
 ```math
 H = \sum_i \left(P^0_{i-1} \sigma^x_i P^0_{i+1}\right).
 ```
-Note that the model is defined on the Hilbert space where there is no local ``|11\rangle\rangle`` configuration. For system size ``L=20`` and in sector ``k=0,p=+1``, the Hamiltonian is constructed by:
+Note that the model is defined on the Hilbert space where there is no local ``|↑↑⟩`` configuration. For system size ``L=20`` and in sector ``k=0,p=+1``, the Hamiltonian is constructed by:
 ```julia
 mat = begin
     P = [1 0; 0 0]
