@@ -130,7 +130,7 @@ The second input specifies the indices the operators act on.
 Because of the translational symmetry, we can simplify the problem by considering the symmetry. We construct a translational-symmetric basis by:
 
 ```julia
-B = TranslationalBasis(L=8, k=8, base=3)
+B = TranslationalBasis(L=8, k=0, base=3)
 ```
 
 Here, `L` is the length of the system, and `k` labels the momentum ``k = 0,...,L-1`` (integer multiply of 2π/L). The function `TranslationalBasis` return a basis object containing 834 states. We can obtain the Hamiltonian in this sector by:
