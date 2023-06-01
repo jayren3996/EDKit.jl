@@ -86,3 +86,17 @@ function (B::DoubleBasis{<:AbstractPermuteBasis, <:AbstractOnsiteBasis})(v::Abst
     out
 end
 
+function (B::DoubleBasis{<:TranslationalBasis, <:AbstractTranslationalParityBasis})(v::AbstractVecOrMat)
+    dtype = promote_type(eltype(B), eltype(v))
+    out = isa(v, AbstractVector) ? zeros(dtype, size(B, 1)) : zeros(dtype, size(B, 1), size(v, 2))
+    B1, B2 = B.B1, B.B2
+    L = 2
+    for i in 1:size(B,1)
+        R1 = change!(B1, i)
+        B2.dgt .= B1.dgt 
+        N, j = index(B2)
+        iszero(N) && continue
+        isa(v, AbstractVector) ? out[i] = N * v[j] / R1 / L : out[i, :] = N * v[j, :] / R1 / L
+    end
+    out
+end

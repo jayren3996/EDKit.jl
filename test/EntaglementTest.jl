@@ -29,7 +29,7 @@ using LinearAlgebra, Test
     for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
         ts = Float64[]
         for i = 0:L-1
-            tb = TranslationalBasis(i, L, base = 3)
+            tb = TranslationalBasis(k=i, L=L, base = 3)
             H  = trans_inv_operator(rh, 2, tb)
             H += trans_inv_operator(spin((h, "z"), D=3), 1, tb)
             e, v = Array(H) |> Hermitian |> eigen
@@ -70,9 +70,9 @@ end
     EE(v, inds, basis) = [ent_S(v[:, i], inds, basis) for i=1:size(v, 2)]
 
     # K = 0
-    ba = TranslationalBasis(0, L, base=3)
-    be = TranslationParityBasis(0, +1, L, base=3)
-    bo = TranslationParityBasis(0, -1, L, base=3)
+    ba = TranslationalBasis(k=0, L=L, base=3)
+    be = TranslationParityBasis(k=0, p=+1, L=L, base=3)
+    bo = TranslationParityBasis(k=0, p=-1, L=L, base=3)
     va, ve, vo = solve(ba), solve(be), solve(bo)
     for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
         eea = EE(va, inds, ba)
@@ -82,9 +82,9 @@ end
     end
 
     # K = π
-    ba = TranslationalBasis(L÷2, L, base=3)
-    be = TranslationParityBasis(L÷2, +1, L, base=3)
-    bo = TranslationParityBasis(L÷2, -1, L, base=3)
+    ba = TranslationalBasis(k=L÷2, L=L, base=3)
+    be = TranslationParityBasis(k=L÷2, p=+1, L=L, base=3)
+    bo = TranslationParityBasis(k=L÷2, p=-1, L=L, base=3)
     va, ve, vo = solve(ba), solve(be), solve(bo)
     for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
         eea = EE(va, inds, ba)
@@ -113,9 +113,9 @@ end
     EE(v, inds, basis) = [ent_S(v[:, i], inds, basis) for i=1:size(v, 2)]
 
     for i = 0:L-1
-        ba = TranslationalBasis(i, L, base=3)
-        be = TranslationFlipBasis(i, +1, L, base=3)
-        bo = TranslationFlipBasis(i, -1, L, base=3)
+        ba = TranslationalBasis(k=i, L=L, base=3)
+        be = TranslationFlipBasis(k=i, p=+1, L=L, base=3)
+        bo = TranslationFlipBasis(k=i, p=-1, L=L, base=3)
         va, ve, vo = solve(ba), solve(be), solve(bo)
         for inds in Any[1:L÷2, [1,2], [3,5], [2,4,6]]
             eea = EE(va, inds, ba)

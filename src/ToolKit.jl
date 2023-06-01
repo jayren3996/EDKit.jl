@@ -298,3 +298,28 @@ function expv(A, v::AbstractVecOrMat; order::Integer=10, λ::Number=1)
     end
     vec
 end
+
+#-----------------------------------------------------------------------------------------------------
+# State
+#-----------------------------------------------------------------------------------------------------
+export productstate
+"""
+    productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
+
+Construction for product state.
+
+Inputs:
+-------
+- `v`: Vector representing the product state.
+- `B`: Basis.
+
+Outputs:
+- `s`: Vector representing the many-body state.
+"""
+function productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
+    s = zeros(size(B, 1))
+    B.dgt .= v 
+    I = index(B)[2]
+    s[I] = 1 
+    s
+end

@@ -1,4 +1,4 @@
-export ent_spec, ent_S, entropy
+
 """
 SchmidtMatrix{Tm <: Number, Ta <: SubArray, Tb <: SubArray, Ti <: Integer}
 
@@ -48,13 +48,96 @@ function addto!(S::SchmidtMatrix, val::Number)
     S.M[ia, ib] += val
 end
 
+#-----------------------------------------------------------------------------------------------------
+# Entanglement Entropy
+#-----------------------------------------------------------------------------------------------------
 """
-    Vector(v::AbstractVector, b::AbstractBasis)
+    schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
 
-Convert a state in the symmetry sector to the original state in tensor-product Hilbert space.
+Schmidt decomposition of state `v`, with respect to given lattice bipartition.
+
+Inputs:
+-------
+- `v`    : State represented by a (abstract) vector. 
+- `Ainds`: List of indices in subsystem `A`, the remaining indices are regarded as subsystem `B`.
+- `b`    : Basis.
+
+Outputs:
+- `S`: Matrix S in the decomposition: |v⟩ = Sᵢⱼ |Aᵢ⟩|Bⱼ⟩.
 """
-Vector(v::AbstractVector, b::AbstractBasis) = reshape(schmidt(v, 1:L, b), :)
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis)
+    S = SchmidtMatrix(eltype(v), b, Ainds)
+    for i = 1:length(v)
+        change!(b, i)
+        addto!(S, v[i])
+    end
+    Matrix(S)
+end
 
+"""
+    schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ProjectedBasis)
+
+Schmidt decomposition for `ProjectedBasis`.
+"""
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ProjectedBasis)
+    S = SchmidtMatrix(eltype(v), b, Ainds)
+    for i = 1:length(v)
+        change!(b, i)
+        addto!(S, v[i])
+    end
+    Matrix(S)
+end
+
+"""
+Schmidt decomposition for `TranslationalBasis`.
+"""
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis)
+    dgt, R, phase = b.dgt, b.R, b.C[2]
+    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    for i = 1:length(v)
+        change!(b, i)
+        val = v[i] / R[i]
+        for j in 1:length(dgt)
+            addto!(S, val)
+            cyclebits!(dgt)
+            val *= phase
+        end
+    end
+    Matrix(S)
+end
+
+"""
+Helper function for `schmidt` on parity basis.
+"""
+function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis)
+    dgt, R, phase = b.dgt, b.R, b.C[2]
+    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    for i = 1:length(v)
+        change!(b, i)
+        val = v[i] / R[i]
+        for j in 1:length(dgt)
+            addto!(S, val)
+            cyclebits!(dgt)
+            val *= phase
+        end
+        dgt .= parity(dgt)
+        val *= b.P
+        for j in 1:length(dgt)
+            addto!(S, val)
+            cyclebits!(dgt)
+            val *= phase
+        end
+    end
+    Matrix(S)
+end
+
+schmidt(v, Ainds, b::TranslationParityBasis) = parity_schmidt(reverse, v, Ainds, b)
+schmidt(v, Ainds, b::TranslationFlipBasis) = parity_schmidt(x -> spinflip(x, b.B), v, Ainds, b)
+
+#-----------------------------------------------------------------------------------------------------
+# Entanglement Entropy
+#-----------------------------------------------------------------------------------------------------
+export ent_spec, ent_S, entropy
 """
     ent_spec(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis)
 
