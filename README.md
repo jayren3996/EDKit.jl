@@ -12,6 +12,10 @@ pkg> add EDKit
 
 ## Examples
 
+Instead of providing documentation, I have chosen to introduce the functionality of this package through practical calculation examples. You can find a collection of Jupyter notebooks in the example folder, each showcasing various computations.
+
+Here are a few basic examples:
+
 ## XXZ Model with Random Field
 
 Consider the Hamiltonian 
@@ -182,7 +186,7 @@ mat = begin
 end
 pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
 basis = TranslationParityBasis(L=20, f=pxpf, k=0, p=1)
-H = trans_inv_operator(mat, 2, basis)
+H = trans_inv_operator(mat, 3, basis)
 ```
 where `f` augument is the selection function for the basis state that can be user defined. We can then diagonalize the Hamiltonian. The bipartite entanglement entropy for each eigenstates can be computed by
 ```julia

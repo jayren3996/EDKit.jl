@@ -22,10 +22,10 @@ struct Operator{Tv<:Number, Tb<:AbstractBasis}
     B::Tb
 end
 #---------------------------------------------------------------------------------------------------
-@inline eltype(opt::Operator{Tv, Tb}) where Tv where Tb = promote_type(Tv, eltype(opt.B))
-@inline length(opt::Operator) = length(opt.M)
-@inline size(opt::Operator) = size(opt.B)
-@inline size(opt::Operator, i::Integer) = size(opt.B, i)
+eltype(opt::Operator{Tv, Tb}) where Tv where Tb = promote_type(Tv, eltype(opt.B))
+length(opt::Operator) = length(opt.M)
+size(opt::Operator) = size(opt.B)
+size(opt::Operator, i::Integer) = size(opt.B, i)
 function Base.display(opt::Operator)
     println("Operator of size $(size(opt)) with $(length(opt)) terms.")
 end
@@ -107,7 +107,7 @@ end
 -(opt::Operator) = Operator(-opt.M, opt.I, opt.B)
 -(opt1::Operator, opt2::Operator) = opt1 + (-opt2)
 #---------------------------------------------------------------------------------------------------
-@inline function find_base(a::Integer, b::Integer)
+function find_base(a::Integer, b::Integer)
     isone(b) && return a
     for i in 2:a
         i^b == a && return i
@@ -118,6 +118,7 @@ end
 #---------------------------------------------------------------------------------------------------
 # Operator to matrices
 #---------------------------------------------------------------------------------------------------
+export addto!
 function addto!(M::AbstractMatrix, opt::Operator)
     for j = 1:size(opt.B, 2)
         colmn!(view(M, :, j), opt, j)
@@ -290,20 +291,19 @@ end
 end
 #---------------------------------------------------------------------------------------------------
 function spin_dict(c::Char, D::Integer)
-    if     isequal(c, '+') spin_Sp(D)
-    elseif isequal(c, '-') spin_Sm(D)
-    elseif isequal(c, 'x') spin_Sx(D)
-    elseif isequal(c, 'y') spin_iSy(D)
-    elseif isequal(c, 'z') spin_Sz(D)
-    elseif isequal(c, '1') spdiagm(ones(D))
-    elseif isequal(D, 2)
-        if     isequal(c, 'X') sparse([0 1; 1  0])
-        elseif isequal(c, 'Y') sparse([0 1;-1  0])
-        elseif isequal(c, 'Z') sparse([1 0; 0 -1])
-        else error("Invalid spin symbol: $c.")
-        end
-    else error("Invalid spin symbol: $c.")
-    end
+    isequal(c, '+') && return spin_Sp(D)
+    isequal(c, '-') && return spin_Sm(D)
+    isequal(c, 'x') && return spin_Sx(D)
+    isequal(c, 'y') && return spin_iSy(D)
+    isequal(c, 'z') && return spin_Sz(D)
+    isequal(c, '1') && return spdiagm(ones(D))
+    isequal(c, 'I') && return spdiagm(ones(D))
+
+    @assert isequal(D, 2) "Invalid spin symbol: $c."
+    isequal(c, 'X') && return sparse([0 1; 1  0])
+    isequal(c, 'Y') && return sparse([0 1;-1  0])
+    isequal(c, 'Z') && return sparse([1 0; 0 -1])
+    error("Invalid spin symbol: $c.")
 end
 #---------------------------------------------------------------------------------------------------
 """

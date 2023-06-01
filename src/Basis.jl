@@ -33,6 +33,9 @@ The most inportant function for a `Basis` type is the index of a given digits an
 If we want to calculate the schmidt decomposition (in real space), we can use the `schmidt` function.
 """
 abstract type AbstractBasis end
+abstract type AbstractOnsiteBasis <: AbstractBasis end
+abstract type AbstractPermuteBasis <: AbstractBasis end
+abstract type AbstractTranslationalParityBasis <: AbstractPermuteBasis end
 
 # Default function definitions:
 @inline digits(b::AbstractBasis) = b.dgt
@@ -48,7 +51,7 @@ abstract type AbstractBasis end
 @inline change!(b::AbstractBasis, i::Integer) = (change!(b.dgt, content(b, i), base=b.B); norm(b, i))
 
 #-----------------------------------------------------------------------------------------------------
-# Tensor Basis
+# Onsite Basis
 #-----------------------------------------------------------------------------------------------------
 export TensorBasis
 """
@@ -58,7 +61,7 @@ Basis without any symmetries. The index is computed by:
 
 `I(i₁, i₂, ⋯, iₙ) = i₁ B^(n-1) + i₂ B^(n-2) + ⋯ + iₙ`
 """
-struct TensorBasis <: AbstractBasis
+struct TensorBasis <: AbstractOnsiteBasis
     dgt::Vector{Int64}
     B::Int64
     TensorBasis(dgt::Vector{Int64}, B::Integer) = new(dgt, Int64(B))
@@ -99,9 +102,6 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorB
     end
     Matrix(S)
 end
-
-#-------------------------------------------------------------------------------------------------------------------------
-# Projected Basis
 #-------------------------------------------------------------------------------------------------------------------------
 export ProjectedBasis
 """
@@ -116,19 +116,23 @@ Properties:
 - `I`  : List of indicies.
 - `B`  : Base.
 """
-struct ProjectedBasis <: AbstractBasis
+struct ProjectedBasis <: AbstractOnsiteBasis
     dgt::Vector{Int64}
     I::Vector{Int64}
     B::Int64
     ProjectedBasis(dgt::Vector{Int64}, I::Vector{Int64}, B::Integer) = new(dgt, I, Int64(B))
 end
 
-@inline eltype(::ProjectedBasis) = Int
-@inline change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
-@inline function index(b::ProjectedBasis)
+eltype(::ProjectedBasis) = Int
+change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
+function index(b::ProjectedBasis; check::Bool=true)
     i = index(b.dgt, base=b.B)
     ind = binary_search(b.I, i)
-    ind > 0 ? (1, ind) : error("No such symmetry.")
+    if ind > 0 
+        return 1, ind
+    else
+        check ? error("No such symmetry.") : return zero(eltype(b)), 1
+    end
 end
 
 function copy(b::ProjectedBasis) 
@@ -189,11 +193,17 @@ Outputs:
 - `b` : ProjectedBasis.
 """
 function ProjectedBasis(
-    ;L::Integer, N::Integer, base::Integer=2, 
-    alloc::Integer=1000, threaded::Bool=true
+    ;L::Integer, f=x->true, N::Union{Nothing, Integer}=nothing,
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
 )
+    g = if !isnothing(N)
+        num = L*(base-1)-N
+        x -> (sum(x) == num && f(x))
+    else 
+        f
+    end
     num = L*(base-1)-N
-    ProjectedBasis(x->sum(x)==num, L, base=base, alloc=alloc, threaded=threaded)
+    ProjectedBasis(g, L, base=base, alloc=alloc, threaded=threaded)
 end
 
 """
@@ -227,7 +237,7 @@ Properties:
 - `C`  : Unit phase factor.
 - `B`  : Base.
 """
-struct TranslationalBasis{T <: Number} <: AbstractBasis
+struct TranslationalBasis{T <: Number} <: AbstractPermuteBasis
     dgt::Vector{Int64}
     I::Vector{Int}
     R::Vector{Float64}
@@ -384,7 +394,6 @@ end
 # Translational + Parity Basis
 #-------------------------------------------------------------------------------------------------------------------------
 export TranslationParityBasis, TranslationFlipBasis
-abstract type AbstractTranslationalParityBasis <: AbstractBasis end
 """
     TranslationParityBasis
 
