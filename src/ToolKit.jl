@@ -10,13 +10,13 @@ Convert a digits to the integer index using the relation:
 
 The summaton is evaluate using the efficieint polynomial evaluation method.
 """
-@inline function index(dgt::AbstractVector{T}; base::Integer=2) where T <: Integer
-    N = zero(T)
+@inline function index(dgt::AbstractVector{T}; base::Integer=2, dtype::DataType=T) where T <: Integer
+    N = zero(dtype)
     for i = 1:length(dgt)
         N *= base
         N += dgt[i]
     end
-    N + one(T)
+    N + one(dtype)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -24,13 +24,13 @@ end
 
 Convert a sub-digits (subarray of `dgt`) to the integer index.
 """
-@inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2) where T <: Integer
-    N = zero(T)
+@inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2, dtype::DataType=T) where T <: Integer
+    N = zero(dtype)
     for i in sites
         N *= base
         N += dgt[i]
     end
-    N + one(T)
+    N + one(dtype)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -150,13 +150,15 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 function selectindex_N(
     f, L::Integer, N::Integer;
-    base::Integer=2, alloc::Integer=1000, sorted::Bool=true
+    base::Integer=2, dtype::DataType=Int64, 
+    alloc::Integer=1000, sorted::Bool=true
 )
-    I = Int[]; sizehint!(I, alloc)
+    I = dtype[]
+    sizehint!(I, alloc)
     for dgt in multiexponents(L, N)
         isnothing(f) || f(dgt) || continue
         all(b < base for b in dgt) || continue
-        ind = index(dgt, base=base)
+        ind = index(dgt, base=base, dtype=dtype)
         append!(I, ind)
     end
     sorted ? sort(I) : I
@@ -164,14 +166,15 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 function selectindexnorm_N(
     f, L::Integer, N::Integer;
-    base::Integer=2, alloc::Integer=1000, sorted::Bool=true
+    base::Integer=2, dtype::DataType=Int64,
+    alloc::Integer=1000, sorted::Bool=true
 )
-    I, R = Int[], Float64[]
+    I, R = dtype[], Float64[]
     sizehint!(I, alloc)
     sizehint!(R, alloc)
     for dgt in multiexponents(L, N)
         all(b < base for b in dgt) || continue
-        i = index(dgt, base=base)
+        i = index(dgt, base=base, dtype=dtype)
         Q, N = f(dgt, i)
         Q || continue
         append!(I, i)

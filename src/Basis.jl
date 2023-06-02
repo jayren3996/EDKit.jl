@@ -95,11 +95,10 @@ Properties:
 - `I`  : List of indicies.
 - `B`  : Base.
 """
-struct ProjectedBasis <: AbstractOnsiteBasis
+struct ProjectedBasis{Ti <: Integer} <: AbstractOnsiteBasis
     dgt::Vector{Int64}
-    I::Vector{Int64}
+    I::Vector{Ti}
     B::Int64
-    ProjectedBasis(dgt::Vector{Int64}, I::Vector{Int64}, B::Integer) = new(dgt, I, Int64(B))
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -120,6 +119,7 @@ Outputs:
 - `b` : ProjectedBasis.
 """
 function ProjectedBasis(
+    dtype::DataType=Int64
     ;L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, 
     threaded::Bool=true, small_N::Bool=true
@@ -127,7 +127,7 @@ function ProjectedBasis(
     I = if isnothing(N)
         threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     elseif small_N
-        selectindex_N(f, L, N, base=base)
+        selectindex_N(f, L, N, base=base, dtype=dtype)
     else
         num = L*(base-1)-N
         g = isnothing(f) ? x -> sum(x) == num : x -> (sum(x) == num && f(x))
@@ -164,13 +164,12 @@ Properties:
 - `C`  : Unit phase factor.
 - `B`  : Base.
 """
-struct TranslationalBasis{T <: Number} <: AbstractPermuteBasis
+struct TranslationalBasis{Ti <: Integer, T <: Number} <: AbstractPermuteBasis
     dgt::Vector{Int64}
-    I::Vector{Int}
+    I::Vector{Ti}
     R::Vector{Float64}
     C::Vector{T}
     B::Int64
-    TranslationalBasis(dgt::Vector{Int64}, I, R, C::Vector{T}, B::Integer) where T = new{T}(dgt, I, R, C, Int64(B))
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -212,6 +211,7 @@ Outputs:
 - `b`: TranslationalBasis.
 """
 function TranslationalBasis(
+    dtype::DataType=Int64
     ;L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 )
@@ -222,8 +222,8 @@ function TranslationalBasis(
         g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
         TranslationJudge(g, k, base, [L/sqrt(i) for i = 1:L])
     end
-    I, R = if small_N
-        selectindexnorm_N(judge, L, N, base=base)
+    I, R = if small_N && !isnothing(N)
+        selectindexnorm_N(judge, L, N, base=base, dtype=dtype)
     else
         threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)        
     end
@@ -237,7 +237,7 @@ function TranslationalBasis(
     TranslationalBasis(zeros(Int64, L), I, R, C, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
-eltype(::TranslationalBasis{T}) where T = T
+eltype(::TranslationalBasis{Ti, T}) where {Ti, T} = T
 copy(b::TranslationalBasis) = TranslationalBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -288,14 +288,13 @@ Properties:
 - `P`  : {±1}, parity.
 - `B`  : Base.
 """
-struct TranslationParityBasis <: AbstractTranslationalParityBasis
+struct TranslationParityBasis{Ti <: Integer} <: AbstractTranslationalParityBasis
     dgt::Vector{Int64}    # Digits
-    I::Vector{Int}          # Representing states
-    R::Vector{Float64}      # Normalization
-    C::Vector{Int}          # Momentum phase exp(1im * 0/π) = {±1}
-    P::Int                  # {±1}, parity
-    B::Int64                # Base
-    TranslationParityBasis(dgt, I, R, C, P, B::Integer) = new(dgt, I, R, C, P, Int64(B))
+    I::Vector{Ti}         # Representing states
+    R::Vector{Float64}    # Normalization
+    C::Vector{Int}        # Momentum phase exp(1im * 0/π) = {±1}
+    P::Int                # {±1}, parity
+    B::Int64              # Base
 end
 #-------------------------------------------------------------------------------------------------------------------------
 struct TranslationParityJudge
@@ -342,6 +341,7 @@ Outputs:
 - `b`: TranslationParityBasis.
 """
 function TranslationParityBasis(
+    dtype::DataType=Int64
     ;L::Integer, f=nothing, k::Integer=0, p::Integer=1, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 ) 
@@ -356,12 +356,12 @@ function TranslationParityBasis(
         g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
         TranslationParityJudge(g, reverse, k, p, L, base, vcat(N1, N2))
     end
-    I, R = if small_N
-        selectindexnorm_N(judge, L, N, base=base)
+    I, R = if small_N && !isnothing(N)
+        selectindexnorm_N(judge, L, N, base=base, dtype=dtype)
     else
         threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
     end
-    C = iszero(k) ? fill(1.0, L) : [iseven(i) ? 1.0 : -1.0 for i=0:L-1]
+    C = iszero(k) ? fill(1, L) : [iseven(i) ? 1 : -1 for i=0:L-1]
     TranslationParityBasis(zeros(Int, L), I, R, C, p, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
