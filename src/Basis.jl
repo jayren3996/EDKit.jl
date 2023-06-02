@@ -48,7 +48,7 @@ abstract type AbstractTranslationalParityBasis <: AbstractPermuteBasis end
 @inline size(b::AbstractBasis, i::Integer) = isone(i) || isequal(i, 2) ? length(b.I) : 1
 @inline size(b::AbstractBasis) = (size(b, 1), size(b, 2))
 @inline change!(b::AbstractBasis, i::Integer) = (change!(b.dgt, content(b, i), base=b.B); norm(b, i))
-
+@inline int_type(b::AbstractBasis) = eltype(b.I)
 #-----------------------------------------------------------------------------------------------------
 # Onsite Basis
 #-----------------------------------------------------------------------------------------------------
@@ -139,9 +139,10 @@ end
 eltype(::ProjectedBasis) = Int
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
+int_type(::TensorBasis) = Int64
 #-------------------------------------------------------------------------------------------------------------------------
 function index(b::ProjectedBasis; check::Bool=true)
-    i = index(b.dgt, base=b.B)
+    i = index(b.dgt, base=b.B, dtype=int_type(b))
     ind = binary_search(b.I, i)
     ind > 0 && return 1, ind
     check ? error("No such symmetry.") : return zero(eltype(b)), 1
@@ -262,7 +263,7 @@ To avoid exception in the matrix constructon of `Operation`, we allow the index 
 When this happend, we return index 1, and normalization 0, so it has no effect on the matrix being filled.
 """
 function index(b::TranslationalBasis)
-    Im, T = translation_index(b.dgt, b.B)
+    Im, T = translation_index(b.dgt, b.B, dtype=int_type(b))
     i = binary_search(b.I, Im)
     # We allow the case where i is not in the basis.
     # In such case we add 0 to index 1.
@@ -434,7 +435,7 @@ copy(b::TranslationParityBasis) = TranslationParityBasis(deepcopy(b.dgt), b.I, b
 copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
 function translation_parity_index(parity, b::AbstractTranslationalParityBasis)
-    reflect, i, t = translation_parity_index(parity, b.dgt, b.B)
+    reflect, i, t = translation_parity_index(parity, b.dgt, b.B, dtype=int_type(b))
     ind = binary_search(b.I, i)
     iszero(ind) && return 0.0, 1
     n = reflect ? b.P * b.C[t+1] : b.C[t+1]

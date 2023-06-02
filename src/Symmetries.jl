@@ -109,7 +109,7 @@ function translation_index(dgt::AbstractVector{<:Integer}, base::Integer; dtype:
     Im, M = I0, 0
     cyclebits!(dgt)
     for i=1:length(dgt)-1
-        In = index(dgt, base=base)
+        In = index(dgt, base=base, dtype=dtype)
         if In == I0
             break
         elseif In < Im
