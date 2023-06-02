@@ -34,12 +34,13 @@ Convert a sub-digits (subarray of `dgt`) to the integer index.
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T <: Integer
+    change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) 
 
 Change the digits to that with the target index.  
 This method is the inverse of `index`.
 """
-@inline function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T <: Integer
+@inline function change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
+    T = promote_type(eltype(dgt), typeof(ind))
     N = convert(T, ind) - one(T)
     for i = length(dgt):-1:1
         N, dgt[i] = divrem(N, base)
@@ -47,12 +48,13 @@ This method is the inverse of `index`.
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) where T <: Integer
+    change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) 
 
 Change the sub-digits to that with the target index.  
 This method is the inverse of `index`.
 """
-@inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) where T <: Integer
+@inline function change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
+    T = promote_type(eltype(dgt), typeof(ind))
     N = convert(T, ind) - one(T)
     for i = length(sites):-1:1
         N, dgt[sites[i]] = divrem(N, base)
