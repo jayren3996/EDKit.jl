@@ -18,7 +18,7 @@ The summaton is evaluate using the efficieint polynomial evaluation method.
     end
     N + one(T)
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2) where T <: Integer
 
@@ -32,7 +32,7 @@ Convert a sub-digits (subarray of `dgt`) to the integer index.
     end
     N + one(T)
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T <: Integer
 
@@ -45,7 +45,7 @@ This method is the inverse of `index`.
         N, dgt[i] = divrem(N, base)
     end
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) where T <: Integer
 
@@ -58,7 +58,9 @@ This method is the inverse of `index`.
         N, dgt[sites[i]] = divrem(N, base)
     end
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
+# Search
+#-------------------------------------------------------------------------------------------------------------------------
 """
     binary_search(list::AbstractVector{<:Integer}, i<:Integer)
 
@@ -76,6 +78,9 @@ function binary_search(list::AbstractVector{<:Integer}, i::Integer)
     c
 end
 
+#-------------------------------------------------------------------------------------------------------------------------
+# Select basis vectors
+#-------------------------------------------------------------------------------------------------------------------------
 """
     selectindex(f, L, rg; base=2, alloc=1000)
 
@@ -94,11 +99,8 @@ Outputs:
 - `I`: List of indices in a basis.
 """
 function selectindex(
-    f, 
-    L::Integer, 
-    rg::UnitRange; 
-    base::Integer=2, 
-    alloc::Integer=1000
+    f, L::Integer, rg::UnitRange;
+    base::Integer=2, alloc::Integer=1000
 )
     dgt = zeros(Int64, L)
     I = Int[]
@@ -109,7 +111,7 @@ function selectindex(
     end
     I
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     selectindexnorm(f, L, rg; base=2, alloc=1000)
 
@@ -139,14 +141,50 @@ function selectindexnorm(
     for i in rg
         change!(dgt, i, base=base)
         Q, N = f(dgt, i)
-        if Q
-            append!(I, i)
-            append!(R, N)
-        end
+        Q || continue
+        append!(I, i)
+        append!(R, N)
     end
     I, R
 end
+#-------------------------------------------------------------------------------------------------------------------------
+function selectindex_N(
+    f, L::Integer, N::Integer;
+    base::Integer=2, alloc::Integer=1000, sorted::Bool=true
+)
+    I = Int[]; sizehint!(I, alloc)
+    for dgt in multiexponents(L, N)
+        isnothing(f) || f(dgt) || continue
+        all(b < base for b in dgt) || continue
+        ind = index(dgt, base=base)
+        append!(I, ind)
+    end
+    sorted ? sort(I) : I
+end
+#-------------------------------------------------------------------------------------------------------------------------
+function selectindexnorm_N(
+    f, L::Integer, N::Integer;
+    base::Integer=2, alloc::Integer=1000, sorted::Bool=true
+)
+    I, R = Int[], Float64[]
+    sizehint!(I, alloc)
+    sizehint!(R, alloc)
+    for dgt in multiexponents(L, N)
+        all(b < base for b in dgt) || continue
+        i = index(dgt, base=base)
+        Q, N = f(dgt, i)
+        Q || continue
+        append!(I, i)
+        append!(R, N)
+    end
+    sorted || return I, R
+    sperm = sortperm(I)
+    I[sperm], R[sperm]
+end
 
+#-------------------------------------------------------------------------------------------------------------------------
+# Select basis with multithreading
+#-------------------------------------------------------------------------------------------------------------------------
 """
     dividerange(maxnum::Integer, nthreads::Integer)
 
@@ -178,7 +216,7 @@ function dividerange(maxnum::Integer, nthreads::Integer)
     list[nthreads] = start:maxnum
     list
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     selectindex_threaded(f, L, rg; base=2, alloc=1000)
 
@@ -208,7 +246,7 @@ function selectindex_threaded(
     I = vcat(nI...)
     I
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     selectindexnorm_threaded(f, L, rg; base=2, alloc=1000)
 
@@ -281,7 +319,7 @@ function expm(A; order::Integer=10)
     end
     mat
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     expv(A, v::AbstractVecOrMat; order=10, λ=1)
 

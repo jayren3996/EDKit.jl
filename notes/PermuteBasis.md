@@ -31,42 +31,46 @@ Here the allowed momenta are $k=2 n \pi / L$, with $n=0, \ldots, L-1$, following
 
 A momentum state can be constructed using a reference state $|a\rangle$ (a single state in the $z$-component basis) and all its translations:
 $$
-|a(k)\rangle=\frac{1}{\sqrt{N_a}} \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^r|a\rangle .
+|a(k)\rangle=\frac{1}{R_a} \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^r|a\rangle .
 $$
-It can easily be verified that  $T|a(k)\rangle=\mathrm{e}^{i k}|a(k)\rangle$, which is the definition of a momentum state. If all the translated states $T^r|a\rangle$ are distinct, the normalization constant is just $N_a=L$. Some reference states have periodicities less than $L$, and this affects normalization. The periodicity of a state is defined as the smallest integer $R_a$ for which
+It can easily be verified that  $T|a(k)\rangle=\mathrm{e}^{i k}|a(k)\rangle$, which is the definition of a momentum state. If all the translated states $T^r|a\rangle$ are distinct, the normalization constant is just $\sqrt{L}$. Some reference states have periodicities less than $L$, and this affects normalization. The periodicity of a state is defined as the smallest integer $N_a$ for which
 $$
-T^{R_a}|a\rangle=|a\rangle, \quad R_a \in\{1, \ldots, N\} .
+T^{N_a}|a\rangle=|a\rangle, \quad N_a \in\{1, \ldots, L\} .
 $$
-If $R<L$, then there are multiple copies of the same state in the sum, and the normalization constant must be modified accordingly. 
+If $N_a < L$, then there are multiple copies of the same state in the sum, and the normalization constant must be modified accordingly. 
 
-> **Claim:** For given $|a\rangle$, the allowed momenta are those for which $k R_a = 2\pi m$. For the allowed momenta, the normalization constant is $N_a = L^2/R_a$.
+> **Claim:** For given $|a\rangle$, the allowed momenta are those for which $k N_a = 2\pi m$. For the allowed momenta, the normalization constant is $R_a = L/\sqrt{N_a}$.
 >
 > **Proof.** The periodicity of the representative has to be compatible with the momentum in order to be a viable state. The compatibility is related to normalizability. The sum of phase factors associated with the representative state $|a\rangle$ is
 > $$
-> F\left(k, R_a\right)=\sum_{n=0}^{N / R_a-1} \mathrm{e}^{-i k n R_a}= \begin{cases}N / R_a, & \text { if } k R_a \text { is a multiple of } 2 \pi \\ 0, & \text { otherwise }\end{cases}
+> F\left(k, N_a\right)=\sum_{n=0}^{L/N_a-1} \mathrm{e}^{-i k n N_a}
+> = \begin{cases}
+> L / N_a, & k N_a = 2 \pi m \\ 
+> 0, & \text { otherwise }
+> \end{cases}.
 > $$
 > The normalization constant is then
 > $$
-> N_a=\langle a(k) | a(k)\rangle=R_a\left|F\left(k, R_a\right)\right|^2.
+> R_a^2=\langle a(k) | a(k)\rangle=N_a\left|F\left(k, N_a\right)\right|^2.
 > $$
-> Therefore, if $F\left(k, R_a\right)=0$, no state with momentum $k$ can be defined using the reference state $|a\rangle$. Thus,  
+> Therefore, if $F\left(k, N_a\right)=0$, no state with momentum $k$ can be defined using the reference state $|a\rangle$. Thus,  
 > $$
 > k=\frac{2 \pi}{R_a} m, \quad
-> N_a = \frac{L^2}{R_a}.
+> R_a = \frac{L}{\sqrt{N_a}}.
 > $$
 
 We remark that the summation in the definition of $|a(k)\rangle$ can also be written as
 $$
-|a(k)\rangle = \frac{1}{\sqrt{R_a}}\sum_{r=0}^{R_a-1} e^{-ikr}T^r|a\rangle.
+|a(k)\rangle = \frac{1}{\sqrt{N_a}}\sum_{r=0}^{N_a-1} e^{-ikr}T^r|a\rangle.
 $$
-The coefficient is related to normalization $R_a^{-1/2} = N_a^{1/2}/L$.
+The coefficient is related to normalization $N_a^{-1/2} = R_a/L$.
 
 ### Matrix elements
 
 Consider the translational invariant Hamiltonian $H=\sum_{j=1}^L h_j$. We need to find the state resulting when $H$ acts on the momentum states. Since $[H, T]=0$ we can write
 $$
-H|a(k)\rangle = \frac{1}{\sqrt{N_a}} \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^r H|a\rangle
-= \frac{1}{\sqrt{N_a}} \sum_{j=1}^L \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^r h_j|a\rangle.
+H|a(k)\rangle = \frac{1}{R_a} \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^r H|a\rangle
+= \frac{1}{R_a} \sum_{j=1}^L \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^r h_j|a\rangle.
 $$
 We need to operate with the Hamiltonian operators $h_j$ only on the reference state. We can write $h_j|a\rangle= \sum_{b'}h_j(b',a)\left|b^{\prime}\right\rangle$. The prime in $\left|b^{\prime}\right\rangle$ is there to indicate that this new state is not necessarily one of the reference states used to define the basis and, therefore, a momentum state should not be written directly based on it. Provided that $\left|b^{\prime}\right\rangle$ is compatible with the momentum, there must be a reference state $\left|b\right\rangle$ which is related to it by 
 $$
@@ -74,12 +78,12 @@ $$
 $$
 Using this relation we have
 $$
-H|a(k)\rangle=\sum_{j,b'} \frac{h_j(b',a)}{\sqrt{N_a}} \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^{r-l(b')}\left|b_j\right\rangle
-=\sum_{j,b'} h_j(b',a) \mathrm{e}^{-i k l(b')} \sqrt{\frac{N_{b}}{N_a}}\left|b(k)\right\rangle.
+H|a(k)\rangle=\sum_{j,b'} \frac{h_j(b',a)}{R_a} \sum_{r=0}^{L-1} \mathrm{e}^{-i k r} T^{r-l(b')}\left|b_j\right\rangle
+=\sum_{j,b'} h_j(b',a) \mathrm{e}^{-i k l(b')} \frac{R_{b}}{R_a}\left|b(k)\right\rangle.
 $$
 We thus obtain the matrix element
 $$
-\langle a(k)|H|b(k)\rangle = \sum_{j=1}^L\sum_{b'} h_j(b',a) \mathrm{e}^{-i k l(b')} \sqrt{\frac{N_{b}}{N_a}}.
+\langle a(k)|H|b(k)\rangle = \sum_{j=1}^L\sum_{b'} h_j(b',a) \mathrm{e}^{-i k l(b')} \frac{R_{b}}{R_a}.
 $$
 
 ## Reflection and Spin-Flip Symmetry
@@ -100,14 +104,16 @@ For this operator we again have $Z^2=1$ and the eigenvalues $z= \pm 1$. Since $Z
 
 Consider the following extension of the momentum state:
 $$
-|a(k, p)\rangle=\frac{1}{\sqrt{N_a}} \sum_{r=0}^{N-1} \mathrm{e}^{-i k r} T^r(1+p P)|a\rangle,
+|a(k, p)\rangle=\frac{1}{R_a} \sum_{r=0}^{N-1}\sum_{s=0}^1 \mathrm{e}^{-i k r}p^s T^r P^s|a\rangle,
 $$
 where $p= \pm 1$. Clearly, this is a state with momentum $k$, but is it also an eigenstate of $P$ with parity $p$. We can check this by explicit operation with $P$, using $P^2=1, p^2=1$, and the relationship $P T=T^{-1} P$ :
 $$
-P|a(k, p)\rangle =\frac{1}{\sqrt{N_a}} \sum_{r=0}^{N-1} \mathrm{e}^{-i k r} T^{-r}(P+p)|a\rangle
- = \frac{p}{\sqrt{N_a}} \sum_{r=0}^{N-1} \mathrm{e}^{i k r} T^r(1+p P)|a\rangle .
+P|a(k, p)\rangle =\frac{1}{R_a} \sum_{r=0}^{N-1} \mathrm{e}^{-i k r} T^{-r}(P+p)|a\rangle
+ = \frac{p}{R_a} \sum_{r=0}^{N-1} \mathrm{e}^{i k r} T^r(1+p P)|a\rangle .
 $$
 This is not exactly of the original form unless $k=0$ or $\pi$, for which $\mathrm{e}^{i k r}=\mathrm{e}^{-i k r}$. Thus, in these two special cases, parity and translational invariance can be used simultaneously for block-diagonalization and $|a(k, p)\rangle$ is indeed a momentum state with parity $p$ (or, in other words, $[T, P]=0$ in the sub-spaces with momenta $k=0$ and $\pi$ ).
 
 ### General Abelian Symmetry
+
+The Abelian symmetry $G=Z_L\times Z_2$
 

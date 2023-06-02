@@ -1,5 +1,4 @@
 export AbstractBasis, content, base, index, change!
-
 """
     AbstractBasis
 
@@ -36,7 +35,7 @@ abstract type AbstractBasis end
 abstract type AbstractOnsiteBasis <: AbstractBasis end
 abstract type AbstractPermuteBasis <: AbstractBasis end
 abstract type AbstractTranslationalParityBasis <: AbstractPermuteBasis end
-
+#-------------------------------------------------------------------------------------------------------------------------
 # Default function definitions:
 @inline digits(b::AbstractBasis) = b.dgt
 @inline content(b::AbstractBasis) = b.I
@@ -68,9 +67,8 @@ struct TensorBasis <: AbstractOnsiteBasis
     TensorBasis(dgt::AbstractVector{<:Integer}, B::Integer) = new(collect(Int64, dgt), Int64(B))
     TensorBasis(L::Integer; base::Integer=2) = new(zeros(Int64, L), Int64(base))
 end
-
 TensorBasis(;L::Integer, base::Integer=2) = TensorBasis(L, base=base)
-
+#-------------------------------------------------------------------------------------------------------------------------
 @inline content(b::TensorBasis) = 1:b.B^length(b.dgt)
 @inline content(::TensorBasis, i::Integer) = i
 @inline norm(b::TensorBasis) = ones(Int64, B^length(b.dgt))
@@ -81,6 +79,8 @@ TensorBasis(;L::Integer, base::Integer=2) = TensorBasis(L, base=base)
 @inline index(b::TensorBasis) = 1, index(b.dgt, base=b.B)
 @inline copy(b::TensorBasis) = TensorBasis(deepcopy(b.dgt), b.B)
 
+#-------------------------------------------------------------------------------------------------------------------------
+# ProjectBasis
 #-------------------------------------------------------------------------------------------------------------------------
 export ProjectedBasis
 """
@@ -101,7 +101,7 @@ struct ProjectedBasis <: AbstractOnsiteBasis
     B::Int64
     ProjectedBasis(dgt::Vector{Int64}, I::Vector{Int64}, B::Integer) = new(dgt, I, Int64(B))
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     ProjectedBasis(;L, N, base=2, alloc=1000, threaded=true)
 
@@ -120,31 +120,31 @@ Outputs:
 - `b` : ProjectedBasis.
 """
 function ProjectedBasis(
-    ;L::Integer, f=x->true, N::Union{Nothing, Integer}=nothing,
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+    ;L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
+    base::Integer=2, alloc::Integer=1000, 
+    threaded::Bool=true, small_N::Bool=true
 )
-    g = if !isnothing(N)
+    I = if isnothing(N)
+        threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
+    elseif small_N
+        selectindex_N(f, L, N, base=base)
+    else
         num = L*(base-1)-N
-        x -> (sum(x) == num && f(x))
-    else 
-        f
+        g = isnothing(f) ? x -> sum(x) == num : x -> (sum(x) == num && f(x))
+        threaded ? selectindex_threaded(g, L, base=base, alloc=alloc) : selectindex(g, L, 1:base^L, base=base, alloc=alloc)
     end
-    dgt = zeros(Int64, L)
-    I = threaded ? selectindex_threaded(g, L, base=base, alloc=alloc) : selectindex(g, L, 1:base^L, base=base, alloc=alloc)
-    ProjectedBasis(dgt, I, base)
+    ProjectedBasis(zeros(Int64, L), I, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 eltype(::ProjectedBasis) = Int
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 change!(b::ProjectedBasis, i::Integer) = (change!(b.dgt, b.I[i], base=b.B); 1)
+#-------------------------------------------------------------------------------------------------------------------------
 function index(b::ProjectedBasis; check::Bool=true)
     i = index(b.dgt, base=b.B)
     ind = binary_search(b.I, i)
-    if ind > 0 
-        return 1, ind
-    else
-        check ? error("No such symmetry.") : return zero(eltype(b)), 1
-    end
+    ind > 0 && return 1, ind
+    check ? error("No such symmetry.") : return zero(eltype(b)), 1
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -172,7 +172,7 @@ struct TranslationalBasis{T <: Number} <: AbstractPermuteBasis
     B::Int64
     TranslationalBasis(dgt::Vector{Int64}, I, R, C::Vector{T}, B::Integer) where T = new{T}(dgt, I, R, C, Int64(B))
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     TranslationJudge
 
@@ -184,14 +184,14 @@ struct TranslationJudge
     B::Int              # Base
     C::Vector{Float64}  # Normalization coefficient
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 function (judge::TranslationJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
-    judge.F(dgt) || return false, 0.0
+    isnothing(judge.F) || judge.F(dgt) || return false, 0.0
     c, r = translation_check(dgt, i, judge.B)
     c && iszero(mod(r * judge.K, length(dgt))) && return true, judge.C[r]
     return false, 0.0
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     TranslationalBasis(f, k, L; base=2, alloc=1000, threaded=true)
 
@@ -212,18 +212,21 @@ Outputs:
 - `b`: TranslationalBasis.
 """
 function TranslationalBasis(
-    ;L::Integer, f=x->true, k::Integer=0, N::Union{Nothing, Integer}=nothing,
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+    ;L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing,
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 )
-    g = if !isnothing(N)
+    judge = if small_N || isnothing(N)
+        TranslationJudge(f, k, base, [L/sqrt(i) for i = 1:L])
+    else
         num = L*(base-1)-N
-        x -> (sum(x) == num && f(x))
-    else 
-        f
+        g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
+        TranslationJudge(g, k, base, [L/sqrt(i) for i = 1:L])
     end
-    dgt = zeros(Int64, L)
-    judge = TranslationJudge(g, k, base, [L/sqrt(i) for i = 1:L])
-    I, R = threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+    I, R = if small_N
+        selectindexnorm_N(judge, L, N, base=base)
+    else
+        threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)        
+    end
     C = if iszero(k)
         fill(1.0, L)
     elseif isequal(2k, L)
@@ -231,11 +234,12 @@ function TranslationalBasis(
     else
         [exp(-1im*2π/L*k*i) for i=0:L-1]
     end
-    TranslationalBasis(dgt, I, R, C, base)
+    TranslationalBasis(zeros(Int64, L), I, R, C, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 eltype(::TranslationalBasis{T}) where T = T
 copy(b::TranslationalBasis) = TranslationalBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.B)
+#-------------------------------------------------------------------------------------------------------------------------
 """
     index(b::TranslationalBasis)
 
@@ -260,14 +264,10 @@ When this happend, we return index 1, and normalization 0, so it has no effect o
 function index(b::TranslationalBasis)
     Im, T = translation_index(b.dgt, b.B)
     i = binary_search(b.I, Im)
-    N, ind = if iszero(i)
-        # Here we allow the case where i is not in the basis.
-        # In such case we add 0 to index 1.
-        zero(eltype(b)), 1
-    else
-        b.C[T+1] * b.R[i], i
-    end
-    N, ind
+    # We allow the case where i is not in the basis.
+    # In such case we add 0 to index 1.
+    iszero(i) && return zero(eltype(b)), 1
+    return b.C[T+1] * b.R[i], i
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -297,7 +297,7 @@ struct TranslationParityBasis <: AbstractTranslationalParityBasis
     B::Int64                # Base
     TranslationParityBasis(dgt, I, R, C, P, B::Integer) = new(dgt, I, R, C, P, Int64(B))
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 struct TranslationParityJudge
     F                   # Projective selection
     parity              # Parity operation acting on digits
@@ -307,9 +307,9 @@ struct TranslationParityJudge
     B::Int64            # Base
     C::Vector{Float64}  # Normalization coefficients
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 function (judge::TranslationParityJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
-    judge.F(dgt) || return false, 0.0
+    isnothing(judge.F) || judge.F(dgt) || return false, 0.0
     
     isrep, reflect, r, m = translation_parity_check(judge.parity, dgt, i, judge.B)
     isrep || return false, 0.0
@@ -321,7 +321,7 @@ function (judge::TranslationParityJudge)(dgt::AbstractVector{<:Integer}, i::Inte
     iszero(trans) && isone(judge.P) && return true, judge.C[judge.L+r]
     return false, 0.0
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
     TranslationParityBasis(f, k, p, L; base=2, alloc=1000, threaded=true)
 
@@ -342,23 +342,25 @@ Outputs:
 - `b`: TranslationParityBasis.
 """
 function TranslationParityBasis(
-    ;L::Integer, f=x->true, k::Integer=0, p::Integer=1, N::Union{Nothing, Integer}=nothing,
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true
+    ;L::Integer, f=nothing, k::Integer=0, p::Integer=1, N::Union{Nothing, Integer}=nothing,
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 ) 
     @assert iszero(k) || isequal(2k, L) "Momentum incompatible with parity."
     @assert isone(p) || isequal(p, -1) "Invalid parity"
-    g = if !isnothing(N)
-        num = L*(base-1)-N
-        x -> (sum(x) == num && f(x))
-    else 
-        f
-    end
-    judge = begin
-        N2 = [2L / sqrt(i) for i = 1:L]
-        N1 = N2 ./ sqrt(2)
+    N2 = [2L / sqrt(i) for i = 1:L]
+    N1 = N2 ./ sqrt(2)
+    judge = if small_N || isnothing(N)
         TranslationParityJudge(f, reverse, k, p, L, base, vcat(N1, N2))
+    else
+        num = L*(base-1)-N
+        g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
+        TranslationParityJudge(g, reverse, k, p, L, base, vcat(N1, N2))
     end
-    I, R = threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+    I, R = if small_N
+        selectindexnorm_N(judge, L, N, base=base)
+    else
+        threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+    end
     C = iszero(k) ? fill(1.0, L) : [iseven(i) ? 1.0 : -1.0 for i=0:L-1]
     TranslationParityBasis(zeros(Int, L), I, R, C, p, base)
 end
@@ -385,7 +387,7 @@ struct TranslationFlipBasis{T} <: AbstractTranslationalParityBasis
     P::Int                  # {±1}, parity
     B::Int                  # Base
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 """
 TranslationFlipBasis(f, k, p, L; base=2, alloc=1000, threaded=true)
 
@@ -430,19 +432,15 @@ eltype(::TranslationParityBasis) = Float64
 eltype(::TranslationFlipBasis{T}) where T = T
 copy(b::TranslationParityBasis) = TranslationParityBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.B)
 copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.B)
-
+#-------------------------------------------------------------------------------------------------------------------------
 function translation_parity_index(parity, b::AbstractTranslationalParityBasis)
     reflect, i, t = translation_parity_index(parity, b.dgt, b.B)
     ind = binary_search(b.I, i)
-    N, I = if iszero(ind)
-        0.0, 1
-    else
-        n = reflect ? b.P * b.C[t+1] : b.C[t+1]
-        n * b.R[ind], ind
-    end
-    N, I
+    iszero(ind) && return 0.0, 1
+    n = reflect ? b.P * b.C[t+1] : b.C[t+1]
+    return n * b.R[ind], ind
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
 index(b::TranslationParityBasis) = translation_parity_index(reverse, b)
 index(b::TranslationFlipBasis) = translation_parity_index(x -> spinflip(x, b.B), b)
 

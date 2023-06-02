@@ -5,8 +5,8 @@ using Test
 
 @testset "Basic" begin
     L = 10
-    b1 = TranslationalBasis(x -> sum(x) == 2, 0, L)
-    b2 = TranslationalBasis(x -> sum(x) == 0, 1, L)
+    b1 = TranslationalBasis(N=2, k=0, L=L)
+    b2 = TranslationalBasis(N=0, k=1, L=L)
     b = DoubleBasis(b1, b2)
     mat = rand(2,2) |> Hermitian
     H = trans_inv_operator(mat, 1, b) |> Array
@@ -35,8 +35,8 @@ end
     XY = spin((1, "+-"), (1, "-+"), (1, "z1"), (1, "1z"), D=3)
     A = 0.0
     for n = 1:2L
-        b1 = ProjectedBasis(x -> sum(x)==(n-1), L, base=3)
-        b2 = ProjectedBasis(x -> sum(x)==n, L, base=3)
+        b1 = ProjectedBasis(f=x -> sum(x)==(n-1), L=L, base=3)
+        b2 = ProjectedBasis(f=x -> sum(x)==n, L=L, base=3)
         basis = DoubleBasis(b1, b2)
         e1, v1 = trans_inv_operator(XY, 2, b1) |> Array |> Hermitian |> eigen
         e2, v2 = trans_inv_operator(XY, 2, b2) |> Array |> Hermitian |> eigen
