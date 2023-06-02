@@ -32,7 +32,7 @@ function translation_check(dgt::AbstractVector{<:Integer}, I0::Integer, base::In
     Q, R = true, length(dgt)
     cyclebits!(dgt)
     for i=1:length(dgt)-1
-        In = index(dgt, base=base)
+        In = index(dgt, base=base, dtype=typeof(I0))
         if In < I0
             Q = false
             R = 0
@@ -75,7 +75,7 @@ Outputs:
 function translation_check_min!(dgt::AbstractVector{<:Integer}, Im::Integer, base::Integer, R::Integer=length(dgt))
     Qm, Qs, M = true, false, 0
     for i=0:R-1
-        In = index(dgt, base=base)
+        In = index(dgt, base=base, dtype=typeof(Im))
         if In < Im
             Qm, Qs = false, false
             break
@@ -104,8 +104,8 @@ Outputs:
 - `Im`: Minimum index.
 - `M` : Cycling number by which `dgt` is shifted to have index `Im`.
 """
-function translation_index(dgt::AbstractVector{<:Integer}, base::Integer)
-    I0 = index(dgt, base=base)
+function translation_index(dgt::AbstractVector{<:Integer}, base::Integer; dtype::DataType=Int64)
+    I0 = index(dgt, base=base, dtype=dtype)
     Im, M = I0, 0
     cyclebits!(dgt)
     for i=1:length(dgt)-1
@@ -179,9 +179,9 @@ Outputs:
 - `Im`: Minimum index.
 - `M` : Minimum M that Tᴹ⋅|dgt⟩ = |Im⟩ or Tᴹ⋅P⋅|dgt⟩ = |Im⟩.
 """
-function translation_parity_index(parity, dgt::AbstractVector{<:Integer}, base::Integer)
-    Im1, T1 = translation_index(dgt, base)
-    Im2, T2 = translation_index(parity(dgt), base)
+function translation_parity_index(parity, dgt::AbstractVector{<:Integer}, base::Integer; dtype::DataType=Int64)
+    Im1, T1 = translation_index(dgt, base, dtype=dtype)
+    Im2, T2 = translation_index(parity(dgt), base, dtype=dtype)
     Qp, Im, M = if Im2 < Im1 
         true, Im2, T2
     else
