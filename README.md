@@ -1,34 +1,42 @@
 # EDKit.jl
 
-Julia package for general many-body exact diagonalization calculation. The package provide a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
+Julia package for general many-body exact diagonalization calculation. The package provides a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
 
 ## Installation
 
-Run the following script in the ```Pkg REPL``` environment:
+Run the following script in the Julia Pkg REPL environment:
 
 ```julia
 pkg> add EDKit
 ```
 
+Alternatively, you can install `EDKit` directly from GitHub using the following script. 
+
+```julia
+pkg> add https://github.com/jayren3996/EDKit.jl
+```
+
+This is useful if you want to access the latest version of `EDKit`, which includes new features not yet registered in the Julia Pkg system but may also contain bugs. 
+
 ## Examples
 
-Instead of providing documentation, I have chosen to introduce the functionality of this package through practical calculation examples. You can find a collection of Jupyter notebooks in the example folder, each showcasing various computations.
+Instead of providing documentation, I have chosen to introduce the functionality of this package through practical calculation examples. You can find a collection of Jupyter notebooks in the [examples](https://github.com/jayren3996/EDKit.jl/tree/main/examples) folder, each showcasing various computations.
 
 Here are a few basic examples:
 
-## XXZ Model with Random Field
+### XXZ Model with Random Field
 
 Consider the Hamiltonian 
 ```math
 H = \sum_i\left(\sigma_i^x \sigma^x_{i+1} + \sigma^y_i\sigma^y_{i+1} + h_i \sigma^z_i\sigma^z_{i+1}\right).
 ```
-We choose the system size to be ``L=10``. The Hamiltonian need 3 generic information: 
+We choose the system size to be ``L=10``. The Hamiltonian needs 3 pieces of information: 
 
 1. Local operators represented by matrices;
 2. Site indices where each local operator acts on;
-3. Basis, if use the default tensor-product basis, only need to provide the system size.
+3. Basis, if using the default tensor-product basis, only need to provide the system size.
 
-The following script generate the information we need to generate XXZ Hamiltonian:
+The following script generates the information we need to generate XXZ Hamiltonian:
 
 ```julia
 L = 10
@@ -52,7 +60,7 @@ julia> H = operator(mats, inds, L)
 Operator of size (1024, 1024) with 10 terms.
 ```
 
-The constructor return an `Operator` object, which is a linear operator that can act on vector/ matrix. For example, we can act `H` on the ferromagnetic state:
+The constructor returns an Operator object, a linear operator that can act on vector/ matrix. For example, we can act `H` on the ferromagnetic state:
 
 ```julia
 julia> ψ = zeros(2^L); ψ[1] = 1; H * random_state
@@ -112,15 +120,13 @@ julia> sparse(H)
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠙⠻⣦
 ```
 
-
-
-## Solving AKLT Model Using Symmetries
+### Solving AKLT Model Using Symmetries
 
 Consider the AKLT model 
 ```math
 H = \sum_i\left[\vec S_i \cdot \vec S_{i+1} + \frac{1}{3}\left(\vec S_i \cdot \vec S_{i+1}\right)^2\right],
 ```
-with system size chosen to be ``L=8``. The Hamiltonian operator for this translational-invariant Hamiltonian can be constructed using the `trans_inv_operator` function:
+with the system size chosen to be ``L=8``. The Hamiltonian operator for this translational-invariant Hamiltonian can be constructed using the `trans_inv_operator` function:
 
 ```julia
 L = 8
@@ -137,7 +143,7 @@ Because of the translational symmetry, we can simplify the problem by considerin
 B = TranslationalBasis(L=8, k=0, base=3)
 ```
 
-Here, `L` is the length of the system, and `k` labels the momentum ``k = 0,...,L-1`` (integer multiply of 2π/L). The function `TranslationalBasis` return a basis object containing 834 states. We can obtain the Hamiltonian in this sector by:
+Here, `L` is the length of the system, and `k` labels the momentum ``k = 0,...,L-1`` (integer multiplies of 2π/L). The function `TranslationalBasis` returns a basis object containing 834 states. We can obtain the Hamiltonian in this sector by:
 
 ```julia
 julia> H = trans_inv_operator(mat, 1:2, B)
@@ -150,14 +156,14 @@ In addition, we can take into account the total ``S^z`` conservation, by constru
 B = TranslationalBasis(L=8, N=8, k=0, base=3)
 ```
 
-where the `N` is the filling number with respect to all-spin-down state. N=L means we select those states whose total `Sz` equalls 0 (note that we use 0,1,2 to label the `Sz=1,0,-1` states). This gives a further reduced Hamiltonian matrix:
+where the `N` is the filling number with respect to the all-spin-down state. N=L means we select those states whose total `Sz` equals 0 (note that we use 0,1,2 to label the `Sz=1,0,-1` states). This gives a further reduced Hamiltonian matrix:
 
 ```julia
 julia> H = trans_inv_operator(mat, 1:2, B)
 Operator of size (142, 142) with 8 terms.
 ```
 
-We can go on step further by considering the spatial reflection symmetry.
+We can go one step further by considering the spatial reflection symmetry.
 
 ```julia
 B = TranslationParityBasis(L=8, N=0, k=0, p=1, base=3)
@@ -170,9 +176,7 @@ julia> H = trans_inv_operator(mat, 1:2, B)
 Operator of size (84, 84) with 8 terms.
 ```
 
-
-
-## PXP Model and Entanglement Entropy
+### PXP Model and Entanglement Entropy
 
 Consider the PXP model
 ```math
@@ -188,13 +192,9 @@ pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:le
 basis = TranslationParityBasis(L=20, f=pxpf, k=0, p=1)
 H = trans_inv_operator(mat, 3, basis)
 ```
-where `f` augument is the selection function for the basis state that can be user defined. We can then diagonalize the Hamiltonian. The bipartite entanglement entropy for each eigenstates can be computed by
+where `f` argument is the selection function for the basis state that can be user-defined. We can then diagonalize the Hamiltonian. The bipartite entanglement entropy for each eigenstate can be computed by
 ```julia
 vals, vecs = Array(H) |> Hermitian |> eigen
 EE = [ent_S(vecs[:,i], 1:L÷2, basis) for i=1:size(basis,1)]
-scatter(vals, EE, xlabel="E",ylabel="S",legend=false)
 ```
 
-The plot is
-
-![](docs/src/EE.png)
