@@ -55,37 +55,6 @@ struct TranslationJudge
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Return index of dgt starting from a specified site, and and be reversed.
-"""
-function cycle_index(dgt::AbstractVector{T}, start::Integer; base::Integer=2, dtype::DataType=T) where T <: Integer
-    N = zero(dtype)
-    base = convert(dtype, base)
-    for i = start:length(dgt)
-        N *= base
-        N += dgt[i]
-    end
-    for i = 1:start-1 
-        N *= base
-        N += dgt[i]
-    end
-    N + one(dtype)
-end
-#-------------------------------------------------------------------------------------------------------------------------
-"""
-    cyclebits!(dgt::AbstractVector{<:Integer}, a::Integer=1)
-
-Right-shift digits (in place).
-"""
-function cyclebits!(dgt::AbstractVector{<:Integer}, a::Integer=1)
-    p = dgt[end-a+1:end]
-    for i = length(dgt):-1:a+1
-        dgt[i] = dgt[i-a]
-    end
-    dgt[1:a] .= p
-    dgt
-end
-#-------------------------------------------------------------------------------------------------------------------------
-"""
 translation_check(dgt, I0, k, base; a=1)
 
 Check if the digits is of minimum index under cycling.
@@ -99,7 +68,7 @@ function translation_check!(dgt::AbstractVector{<:Integer}, I0::Integer, k::Inte
     len = length(dgt)÷a  # Maximum periodicity
     R = len
     for i=1:len-1
-        cyclebits!(dgt, a)
+        circshift!(dgt, a)
         In = index(dgt, base=base, dtype=typeof(I0))
         In < I0 && return (false, 0)  # Find smaller indices, return false.
         if isequal(In, I0)            # Find periodicity.
@@ -299,14 +268,14 @@ function translation_index(
     Im, M = I0, 0
     len = length(dgt)÷a
     for i=1:len-1
-        cyclebits!(dgt, a)
+        circshift!(dgt, a)
         In = index(dgt, base=base, dtype=dtype)
         isequal(In, I0) && return Im, M  # Reach one period, return result immediately.
         if In < Im                       # Find smaller index.
             Im, M = In, i
         end
     end
-    cyclebits!(dgt, a)  # Reset digit.
+    circshift!(dgt, a)  # Reset digit.
     Im, M
 end
 #-------------------------------------------------------------------------------------------------------------------------

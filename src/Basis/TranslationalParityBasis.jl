@@ -64,7 +64,7 @@ function translation_double_check!(
 
     # Test shifted indices
     for i=1:R-1
-        cyclebits!(dgt, a)
+        circshift!(dgt, a)
         In = index(dgt, base=base, dtype=typeof(I0))
         In < I0 && return (false, false, 0)
         isequal(In, I0) && return (true, true, i)

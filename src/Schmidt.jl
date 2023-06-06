@@ -166,7 +166,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Transla
         val = v[i] / R[i]
         for j in 1:length(dgt)÷b.A
             addto!(S, val)
-            cyclebits!(dgt, b.A)
+            circshift!(dgt, b.A)
             val *= phase
         end
     end
@@ -184,14 +184,14 @@ function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integ
         val = v[i] / R[i]
         for j in 1:length(dgt)÷b.A
             addto!(S, val)
-            cyclebits!(dgt, b.A)
+            circshift!(dgt, b.A)
             val *= phase
         end
         dgt .= parity(dgt)
         val *= b.P
         for j in 1:length(dgt)÷b.A
             addto!(S, val)
-            cyclebits!(dgt, b.A)
+            circshift!(dgt, b.A)
             val *= phase
         end
     end
