@@ -69,11 +69,11 @@ function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<
     Operator(M, I, B)
 end
 
-operator(
-    mats::AbstractVector{<:AbstractMatrix}, 
-    inds::AbstractVector{<:AbstractVector}, 
-    L::Integer
-) = operator(mats, inds, TensorBasis(L, base=find_base(size(mats[1], 1), length(inds[1]))))
+function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:AbstractVector}, L::Integer)
+    base = find_base(size(mats[1], 1), length(inds[1]))
+    basis = TensorBasis(L=L, base=base)
+    operator(mats, inds, basis)
+end
 operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<:Integer}, C) = operator(mats, [[i] for i in inds], C)
 operator(mats::AbstractVector{<:AbstractMatrix}, L::Integer) = operator(mats, [[i] for i in 1:L], L)
 operator(mats::AbstractVector{<:AbstractMatrix}, B::AbstractBasis) = operator(mats, [[i] for i in 1:length(B.dgt)], B)
@@ -88,7 +88,8 @@ function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer},
 end
 
 function trans_inv_operator(mat::AbstractMatrix, ind::AbstractVector{<:Integer}, L::Integer)
-    B = TensorBasis(L, base=find_base(size(mat, 1), length(ind)))
+    base = find_base(size(mat, 1), length(ind))
+    B = TensorBasis(L=L, base=base)
     trans_inv_operator(mat, ind, B)
 end
 

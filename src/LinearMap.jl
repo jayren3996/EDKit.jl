@@ -68,7 +68,7 @@ function (B::DoubleBasis{<:AbstractOnsiteBasis, <:AbstractPermuteBasis})(v::Abst
         B2.dgt .= B1.dgt 
         N, j = index(B2)
         iszero(N) && continue
-        isa(v, AbstractVector) ? out[i] = N * v[j] / L : out[i, :] = N * v[j, :] / L
+        isa(v, AbstractVector) ? out[i] = conj(N) * v[j] / L : out[i, :] = conj(N) * v[j, :] / L
     end
     out
 end
