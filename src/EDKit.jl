@@ -1,6 +1,6 @@
 module EDKit
 
-using LinearAlgebra, SparseArrays, Random, Combinatorics, StaticArrays
+using LinearAlgebra, SparseArrays, Random, Combinatorics
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, copy
 import LinearAlgebra: norm, mul!
@@ -11,6 +11,9 @@ include("Basis/ProjectedBasis.jl")
 include("Basis/TranslationalBasis.jl")
 include("Basis/TranslationalParityBasis.jl")
 include("Basis/TranslationalFlipBasis.jl")
+include("Basis/ParityBasis.jl")
+include("Basis/FlipBasis.jl")
+include("Basis/ParityFlipBasis.jl")
 
 include("LinearMap.jl")
 include("Schmidt.jl")

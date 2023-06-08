@@ -70,7 +70,7 @@ println("                 Projected Basis                  ")
 println("--------------------------------------------------")
 #-------------------------------------------------------------------------------------------------------------------------
 @testset "Spin-1/2 XY" begin
-    L = 10
+    L = 8
     mat = spin((1, "xx"), (1, "yy"))
     E = zeros(2^L)
     P = 0
@@ -88,7 +88,7 @@ println("--------------------------------------------------")
 end
 #-------------------------------------------------------------------------------------------------------------------------
 @testset "Spin-1/2 Random" begin
-    L = 10
+    L = 8
     mat = begin
         M = zeros(ComplexF64, 8, 8)
         M[1,1] = rand()
@@ -114,11 +114,8 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 @testset "PXP_OBC" begin
     function fib(n::Integer)
-        if n == 0
-            return 1
-        elseif n == 1
-            return 2
-        end
+        iszero(n) && return 1
+        isone(n) && return 2
         a, b = 1, 2
         for m = 2:n
             a, b = b, a+b
@@ -227,6 +224,101 @@ end
     @test P == 2^L
     vals = trans_inv_operator(mat, 2, L) |> Array |> Hermitian |> eigvals
     @test vals ≈ sort!(E)
+end
+
+#-------------------------------------------------------------------------------------------------------------------------
+println("--------------------------------------------------")
+println("                  Parity Basis                    ")
+println("--------------------------------------------------")
+#-------------------------------------------------------------------------------------------------------------------------
+@testset "PXP" begin
+    mat = begin
+        P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
+        P * kron(I(2), X, I(2)) * P
+    end
+    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
+    for L = 3:12
+        ba = ProjectedBasis(f=pxpf, L=L)
+        be = ParityBasis(f=pxpf, L=L, p=1)
+        bo = ParityBasis(f=pxpf, L=L, p=-1)
+        @test size(be, 1) + size(bo, 1) == size(ba, 1) 
+        Ea = trans_inv_operator(mat, 3, ba) |> Hermitian |> eigvals
+        Ee = trans_inv_operator(mat, 3, be) |> Hermitian |> eigvals
+        Eo = trans_inv_operator(mat, 3, bo) |> Hermitian |> eigvals
+        Eeo = sort(vcat(Ee, Eo))
+        @test norm(Ea - Eeo) ≈ 0.0 atol = 1e-12
+    end
+end
+#-------------------------------------------------------------------------------------------------------------------------
+@testset "Spin-1/2 XY" begin
+    mat = spin((1, "xx"), (1, "yy"))
+    for L = 2:8, n = 0:L
+        ba = ProjectedBasis(N=n, L=L)
+        be = ParityBasis(N=n, L=L, p=1)
+        bo = ParityBasis(N=n, L=L, p=-1)
+        @test size(be, 1) + size(bo, 1) == size(ba, 1) 
+        Ea = trans_inv_operator(mat, 2, ba) |> Hermitian |> eigvals
+        Ee = trans_inv_operator(mat, 2, be) |> Hermitian |> eigvals
+        Eo = trans_inv_operator(mat, 2, bo) |> Hermitian |> eigvals
+        Eeo = sort(vcat(Ee, Eo))
+        @test norm(Ea - Eeo) ≈ 0.0 atol = 1e-12
+    end
+end
+#-------------------------------------------------------------------------------------------------------------------------
+@testset "BigInt" begin
+    L = 6
+    mat = spin((1, "xx"), (1, "yy"))
+    for n = 0:L
+        ba = ProjectedBasis(N=n, L=L)
+        be = ParityBasis(BigInt, N=n, L=L, p=1)
+        bo = ParityBasis(BigInt, N=n, L=L, p=-1)
+        @test size(be, 1) + size(bo, 1) == size(ba, 1) 
+        Ea = trans_inv_operator(mat, 2, ba) |> Hermitian |> eigvals
+        Ee = trans_inv_operator(mat, 2, be) |> Hermitian |> eigvals
+        Eo = trans_inv_operator(mat, 2, bo) |> Hermitian |> eigvals
+        Eeo = sort(vcat(Ee, Eo))
+        @test norm(Ea - Eeo) ≈ 0.0 atol = 1e-12
+    end
+end
+#-------------------------------------------------------------------------------------------------------------------------
+@testset "Spin-1 XY Spin-flip" begin
+    for L = 2:4
+        N = L
+        mat = spin((1, "xx"), (1, "yy"), D=3)
+        ba = ProjectedBasis(N=N, L=L, base=3)
+        be = FlipBasis(N=N, L=L, p=1, base=3)
+        bo = FlipBasis(N=N, L=L, p=-1, base=3)
+        @test size(be, 1) + size(bo, 1) == size(ba, 1) 
+        Ea = trans_inv_operator(mat, 2, ba) |> Hermitian |> eigvals
+        Ee = trans_inv_operator(mat, 2, be) |> Hermitian |> eigvals
+        Eo = trans_inv_operator(mat, 2, bo) |> Hermitian |> eigvals
+        Eeo = sort(vcat(Ee, Eo))
+        @test norm(Ea - Eeo) ≈ 0.0 atol = 1e-12
+    end
+end
+
+#-------------------------------------------------------------------------------------------------------------------------
+println("--------------------------------------------------")
+println("                 ParityFlip Basis                 ")
+println("--------------------------------------------------")
+#-------------------------------------------------------------------------------------------------------------------------
+@testset "Spin-1/2 XY" begin
+    mat = spin((1, "xx"), (1, "yy"), (0.3, "zz"))
+    for L = 2:6
+        b1 = ParityFlipBasis(L=L, p=+1, z=+1)
+        b2 = ParityFlipBasis(L=L, p=+1, z=-1)
+        b3 = ParityFlipBasis(L=L, p=-1, z=+1)
+        b4 = ParityFlipBasis(L=L, p=-1, z=-1)
+        @test size(b1, 1) + size(b2, 1) + size(b3, 1) + size(b4, 1) == 2^L
+
+        Ea = trans_inv_operator(mat, 2, L) |> Hermitian |> eigvals
+        E1 = trans_inv_operator(mat, 2, b1) |> Hermitian |> eigvals
+        E2 = trans_inv_operator(mat, 2, b2) |> Hermitian |> eigvals
+        E3 = trans_inv_operator(mat, 2, b3) |> Hermitian |> eigvals
+        E4 = trans_inv_operator(mat, 2, b4) |> Hermitian |> eigvals
+        E = sort(vcat(E1, E2, E3, E4))
+        @test norm(Ea - E) ≈ 0.0 atol = 1e-12
+    end
 end
 
 

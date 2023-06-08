@@ -11,10 +11,10 @@ Properties:
 - `I`  : List of indicies.
 - `B`  : Base.
 """
-struct ProjectedBasis{Ti <: Integer} <: AbstractOnsiteBasis
-    dgt::Vector{Int64}
-    I::Vector{Ti}
-    B::Int64
+struct ProjectedBasis{T <: Integer} <: AbstractOnsiteBasis
+    dgt::Vector{T}
+    I::Vector{T}
+    B::T
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -23,10 +23,10 @@ Deep copy digits.
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
 function index(b::ProjectedBasis; check::Bool=true)
-    i = index(b.dgt, base=b.B, dtype=int_type(b))
+    i = index(b.dgt, base=b.B)
     ind = binary_search(b.I, i)
     ind > 0 && return 1, ind
-    check ? error("No such symmetry.") : return zero(eltype(b)), 1
+    check ? error("No such symmetry.") : return zero(eltype(b)), one(ind)
 end
 
 
@@ -69,8 +69,8 @@ Outputs:
 --------
 - `list`: List of ranges.
 """
-function dividerange(maxnum::Integer, nthreads::Integer)
-    list = Vector{UnitRange{Int64}}(undef, nthreads)
+function dividerange(maxnum::T, nthreads::Integer) where T <: Integer
+    list = Vector{UnitRange{T}}(undef, nthreads)
     eachthreads, left = divrem(maxnum, nthreads)
     start = 1
     for i = 1:left
@@ -104,12 +104,9 @@ Outputs:
 --------
 - `I`: List of indices in a basis.
 """
-function selectindex(
-    f, L::Integer, rg::UnitRange;
-    base::Integer=2, alloc::Integer=1000
-)
-    dgt = zeros(Int64, L)
-    I = Int[]
+function selectindex(f, L::Integer, rg::UnitRange{T}; base::Integer=2, alloc::Integer=1000) where T <: Integer
+    dgt = zeros(T, L)
+    I = T[]
     sizehint!(I, alloc)
     for i in rg
         change!(dgt, i, base=base)
@@ -134,13 +131,10 @@ Outputs:
 --------
 - `I`: List of indices in a basis.
 """
-function selectindex_threaded(
-    f, L::Integer; 
-    base::Integer=2, alloc::Integer=1000
-)
+function selectindex_threaded(f, L::Integer; base::T=2, alloc::Integer=1000) where T <: Integer
     nt = Threads.nthreads()
     ni = dividerange(base^L, nt)
-    nI = Vector{Vector{Int}}(undef, nt)
+    nI = Vector{Vector{T}}(undef, nt)
     Threads.@threads for ti in 1:nt
         nI[ti] = selectindex(f, L, ni[ti], base=base, alloc=alloc)
     end
@@ -148,17 +142,13 @@ function selectindex_threaded(
     I
 end
 #-------------------------------------------------------------------------------------------------------------------------
-function selectindex_N(
-    f, L::Integer, N::Integer;
-    base::Integer=2, dtype::DataType=Int64, 
-    alloc::Integer=1000, sorted::Bool=true
-)
-    I = dtype[]
+function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000, sorted::Bool=true) where T <: Integer
+    I = T[]
     sizehint!(I, alloc)
     for dgt in multiexponents(L, N)
         isnothing(f) || f(dgt) || continue
         all(b < base for b in dgt) || continue
-        ind = index(dgt, base=base, dtype=dtype)
+        ind = index(dgt, base=base)
         append!(I, ind)
     end
     sorted ? sort(I) : I
@@ -183,21 +173,21 @@ Outputs:
 --------
 - `b` : ProjectedBasis.
 """
-function ProjectedBasis(
-    dtype::DataType=Int64
-    ;L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
+function ProjectedBasis(dtype::DataType=Int64;
+    L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, 
     threaded::Bool=true, small_N::Bool=true
 )
+    base = convert(dtype, base)
     I = if isnothing(N)
         threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)
     elseif small_N
-        selectindex_N(f, L, N, base=base, dtype=dtype)
+        selectindex_N(f, L, N, base=base)
     else
-        num = L*(base-1)-N
+        num = L * (base-1) - N
         g = isnothing(f) ? x -> sum(x) == num : x -> (sum(x) == num && f(x))
         threaded ? selectindex_threaded(g, L, base=base, alloc=alloc) : selectindex(g, L, 1:base^L, base=base, alloc=alloc)
     end
-    ProjectedBasis(zeros(Int64, L), I, base)
+    ProjectedBasis(zeros(dtype, L), I, base)
 end
 

@@ -138,16 +138,14 @@ Inputs:
 -------
 - `dgt`  : Digits.
 - `base` : Base.
-- `dtype`: Data type of the index.
 """
-@inline function index(dgt::AbstractVector{T}; base::Integer=2, dtype::DataType=T) where T <: Integer
-    N = zero(dtype)
-    base = convert(dtype, base)
+@inline function index(dgt::AbstractVector{<:Integer}; base::T=2) where T <: Integer
+    N = zero(T)
     for i = 1:length(dgt)
         N *= base
         N += dgt[i]
     end
-    N + one(dtype)
+    N + one(T)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -156,14 +154,13 @@ end
 
 Convert a sub-digits (subarray of `dgt`) to the integer index.
 """
-@inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::Integer=2, dtype::DataType=T) where T <: Integer
-    N = zero(dtype)
-    base = convert(dtype, base)
+@inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::T=2) where T <: Integer
+    N = zero(T)
     for i in sites
         N *= base
         N += dgt[i]
     end
-    N + one(dtype)
+    N + one(T)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -172,9 +169,8 @@ end
 Change the digits to that with the target index.  
 This method is the inverse of `index`.
 """
-@inline function change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
-    T = promote_type(eltype(dgt), typeof(ind))
-    N = convert(T, ind) - one(T)
+@inline function change!(dgt::AbstractVector{T}, ind::T; base::T=2) where T
+    N = ind - one(T)
     for i = length(dgt):-1:1
         N, dgt[i] = divrem(N, base)
     end
@@ -186,9 +182,8 @@ end
 Change the sub-digits to that with the target index.  
 This method is the inverse of `index`.
 """
-@inline function change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
-    T = promote_type(eltype(dgt), typeof(ind))
-    N = convert(T, ind) - one(T)
+@inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::T=2) where T
+    N = ind - one(T)
     for i = length(sites):-1:1
         N, dgt[sites[i]] = divrem(N, base)
     end

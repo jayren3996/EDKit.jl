@@ -3,45 +3,83 @@ export TranslationFlipBasis
     TranslationFlipBasis
 
 Basis with translational and spin-flip symmetries.
-
-Properties:
------------
-- `dgt`: Digits.
-- `I`  : Representing states.
-- `R`  : Normalization.
-- `C`  : Momentum phase.
-- `P`  : {±1}, parity.
-- `A`  : Length of unit cell.
-- `B`  : Base.
 """
-struct TranslationFlipBasis{T} <: AbstractTranslationalParityBasis
-    dgt::Vector{Int64}      # Digits
-    I::Vector{Int}          # Representing states
+struct TranslationFlipBasis{Ti, T} <: AbstractTranslationalParityBasis
+    dgt::Vector{Ti}         # Digits
+    I::Vector{Ti}           # Representing states
     R::Vector{Float64}      # Normalization
     C::Vector{T}            # Momentum phase exp(-1im * 2π/L * K)
     P::Int                  # {±1}, parity
     A::Int                  # Length of unit cell
-    B::Int                  # Base
+    M::Int                  # MAX = base^length + 1
+    B::Ti                   # Base
 end
 #-------------------------------------------------------------------------------------------------------------------------
-eltype(::TranslationFlipBasis{T}) where T = T
-copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.B)
+eltype(::TranslationFlipBasis{Ti, T}) where {Ti, T} = T
+copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.A, b.B)
+
+#-------------------------------------------------------------------------------------------------------------------------
+# Functions selecting the basis
+#-------------------------------------------------------------------------------------------------------------------------
+struct TranslationFlipJudge{T <: Integer}
+    F                   # Projective selection
+    K::Int64            # Momentum
+    A::Int64            # Length of unit cell
+    P::Int64            # Parity eigenvalue {±1}
+    L::Int64            # Length of translation
+    B::T                # Base
+    C::Vector{Float64}  # Normalization coefficients
+    MAX::Int            # Base^length + 1
+end
+#-------------------------------------------------------------------------------------------------------------------------
+function (judge::TranslationFlipJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
+    # First check projective selection rule
+    isnothing(judge.F) || judge.F(dgt) || return (false, 0.0)
+
+    R = judge.L
+    Qp = false
+
+    # Check Flip
+    In = judge.MAX - i
+    if In < i 
+        return (false, 0.0)
+    elseif isequal(In, i)
+        Qp = true
+        # Check parity 
+        isone(judge.P) || return (false, 0.0)
+    end
+
+    # Cycle digits
+    for n in 1:judge.L-1
+        circshift!(dgt, judge.A)
+        In1 = index(dgt, base=judge.B)
+        In2 = judge.MAX - In1
+
+        # Check cycled index
+        In1 < i && return (false, 0.0)
+        In2 < i && return (false, 0.0)
+
+        if isequal(In2, i)
+            # Check flip parity
+            isequal(isone(judge.P), iseven(div(n * judge.K, judge.L÷2))) || return (false, 0.0)
+            Qp = true
+        end
+
+        if isequal(In1, i)  
+            # Find periodicity; check Momentum 
+            iszero(mod(n * judge.K , judge.L)) || return (false, 0.0)
+            R = n 
+            break
+        end
+    end
+
+    # Calculating norm
+    N = Qp ? judge.C[judge.L+R] : judge.C[R]
+    true, N
+end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Construction
-#-------------------------------------------------------------------------------------------------------------------------
-"""
-    spinflip(v::AbstractVector{<:Integer}, base::Integer)
-
-Flip spins Sz on each site.
-"""
-function spinflip(v::AbstractVector{<:Integer}, base::Integer)
-    vf = Vector{eltype(v)}(undef, length(v))
-    for i = 1:length(vf)
-        vf[i] = base - v[i] - 1
-    end
-    vf
-end
 #-------------------------------------------------------------------------------------------------------------------------
 """
 TranslationFlipBasis(f, k, p, L; base=2, alloc=1000, threaded=true)
@@ -63,32 +101,74 @@ Outputs:
 - `b`: TranslationFlipBasis.
 """
 function TranslationFlipBasis(
-    ;f=x->true, k::Integer=0, p::Integer=1, L::Integer, a::Integer=1,
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=false
+    dtype::DataType=Int64; f=x->true, k::Integer=0, p::Integer=1, L::Integer, N::Union{Nothing, Integer}=nothing,
+    a::Integer=1, base::Integer=2, alloc::Integer=1000, threaded::Bool=false, small_N::Bool=true
 )
     len, check_a = divrem(L, a)
-    k = mod(k, len)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"
     @assert isone(p) || isone(-p) "Invalid parity"
+    @assert isnothing(N) || (isodd(base) && isequal(2N, L*(base-1))) "N = $N not compatible."
+    k = mod(k, len)
+    base = convert(dtype, base)
+    MAX = base ^ L + 1
 
     I, R = begin
         N2 = [2len/ sqrt(i) for i = 1:len]
         N1 = N2 ./ sqrt(2)
-        judge = TranslationParityJudge(f, x -> spinflip(x, base), k, a, p, len, base, vcat(N1, N2))
-        threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+        judge = if small_N || isnothing(N)
+            TranslationFlipJudge(f, k, a, p, len, base, vcat(N1, N2), MAX)
+        else
+            num = L*(base-1)÷2
+            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
+            TranslationFlipJudge(g, k, a, p, len, base, vcat(N1, N2), MAX)
+        end
+        if small_N && !isnothing(N)
+            selectindexnorm_N(judge, L, N, base=base)
+        else
+            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+        end
     end
-    C = if iszero(k)
-        fill(1.0, len)
-    elseif isequal(2k, L)
-        [iseven(i) ? 1.0 : -1.0 for i=0:len-1]
-    else
-        [exp(-1im * 2π/len * k * i) for i=0:len-1]
-    end
-    TranslationFlipBasis(zeros(Int64, L), I, R, C, p, a, base)
+    C = phase_factor(k, len)
+    TranslationFlipBasis(zeros(dtype, L), I, R, C, p, a, MAX, base)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Indexing
 #-------------------------------------------------------------------------------------------------------------------------
-index(b::TranslationFlipBasis) = translation_parity_index(x -> spinflip(x, b.B), b)
+"""
+Return normalization and index.
+"""
+function index(b::TranslationFlipBasis)
+    Ia0 = index(b.dgt, base=b.B)
+    Ib0 = b.M - Ia0
+    Iam, Ibm = Ia0, Ib0
+    R, M = 0, 0
+
+    # Cycling and find monimum
+    resetQ = true
+    for i in 1:ncycle(b)-1
+        circshift!(b.dgt, b.A)
+        Ia1 = index(b.dgt, base=b.B)
+        if isequal(Ia1, Ia0) 
+            resetQ = false
+            break
+        elseif Ia1 < Iam
+            Iam, R = Ia1, i
+        end
+        Ib1 = b.M - Ia1
+        if Ib1 < Ibm 
+            Ibm, M = Ib1, i
+        end
+    end
+    resetQ && circshift!(b.dgt, b.A) 
+
+    # Find index and normalization
+    i, n = if Ibm < Iam 
+        binary_search(b.I, Ibm), b.P * b.C[M+1]
+    else
+        binary_search(b.I, Iam), b.C[R+1]
+    end
+    iszero(i) && return (zero(eltype(b)), one(eltype(b.I)))
+    n * b.R[i], i
+end
 

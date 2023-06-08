@@ -18,17 +18,17 @@ Properties:
 - `B`  : Base.
 """
 struct TranslationalBasis{Ti <: Integer, T <: Number} <: AbstractPermuteBasis
-    dgt::Vector{Int64}
+    dgt::Vector{Ti}
     I::Vector{Ti}
     R::Vector{Float64}
     C::Vector{T}
     A::Int64
-    B::Int64
+    B::Ti
 end
 #-------------------------------------------------------------------------------------------------------------------------
 eltype(::TranslationalBasis{Ti, T}) where {Ti, T} = T
-copy(b::TranslationalBasis) = TranslationalBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.B)
-
+copy(b::TranslationalBasis) = TranslationalBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.A, b.B)
+ncycle(b) = length(b.dgt) ÷ b.A
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Functions selecting the basis
@@ -46,52 +46,41 @@ Properties:
 - B: Base
 - C: Normalization coefficient
 """
-struct TranslationJudge
+struct TranslationJudge{T}
     F                   # Projective selection
     K::Int              # Momentum
     A::Int              # Length of unit cell
-    B::Int              # Base
+    L::Int              # Length of translation
+    B::T                # Base
     C::Vector{Float64}  # Normalization coefficient
 end
 #-------------------------------------------------------------------------------------------------------------------------
-"""
-translation_check(dgt, I0, k, base; a=1)
-
-Check if the digits is of minimum index under cycling.
-
-Outputs:
---------
-- `Q`: Whether `dgt` is minimum.
-- `R`: Periodicity of the `dgt`, return 0 if !Q.
-"""
-function translation_check!(dgt::AbstractVector{<:Integer}, I0::Integer, k::Integer, base::Integer; a::Integer=1)
-    len = length(dgt)÷a  # Maximum periodicity
-    R = len
-    for i=1:len-1
-        circshift!(dgt, a)
-        In = index(dgt, base=base, dtype=typeof(I0))
-        In < I0 && return (false, 0)  # Find smaller indices, return false.
-        if isequal(In, I0)            # Find periodicity.
-            R = i
-            break
-        end
-    end
-    # Check if momentum is compatible
-    iszero(mod(R * k , len)) ? (true, R) : (false, 0)
-end
-#-------------------------------------------------------------------------------------------------------------------------
+@inline check_momentum(n::Integer, k::Integer, L::Integer) = iszero(mod(n * k , L))
 """
 (::TranslationJudge)(dgt, i)
 
 Select basis and return normalization.
 """
 function (judge::TranslationJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
-    # If there is a projective selection function F, check `F(dgt)` first.
-    isnothing(judge.F) || judge.F(dgt) || return false, 0.0
+    # If there is a projective selection function F, check `F(dgt)` first
+    isnothing(judge.F) || judge.F(dgt) || return (false, 0.0)
     
-    # Going through `translation_check` routine. 
-    c, r = translation_check!(dgt, i, judge.K, judge.B, a=judge.A)
-    c ? (true, judge.C[r]) : (false, 0.0)
+    # Check translation 
+    for n in 1:judge.L-1
+        circshift!(dgt, judge.A)
+        In = index(dgt, base=judge.B)
+        if In < i 
+            # Find smaller indices, return false.
+            return (false, 0.0)  
+        elseif isequal(In, i)
+            # Find periodicity; check if momentum is compatible
+            check_momentum(n, judge.K, judge.L) || return (false, 0.0)
+            return (true, judge.C[n])
+        end
+    end
+
+    # Finish a cycle
+    true, judge.C[judge.L]
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -115,12 +104,9 @@ Outputs:
 - `I`: List of indices in a basis.
 - `R`: List of normalization for each states.
 """
-function selectindexnorm(
-    f, L::Integer, rg::UnitRange; 
-    base::Integer=2, alloc::Integer=1000
-)
-    dgt = zeros(Int64, L)
-    I, R = Int[], Float64[]
+function selectindexnorm(f, L::Integer, rg::UnitRange{T}; base::Integer=2, alloc::Integer=1000) where T <: Integer
+    dgt = zeros(T, L)
+    I, R = T[], Float64[]
     sizehint!(I, alloc)
     sizehint!(R, alloc)
     for i in rg
@@ -133,17 +119,13 @@ function selectindexnorm(
     I, R
 end
 #-------------------------------------------------------------------------------------------------------------------------
-function selectindexnorm_N(
-    f, L::Integer, N::Integer;
-    base::Integer=2, dtype::DataType=Int64,
-    alloc::Integer=1000, sorted::Bool=true
-)
-    I, R = dtype[], Float64[]
+function selectindexnorm_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000, sorted::Bool=true) where T <: Integer
+    I, R = T[], Float64[]
     sizehint!(I, alloc)
     sizehint!(R, alloc)
     for dgt in multiexponents(L, N)
         all(b < base for b in dgt) || continue
-        i = index(dgt, base=base, dtype=dtype)
+        i = index(dgt, base=base)
         Q, N = f(dgt, i)
         Q || continue
         append!(I, i)
@@ -171,13 +153,10 @@ Outputs:
 - `I`: List of indices in a basis.
 - `R`: List of normalization for each states.
 """
-function selectindexnorm_threaded(
-    f, L::Integer; 
-    base::Integer=2, alloc::Integer=1000
-)
+function selectindexnorm_threaded(f, L::Integer; base::T=2, alloc::Integer=1000) where T <: Integer
     nt = Threads.nthreads()
     ni = dividerange(base^L, nt)
-    nI = Vector{Vector{Int}}(undef, nt)
+    nI = Vector{Vector{T}}(undef, nt)
     nR = Vector{Vector{Float64}}(undef, nt)
     Threads.@threads for ti in 1:nt
         nI[ti], nR[ti] = selectindexnorm(f, L, ni[ti], base=base, alloc=alloc)
@@ -207,77 +186,45 @@ Outputs:
 --------
 - `b`: TranslationalBasis.
 """
-function TranslationalBasis(
-    dtype::DataType=Int64
-    ;L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing, a::Integer=1,
+function TranslationalBasis(dtype::DataType=Int64;
+    L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing, a::Integer=1,
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 )
     len, check_a = divrem(L, a)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"
     k = mod(k, len)
+    base = convert(dtype, base)
     I, R = begin
         norm = [len/sqrt(i) for i = 1:len]
         judge = if small_N || isnothing(N)
-            TranslationJudge(f, k, a, base, norm)
+            TranslationJudge(f, k, a, len, base, norm)
         else
             num = L*(base-1)-N
             g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            TranslationJudge(g, k, a, base, norm)
+            TranslationJudge(g, k, a, len, base, norm)
         end
         if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base, dtype=dtype)
+            selectindexnorm_N(judge, L, N, base=base)
         else
             threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)        
         end
     end
-    C = if iszero(k)
+    C = phase_factor(k, len)
+    TranslationalBasis(zeros(dtype, L), I, R, C, a, base)
+end
+#-------------------------------------------------------------------------------------------------------------------------
+function phase_factor(k::Integer, len::Integer)
+    if iszero(k)
         fill(1.0, len)
     elseif isequal(2k, len)
         [iseven(i) ? 1.0 : -1.0 for i=0:len-1] 
     else
         [exp(-1im * 2π/len * k*i) for i=0:len-1]
     end
-    TranslationalBasis(zeros(Int64, L), I, R, C, a, base)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Indexing
-#-------------------------------------------------------------------------------------------------------------------------
-"""
-translation_index(dgt::AbstractVector{<:Integer}, base::Integer)
-
-Given a digits, return the minimum index under shifting.
-
-Inputs:
--------
-- `dgt   : Digits.
-- `base` : Base.
-- `dtype`: Specify data type of index.
-- `a`    : Length of unit cell
-
-Outputs:
---------
-- `Im`: Minimum index.
-- `M` : Cycling number by which `dgt` is shifted to have index `Im`.
-"""
-function translation_index(
-    dgt::AbstractVector{<:Integer}, base::Integer; 
-    dtype::DataType=Int64, a::Integer=1
-)
-    I0 = index(dgt, base=base, dtype=dtype)
-    Im, M = I0, 0
-    len = length(dgt)÷a
-    for i=1:len-1
-        circshift!(dgt, a)
-        In = index(dgt, base=base, dtype=dtype)
-        isequal(In, I0) && return Im, M  # Reach one period, return result immediately.
-        if In < Im                       # Find smaller index.
-            Im, M = In, i
-        end
-    end
-    circshift!(dgt, a)  # Reset digit.
-    Im, M
-end
 #-------------------------------------------------------------------------------------------------------------------------
 """
     index(b::TranslationalBasis)
@@ -297,13 +244,28 @@ To avoid exception in the matrix constructon of `Operation`, we allow the index 
 When this happend, we return index 1, and normalization 0, so it has no effect on the matrix being filled.
 """
 function index(b::TranslationalBasis)
-    Im, T = translation_index(b.dgt, b.B, dtype=int_type(b), a=b.A)
+    I0 = index(b.dgt, base=b.B)
+    Im, M = I0, 0
+
+    # Cycle digits
+    resetQ = true
+    for i in 1:ncycle(b)-1
+        circshift!(b.dgt, b.A)
+        In = index(b.dgt, base=b.B)
+        if isequal(In, I0) 
+            resetQ = false
+            break
+        elseif In < Im
+            Im, M = In, i
+        end
+    end
+    resetQ && circshift!(b.dgt, b.A)
 
     # Search for minimal index 
     i = binary_search(b.I, Im)
-    iszero(i) && return zero(eltype(b)), 1
+    iszero(i) && return (zero(eltype(b)), one(b.B))
 
     # Find normalization and return result
-    N = b.C[T+1] * b.R[i]
+    N = b.C[M+1] * b.R[i]
     N, i
 end

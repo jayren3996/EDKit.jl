@@ -174,6 +174,19 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Transla
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
+    spinflip(v::AbstractVector{<:Integer}, base::Integer)
+
+Flip spins Sz on each site.
+"""
+function spinflip(v::AbstractVector{<:Integer}, base::Integer)
+    vf = Vector{eltype(v)}(undef, length(v))
+    for i = 1:length(vf)
+        vf[i] = base - v[i] - 1
+    end
+    vf
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
 Helper function for `schmidt` on parity basis.
 """
 function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis)

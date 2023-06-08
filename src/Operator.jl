@@ -337,7 +337,7 @@ end
 spin(spins::AbstractVector{<:Tuple{<:Number, String}}; D::Integer=2) = spin(spins..., D=D)
 #---------------------------------------------------------------------------------------------------
 function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
-    mat = spin(s, D=base(basis))
+    mat = spin(s, D=basis.B)
     operator(mat, inds, basis)
 end
 
@@ -347,12 +347,12 @@ function operator(s::String, inds::AbstractVector{<:Integer}, L::Integer; base::
 end
 
 function trans_inv_operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
-    mat = spin(s, D=base(basis))
+    mat = spin(s, D=basis.B)
     trans_inv_operator(mat, inds, basis)
 end
 
 function trans_inv_operator(s::String, basis::AbstractBasis)
-    mat = spin(s, D=base(basis))
+    mat = spin(s, D=basis.B)
     trans_inv_operator(mat, length(s), basis)
 end
 
