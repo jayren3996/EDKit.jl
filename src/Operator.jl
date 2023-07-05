@@ -342,7 +342,7 @@ function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBas
 end
 
 function operator(s::String, inds::AbstractVector{<:Integer}, L::Integer; base::Integer=2)
-    basis = TensorBasis(L, base=base)
+    basis = TensorBasis(L=L, base=base)
     operator(s, inds, basis)
 end
 
@@ -357,6 +357,6 @@ function trans_inv_operator(s::String, basis::AbstractBasis)
 end
 
 function trans_inv_operator(s::String, L::Integer; base::Integer=2)
-    basis = TensorBasis(L, base=base)
+    basis = TensorBasis(L=L, base=base)
     trans_inv_operator(s, basis)
 end
