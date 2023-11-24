@@ -234,15 +234,6 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
     nothing
 end
 
-function colmn!(target::AbstractVector, opt::Operator, j::Integer, coeff::Number=1)
-    b, M, I = opt.B, opt.M, opt.I
-    r = change!(b, j)
-    C = isone(r) ? coeff : coeff / r
-    for i = 1:length(M)
-        colmn!(target, M[i], I[i], b, C)
-    end
-end
-
 """
 colume function for matrix.
 """
@@ -261,11 +252,12 @@ function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::A
     nothing
 end
 
-function colmn!(target::AbstractMatrix, opt::Operator, j::Integer, coeff::AbstractVector{<:Number})
+function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, coeff::Union{<:Number,<:AbstractVector}=1)
     b, M, I = opt.B, opt.M, opt.I
-    N = change!(b, j) .* coeff
+    r = change!(b, j)
+    C = isone(r) ? coeff : coeff / r
     for i = 1:length(M)
-        colmn!(target, M[i], I[i], b, N)
+        colmn!(target, M[i], I[i], b, C)
     end
 end
 
