@@ -212,14 +212,14 @@ end
 # Helper functions
 #---------------------------------------------------------------------------------------------------
 """
-    colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
+    colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff=1)
 
 Central helper function for operator multiplication. 
 
 For a local matrix `M` acting on indices `I`, `colmn!` return the j-th colume (given by `b.dgt`) in 
 the many-body basis. The result is writen inplace on the vector `target`.
 """
-function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::Number=1)
+function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff=1)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(b.dgt, I, base=b.B)
     change = false
@@ -227,32 +227,14 @@ function colmn!(target::AbstractVector, M::SparseMatrixCSC, I::Vector{Int}, b::A
         row, val = rows[i], vals[i]
         change!(b.dgt, I, row, base=b.B)
         C, pos = index(b)
-        target[pos] += isone(coeff) ? C * val : coeff * C * val
+        isa(target, AbstractVector) ? (target[pos] += coeff * C * val) : (target[pos, :] .+= (C * val) .* coeff)
         change = true
     end
     change && change!(b.dgt, I, j, base=b.B) 
     nothing
 end
-
-"""
-colume function for matrix.
-"""
-function colmn!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff::AbstractVector{<:Number})
-    rows, vals = rowvals(M), nonzeros(M)
-    j = index(b.dgt, I, base=b.B)
-    change = false
-    for i in nzrange(M, j)
-        row, val = rows[i], vals[i]
-        change!(b.dgt, I, row, base=b.B)
-        C, pos = index(b)
-        target[pos, :] .+= (C * val) .* coeff
-        change = true
-    end
-    change && change!(b.dgt, I, j, base=b.B) 
-    nothing
-end
-
-function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, coeff::Union{<:Number,<:AbstractVector}=1)
+#---------------------------------------------------------------------------------------------------
+function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, coeff=1)
     b, M, I = opt.B, opt.M, opt.I
     r = change!(b, j)
     C = isone(r) ? coeff : coeff / r
