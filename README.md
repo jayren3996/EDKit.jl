@@ -60,24 +60,11 @@ julia> H = operator(mats, inds, L)
 Operator of size (1024, 1024) with 10 terms.
 ```
 
-The constructor returns an Operator object, a linear operator that can act on vector/ matrix. For example, we can act `H` on the ferromagnetic state:
+The constructor returns an Operator object, a linear operator that can act on vector/ matrix. For example, we can act `H` on a random state:
 
 ```julia
-julia> ψ = zeros(2^L); ψ[1] = 1; H * random_state
-1024-element Vector{Float64}:
- -1.5539463277491536
-  5.969061189628827
-  3.439873269795492
-  1.6217619009059376
-  0.6101231697221667
-  6.663735992405236
-  ⋮
-  5.517409105968883
-  0.9498121684380652
- -0.0004996659995972763
-  2.6020967735388734
-  4.99027405325114
- -1.4831032210847952
+ψ = normalize(rand(2^L))
+ψ2 = H * ψ
 ```
 
 If we need a matrix representation of the Hamitonian, we can convert `H` to julia array by:
@@ -182,13 +169,21 @@ Consider the PXP model
 ```math
 H = \sum_i \left(P^0_{i-1} \sigma^x_i P^0_{i+1}\right).
 ```
-Note that the model is defined on the Hilbert space where there is no local ``|↑↑⟩`` configuration. For system size ``L=20`` and in sector ``k=0,p=+1``, the Hamiltonian is constructed by:
+Note that the model is defined on the Hilbert space where there is no local ``|↑↑⟩`` configuration. We can use the following function to check whether a product state is in the constraint subspace:
+```julia
+function pxpf(v::Vector{<:Integer})
+    for i in eachindex(v)
+        iszero(v[i]) && iszero(v[mod(i, length(v))+1]) && return false
+    end
+    return true
+end
+```
+For system size ``L=20`` and in sector ``k=0,p=+1``, the Hamiltonian is constructed by:
 ```julia
 mat = begin
-    P = [1 0; 0 0]
+    P = [0 0; 0 1]
     kron(P, spin("X"), P)
 end
-pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
 basis = TranslationParityBasis(L=20, f=pxpf, k=0, p=1)
 H = trans_inv_operator(mat, 3, basis)
 ```
