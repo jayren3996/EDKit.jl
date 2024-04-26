@@ -120,7 +120,7 @@ Outputs:
 """
 function TranslationParityBasis(
     dtype::DataType=Int64; L::Integer, f=nothing, k::Integer=0, p::Integer=1, N::Union{Nothing, Integer}=nothing, 
-    a::Integer=1, base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
+    a::Integer=1, base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=false
 )
     len, check_a = divrem(L, a)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"

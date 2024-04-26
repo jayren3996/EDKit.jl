@@ -1,7 +1,7 @@
 name = "EDKit"
 uuid = "f6058819-fd6f-45d3-a3c8-4753d8c54d1a"
 authors = ["JayRen <jieren3996@foxmail.com>"]
-version = "0.4.4"
+version = "0.4.5"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"

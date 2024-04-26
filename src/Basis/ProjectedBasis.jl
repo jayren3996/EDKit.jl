@@ -145,9 +145,10 @@ end
 function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000, sorted::Bool=true) where T <: Integer
     I = T[]
     sizehint!(I, alloc)
-    for dgt in multiexponents(L, N)
+    for fdgt in multiexponents(L, N)
+        all(b < base for b in fdgt) || continue
+        dgt = (base-1) .- fdgt
         isnothing(f) || f(dgt) || continue
-        all(b < base for b in dgt) || continue
         ind = index(dgt, base=base)
         append!(I, ind)
     end
@@ -176,7 +177,7 @@ Outputs:
 function ProjectedBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, 
-    threaded::Bool=true, small_N::Bool=true
+    threaded::Bool=true, small_N::Bool=false
 )
     base = convert(dtype, base)
     I = if isnothing(N)

@@ -123,8 +123,9 @@ function selectindexnorm_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=
     I, R = T[], Float64[]
     sizehint!(I, alloc)
     sizehint!(R, alloc)
-    for dgt in multiexponents(L, N)
-        all(b < base for b in dgt) || continue
+    for fdgt in multiexponents(L, N)
+        all(b < base for b in fdgt) || continue
+        dgt = (base-1) .- fdgt
         i = index(dgt, base=base)
         Q, N = f(dgt, i)
         Q || continue
@@ -188,7 +189,7 @@ Outputs:
 """
 function TranslationalBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing, a::Integer=1,
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=false
 )
     len, check_a = divrem(L, a)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"

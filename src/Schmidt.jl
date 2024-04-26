@@ -49,7 +49,6 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Entanglement Entropy
 #-------------------------------------------------------------------------------------------------------------------------
-export ent_spec, ent_S, entropy
 """
 ent_spec(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis)
 
@@ -111,6 +110,7 @@ Compute general Renyi entropy
 """
 renyi_entropy(s::AbstractVector{<:Real}, α::Real) = log(sum(s.^α)) / (1-α)
 #-------------------------------------------------------------------------------------------------------------------------
+export ent_S
 """
 ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis; α::Real=1, cutoff::Real=1e-20)
 
