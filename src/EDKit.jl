@@ -1,10 +1,9 @@
 module EDKit
 
-using LinearAlgebra, SparseArrays, Random, Combinatorics
+using LinearAlgebra, SparseArrays, Random, Combinatorics, ITensors, ITensorMPS
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, copy
 import LinearAlgebra: norm, mul!
-import SparseArrays: sparse
 
 include("Basis/AbstractBasis.jl")
 include("Basis/ProjectedBasis.jl")
@@ -23,6 +22,12 @@ include("ToolKit.jl")
 for file in readdir("$(@__DIR__)/algorithms/")
     if file[end-2:end] == ".jl"
         include("$(@__DIR__)/algorithms/$file")
+    end
+end
+
+for file in readdir("$(@__DIR__)/ITensors/")
+    if file[end-2:end] == ".jl"
+        include("$(@__DIR__)/ITensors/$file")
     end
 end
 

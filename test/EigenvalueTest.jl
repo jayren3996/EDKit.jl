@@ -582,7 +582,7 @@ end
     for n = 0:L, k in [0, L ÷ 4]
         be = TranslationParityBasis(N=n, k=k, p=+1, L=L, a=2)
         bo = TranslationParityBasis(N=n, k=k, p=-1, L=L, a=2)
-        ba = TranslationalBasis(f=x->sum(x)==n, k=k, L=L, a=2)
+        ba = TranslationalBasis(f=x->sum(x)==L-n, k=k, L=L, a=2)
         ve = trans_inv_operator(mat, 2, be) |> Array |> Hermitian |> eigvals
         vo = trans_inv_operator(mat, 2, bo) |> Array |> Hermitian |> eigvals
         va = trans_inv_operator(mat, 2, ba) |> Array |> Hermitian |> eigvals

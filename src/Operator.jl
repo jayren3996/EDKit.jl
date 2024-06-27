@@ -108,6 +108,11 @@ end
 -(opt::Operator) = Operator(-opt.M, opt.I, opt.B)
 -(opt1::Operator, opt2::Operator) = opt1 + (-opt2)
 #---------------------------------------------------------------------------------------------------
+function LinearAlgebra.adjoint(opt::Operator)
+    M = adjoint.(opt.M)
+    operator(M, opt.I, opt.B)
+end
+#---------------------------------------------------------------------------------------------------
 function find_base(a::Integer, b::Integer)
     isone(b) && return a
     for i in 2:a
@@ -135,7 +140,7 @@ function Array(opt::Operator)
     M
 end
 #---------------------------------------------------------------------------------------------------
-function sparse(opt::Operator)
+function SparseArrays.sparse(opt::Operator)
     M = spzeros(eltype(opt), size(opt)...)
     if size(M, 1) > 0 && size(M, 2) > 0
         addto!(M, opt)
@@ -246,21 +251,45 @@ end
 #---------------------------------------------------------------------------------------------------
 # Spin Matrices
 #---------------------------------------------------------------------------------------------------
+const PAULI = sparse.(
+    [ I(2), [0 1; 1 0], [0 -1im; 1im 0], [1 0; 0 -1] ]
+)
+const GELLMANN = sparse.([
+    I(3),
+    [0 1 0; 1 0 0; 0 0 0], 
+    [0 -1im 0; 1im 0 0; 0 0 0], 
+    [1 0 0; 0 -1 0; 0 0 0], 
+    [0 0 1; 0 0 0; 1 0 0], 
+    [0 0 -1im; 0 0 0; 1im 0 0], 
+    [0 0 0; 0 0 1; 0 1 0],
+    [0 0 0; 0 0 -1im; 0 1im 0], 
+    [1 0 0; 0 1 0; 0 0 -2] / sqrt(3),
+    [1 0 0; 0 1 0; 0 0 1]
+])
+
+σ(i::Integer) = PAULI[i+1]
+σ(Is::Integer...) = kron((σ(i) for i in Is)...)
+σ(Is::Union{<:Tuple, <:AbstractVector}) = σ(Is...)
+
+λ(i::Integer) = GELLMANN[i+1]
+λ(Is::Integer...) = kron((λ(i) for i in Is)...)
+λ(Is::Union{<:Tuple, <:AbstractVector}) = λ(Is...)
+#---------------------------------------------------------------------------------------------------
 export spin
-@inline spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
-@inline spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
-@inline spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
-@inline function spin_Sx(D::Integer)
+spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
+spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
+spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
+function spin_Sx(D::Integer)
     coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp + sp'
 end
-@inline function spin_iSy(D::Integer)
+function spin_iSy(D::Integer)
     coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp - sp'
 end
-@inline function spin_Sz(D::Integer)
+function spin_Sz(D::Integer)
     J = (D-1) / 2
     sparse(1:D, 1:D, J:-1:-J)
 end
@@ -314,23 +343,25 @@ function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBas
     mat = spin(s, D=basis.B)
     operator(mat, inds, basis)
 end
-
+#---------------------------------------------------------------------------------------------------
 function operator(s::String, inds::AbstractVector{<:Integer}, L::Integer; base::Integer=2)
     basis = TensorBasis(L=L, base=base)
     operator(s, inds, basis)
 end
-
+#---------------------------------------------------------------------------------------------------
 function trans_inv_operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
     mat = spin(s, D=basis.B)
     trans_inv_operator(mat, inds, basis)
 end
-
+#---------------------------------------------------------------------------------------------------
 function trans_inv_operator(s::String, basis::AbstractBasis)
     mat = spin(s, D=basis.B)
     trans_inv_operator(mat, length(s), basis)
 end
-
+#---------------------------------------------------------------------------------------------------
 function trans_inv_operator(s::String, L::Integer; base::Integer=2)
     basis = TensorBasis(L=L, base=base)
     trans_inv_operator(s, basis)
 end
+
+
