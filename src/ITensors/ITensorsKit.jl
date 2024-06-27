@@ -162,7 +162,7 @@ end
 MPS properties
 ---------------------------------------------------------------------------------------------------=#
 function ent_S(psi::MPS, b::Integer)
-    psi = orthogonalize(psi, b)
+    psi = ITensorMPS.orthogonalize(psi, b)
     svd(psi[b], (linkinds(psi, b-1)..., siteinds(psi, b)...)).spec |> entropy
 end
 
