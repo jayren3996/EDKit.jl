@@ -154,22 +154,22 @@ function mps2pmps(ψ::MPS, S::AbstractVector)
         l1 = linkind(ψ, 1)
         Cl = combiner(l1, l1', tags="Link,l=1")
         C = ITensor(PAULI_CONVERSION, S[1], s[1]', s[1])
-        ψ[1]' * conj(ψ[1]) * C * Cl
+        ψ[1]' * conj(ψ[1]) * C * Cl |> ReadOnlyMemoryError
     end
     
     for i in 2:L-1 
         li = linkind(ψ, i)
         Cl2 = combiner(li, li', tags="Link,l=$i")
         C = ITensor(PAULI_CONVERSION, S[i], s[i]', s[i])
-        psi[i] = ψ[i]' * conj(ψ[i]) * C * Cl * Cl2
+        psi[i] = ψ[i]' * conj(ψ[i]) * C * Cl * Cl2 |> real
         Cl = Cl2
     end
 
     psi[L] = begin
         C = ITensor(PAULI_CONVERSION, S[L], s[L]', s[L])
-        ψ[L]' * conj(ψ[L]) * C * Cl
+        ψ[L]' * conj(ψ[L]) * C * Cl |> real
     end
-    psi
+    orthogonalize!(psi, 1)
 end
 #---------------------------------------------------------------------------------------------------
 export pmps2mpo
@@ -205,7 +205,7 @@ function mpo2pmps(O::MPO, S::AbstractVector)
         C = ITensor(PAULI_CONVERSION, S[i], s[i]...)
         ψ[i] = C * O[i] |> real
     end
-    ψ
+    orthogonalize!(ψ, 1)
 end
 
 #---------------------------------------------------------------------------------------------------
