@@ -154,7 +154,7 @@ function mps2pmps(ψ::MPS, S::AbstractVector)
         l1 = linkind(ψ, 1)
         Cl = combiner(l1, l1', tags="Link,l=1")
         C = ITensor(PAULI_CONVERSION, S[1], s[1]', s[1])
-        ψ[1]' * conj(ψ[1]) * C * Cl |> ReadOnlyMemoryError
+        ψ[1]' * conj(ψ[1]) * C * Cl |> real
     end
     
     for i in 2:L-1 
