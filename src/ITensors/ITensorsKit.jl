@@ -10,8 +10,8 @@ Convert vector `v` to tensor, with row-major convention.
 
 Inputs:
 -------
-dest: Tensor to write
-v   : Vector
+- dest: Tensor to write
+- v   : Vector
 """
 function vec2tensor!(dest::Array, v::AbstractVector)
     T = reshape(v, size(dest))
@@ -137,14 +137,14 @@ end
 export productstate
 ITensors.state(s::Index, v::AbstractVector) = ITensor(v, s)
 """
-product_state(s, states)
+productstate(s, states)
 
 Return a product MPS 
 
 Inputs:
 -------
-s     : Vector of indices
-states: Vector of vector representing local states 
+- s     : Vector of indices
+- states: Vector of vector representing local states 
 """
 function productstate(s::AbstractVector{<:Index}, states::AbstractVector{<:AbstractVector})
     L, d = length(s), length(states[1])
@@ -174,12 +174,12 @@ end
 #----------------------------------------------------------------------------------------------------
 function ent_S(ψ::MPS, b::Integer)
     spec = ent_specs(ψ, b)
-    ITensors.entropy(spec)
+    entropy(spec)
 end
 #----------------------------------------------------------------------------------------------------
 function ent_S!(ψ::MPS, b::Integer)
     spec = ent_specs!(ψ, b)
-    ITensors.entropy(spec)
+    entropy(spec)
 end
 #----------------------------------------------------------------------------------------------------
 function ent_S(ψ::MPS)
