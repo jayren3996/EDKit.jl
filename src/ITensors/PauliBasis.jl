@@ -169,7 +169,7 @@ function mps2pmps(ψ::MPS, S::AbstractVector)
         C = ITensor(PAULI_CONVERSION, S[L], s[L]', s[L])
         ψ[L]' * conj(ψ[L]) * C * Cl |> real
     end
-    orthogonalize!(psi, 1)
+    psi
 end
 #---------------------------------------------------------------------------------------------------
 export pmps2mpo
@@ -205,7 +205,7 @@ function mpo2pmps(O::MPO, S::AbstractVector)
         C = ITensor(PAULI_CONVERSION, S[i], s[i]...)
         ψ[i] = C * O[i] |> real
     end
-    orthogonalize!(ψ, 1)
+    ψ
 end
 
 #---------------------------------------------------------------------------------------------------

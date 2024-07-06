@@ -161,8 +161,33 @@ end
 #=---------------------------------------------------------------------------------------------------
 MPS properties
 ---------------------------------------------------------------------------------------------------=#
-function ent_S(psi::MPS, b::Integer)
-    psi = ITensorMPS.orthogonalize(psi, b)
-    svd(psi[b], (linkinds(psi, b-1)..., siteinds(psi, b)...)).spec |> ITensors.entropy
+export ent_spec, ent_specs!, ent_S!
+function ent_specs(ψ::MPS, b::Integer)
+    ψ = orthogonalize(ψ, b)
+    svd(ψ[b], (linkind(ψ, b-1), siteind(ψ, b))).spec.eigs
 end
-
+#----------------------------------------------------------------------------------------------------
+function ent_specs!(ψ::MPS, b::Integer)
+    orthogonalize!(ψ, b)
+    svd(ψ[b], (linkind(ψ, b-1), siteind(ψ, b))).spec.eigs
+end
+#----------------------------------------------------------------------------------------------------
+function ent_S(ψ::MPS, b::Integer)
+    spec = ent_specs(ψ, b)
+    ITensors.entropy(spec)
+end
+#----------------------------------------------------------------------------------------------------
+function ent_S!(ψ::MPS, b::Integer)
+    spec = ent_specs!(ψ, b)
+    ITensors.entropy(spec)
+end
+#----------------------------------------------------------------------------------------------------
+function ent_S(ψ::MPS)
+    L = length(ψ)
+    S = Vector{Float64}(undef, L)
+    ψ = orthogonalize(ψ, 1)
+    for i in 1:L 
+        S[i] = ent_S!(ψ, i)
+    end
+    S
+end
