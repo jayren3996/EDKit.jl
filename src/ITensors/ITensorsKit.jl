@@ -134,7 +134,7 @@ function pbcmps(
     normalize!(res)
 end
 #----------------------------------------------------------------------------------------------------
-export product_state
+export productstate
 ITensors.state(s::Index, v::AbstractVector) = ITensor(v, s)
 """
 product_state(s, states)
@@ -146,7 +146,7 @@ Inputs:
 s     : Vector of indices
 states: Vector of vector representing local states 
 """
-function product_state(s::AbstractVector{<:Index}, states::AbstractVector{<:AbstractVector})
+function productstate(s::AbstractVector{<:Index}, states::AbstractVector{<:AbstractVector})
     L, d = length(s), length(states[1])
     link = [Index(1, "Link,l=$i") for i in 1:L-1]
     ψ = MPS(L)
