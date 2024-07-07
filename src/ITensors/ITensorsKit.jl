@@ -164,11 +164,13 @@ MPS properties
 export ent_spec, ent_specs!, ent_S!
 function ent_specs(ψ::MPS, b::Integer)
     ψ = orthogonalize(ψ, b)
+    isone(b) && return svd(ψ[b], siteind(ψ, b)).spec.eigs
     svd(ψ[b], (linkind(ψ, b-1), siteind(ψ, b))).spec.eigs
 end
 #----------------------------------------------------------------------------------------------------
 function ent_specs!(ψ::MPS, b::Integer)
     orthogonalize!(ψ, b)
+    isone(b) && return svd(ψ[b], siteind(ψ, b)).spec.eigs
     svd(ψ[b], (linkind(ψ, b-1), siteind(ψ, b))).spec.eigs
 end
 #----------------------------------------------------------------------------------------------------
