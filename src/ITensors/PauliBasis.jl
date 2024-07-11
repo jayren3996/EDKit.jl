@@ -1,9 +1,11 @@
+#---------------------------------------------------------------------------------------------------
 const PAULI_CONVERSION = let T = zeros(ComplexF64, 4, 2, 2)
     for i in 1:4 
         T[i, :, :] += conj.(PAULI[i]) / 2
     end
     T
 end
+#---------------------------------------------------------------------------------------------------
 const PAULI_INV_CONV = let T = zeros(ComplexF64, 2, 2, 4)
     for i in 1:4 
         T[:, :, i] += PAULI[i]
@@ -22,6 +24,11 @@ function pauli(i::Integer, L::Integer=1)
     σ(inds)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+pauli(Is::AbstractVector{<:Real})
+
+Return a matrix from Pauli coefficients
+"""
 function pauli(Is::AbstractVector{<:Real})
     L = round(Integer, log(4, length(Is)))
     @assert 4^L == length(Is)

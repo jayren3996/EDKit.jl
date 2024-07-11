@@ -4,7 +4,7 @@ Due to julia's column major convention, the conversion between tensor and vector
 forward. It is basically a reshape and permute indices.
 ---------------------------------------------------------------------------------------------------=#
 """
-vec2tensor!(dest, v)
+    vec2tensor!(dest, v)
 
 Convert vector `v` to tensor, with row-major convention.
 
@@ -19,6 +19,8 @@ function vec2tensor!(dest::Array, v::AbstractVector)
 end
 #----------------------------------------------------------------------------------------------------
 """
+    vec2tensor(v; base=2)
+
 Convert vector `v` to tensor, with row-major convention.
 """
 function vec2tensor(v::AbstractVector; base::Integer=2)
@@ -30,7 +32,7 @@ end
 #----------------------------------------------------------------------------------------------------
 export mps2vec
 """
-mps2vec(psi::MPS)
+    mps2vec(psi::MPS)
 
 Convert MPS to a vector
 """
@@ -44,9 +46,9 @@ function mps2vec(psi::MPS)
 end
 #----------------------------------------------------------------------------------------------------
 """
-mps2vec(psi::MPS, B::AbstractBasis)
+    mps2vec(psi::MPS, B::AbstractBasis)
 
-Convert MPS to a vector, with a given basis.
+Convert MPS to a vector, with a given basis `B`.
 """
 function mps2vec(psi::MPS, B::AbstractBasis)
     L = length(psi)
@@ -162,6 +164,16 @@ end
 MPS properties
 ---------------------------------------------------------------------------------------------------=#
 export ent_spec, ent_specs!, ent_S!
+"""
+    ent_specs(ψ::MPS, b::Integer)
+
+Return entanglement spectrum between site `b` and `b+1`.
+
+Inputs:
+-------
+- ψ: MPS
+- b: Link index
+"""
 function ent_specs(ψ::MPS, b::Integer)
     ψ = orthogonalize(ψ, b)
     isone(b) && return svd(ψ[b], siteind(ψ, b)).spec.eigs
@@ -174,6 +186,16 @@ function ent_specs!(ψ::MPS, b::Integer)
     svd(ψ[b], (linkind(ψ, b-1), siteind(ψ, b))).spec.eigs
 end
 #----------------------------------------------------------------------------------------------------
+"""
+    ent_S(ψ::MPS, b::Integer)
+
+Return entanglement entropy between site `b` and `b+1`.
+
+Inputs:
+-------
+- ψ: MPS
+- b: Link index
+"""
 function ent_S(ψ::MPS, b::Integer)
     spec = ent_specs(ψ, b)
     entropy(spec)
@@ -184,6 +206,19 @@ function ent_S!(ψ::MPS, b::Integer)
     entropy(spec)
 end
 #----------------------------------------------------------------------------------------------------
+"""
+    ent_specs(ψ::MPS)
+
+Return entanglement entropies.
+
+Inputs:
+-------
+- ψ: MPS
+
+Outputs:
+--------
+- S: Vector of entropy
+"""
 function ent_S(ψ::MPS)
     L = length(ψ)
     S = Vector{Float64}(undef, L)
