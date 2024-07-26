@@ -44,7 +44,7 @@ function FlipBasis(
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 )
     @assert isone(p) || isone(-p) "Invalid parity"
-    @assert isnothing(N) || (isodd(base) && isequal(2N, L*(base-1))) "N = $N not compatible."
+    @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
     base = convert(dtype, base)
     MAX = base ^ L + 1
     I, R = begin

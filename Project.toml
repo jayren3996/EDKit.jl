@@ -1,7 +1,7 @@
 name = "EDKit"
 uuid = "f6058819-fd6f-45d3-a3c8-4753d8c54d1a"
 authors = ["JayRen <jieren3996@foxmail.com>"]
-version = "0.4.5"
+version = "0.4.6"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
@@ -13,6 +13,6 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 Combinatorics = "1.0"
-julia = "1.6"
-ITensors = "0.6"
 ITensorMPS = "0.2"
+ITensors = "0.6"
+julia = "1.6"

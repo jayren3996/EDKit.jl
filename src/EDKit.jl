@@ -13,6 +13,8 @@ include("Basis/TranslationalFlipBasis.jl")
 include("Basis/ParityBasis.jl")
 include("Basis/FlipBasis.jl")
 include("Basis/ParityFlipBasis.jl")
+include("Basis/AbelianBasis.jl")
+
 
 include("LinearMap.jl")
 include("Schmidt.jl")

@@ -107,7 +107,7 @@ function TranslationFlipBasis(
     len, check_a = divrem(L, a)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"
     @assert isone(p) || isone(-p) "Invalid parity"
-    @assert isnothing(N) || (isodd(base) && isequal(2N, L*(base-1))) "N = $N not compatible."
+    @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
     k = mod(k, len)
     base = convert(dtype, base)
     MAX = base ^ L + 1

@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------------------------------------------------------
 """
-SchmidtMatrix{Tm <: Number, Ta <: SubArray, Tb <: SubArray, Ti <: Integer}
+    SchmidtMatrix{Tm, Ta<:SubArray, Tb<:SubArray, Ti<:Integer}
 
 Struct that is used to construct the Schmidt matrix:
 
@@ -21,7 +21,7 @@ struct SchmidtMatrix{Tm <: Number, Ta <: SubArray, Tb <: SubArray, Ti <: Integer
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    SchmidtMatrix(T::DataType, b::AbstractBasis, Ainds::AbstractVector{Ta}) where Ta <: Integer
+    SchmidtMatrix(T, b::AbstractBasis, Ainds::AbstractVector)
 
 Construction of `SchmidtMatrix`.
 """
@@ -180,10 +180,19 @@ Flip spins Sz on each site.
 """
 function spinflip(v::AbstractVector{<:Integer}, base::Integer)
     vf = Vector{eltype(v)}(undef, length(v))
+    base -= 1
     for i = 1:length(vf)
-        vf[i] = base - v[i] - 1
+        vf[i] = base - v[i]
     end
     vf
+end
+
+function spinflip!(v::AbstractVector{<:Integer}, base::Integer)
+    base -= 1
+    for i in eachindex(v)
+        v[i] = base - v[i]
+    end
+    v
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -214,4 +223,62 @@ end
 schmidt(v, Ainds, b::TranslationParityBasis) = parity_schmidt(reverse, v, Ainds, b)
 schmidt(v, Ainds, b::TranslationFlipBasis) = parity_schmidt(x -> spinflip(x, b.B), v, Ainds, b)
 
-
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+Schmidt decomposition for `FlipBasis`.
+"""
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::FlipBasis)
+    dgt, R, phase = b.dgt, b.R, b.P
+    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    for i = 1:length(v)
+        change!(b, i)
+        val = v[i] / R[i]
+        addto!(S, val)
+        dgt .= spinflip(dgt, b.B)
+        addto!(S, phase * val)
+    end
+    S.M
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+Schmidt decomposition for `ParityBasis`.
+"""
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityBasis)
+    dgt, R, phase = b.dgt, b.R, b.P
+    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    for i = 1:length(v)
+        change!(b, i)
+        val = v[i] / R[i]
+        addto!(S, val)
+        reverse!(dgt)
+        addto!(S, phase * val)
+    end
+    S.M
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+Schmidt decomposition for `ParityBasis`.
+"""
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityFlipBasis)
+    dgt, R, p1, p2 = b.dgt, b.R, b.P, b.Z
+    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    for i = 1:length(v)
+        # (P,Z) = (0,0)
+        change!(b, i)
+        val = v[i] / R[i]
+        addto!(S, val)
+        # (P,Z) = (1,0)
+        reverse!(dgt)
+        val *= p1
+        addto!(S, val) 
+        # (P,Z) = (1,1)
+        dgt .= spinflip(dgt, b.B)
+        val *= p2
+        addto!(S, val) 
+        # (P,Z) = (0,1)
+        reverse!(dgt)
+        val *= p1
+        addto!(S, val) 
+    end
+    S.M
+end
