@@ -1,6 +1,7 @@
 module EDKit
 
-using LinearAlgebra, SparseArrays, Random, Combinatorics, ITensors, ITensorMPS
+using LinearAlgebra, SparseArrays, Random, Combinatorics
+using ITensors, ITensorMPS, LRUCache
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, copy
 import LinearAlgebra: norm, mul!

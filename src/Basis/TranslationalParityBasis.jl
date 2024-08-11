@@ -105,7 +105,7 @@ Construction for `TranslationParityBasis`.
 Inputs:
 -------
 - `f`       : Selection function for the basis contents.
-- `k`       : Momentum number from 0 to L-1.
+- `k`       : Momentum number, 0 or L/2.
 - `p`       : Parity number ±1.
 - `L`       : Length of the system.
 - `N`       : Particle numper.

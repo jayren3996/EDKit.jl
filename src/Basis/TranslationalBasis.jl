@@ -193,7 +193,13 @@ function TranslationalBasis(dtype::DataType=Int64;
 )
     len, check_a = divrem(L, a)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"
-    k = mod(k, len)
+    #=
+    Change of definition: 
+        old: T|k⟩ = exp(+ik)|k⟩,
+        new: T|k⟩ = exp(-ik)|k⟩.
+    In the new definition, cₖ⁺|VAC⟩ = |k⟩.
+    =#
+    k = mod(-k, len) 
     base = convert(dtype, base)
     I, R = begin
         norm = [len/sqrt(i) for i = 1:len]

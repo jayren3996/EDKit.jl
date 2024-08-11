@@ -151,6 +151,33 @@ ITensors.state(::StateName"Dn", ::SiteType"Pauli") = [1/2, 0, 0, -1/2]
 #---------------------------------------------------------------------------------------------------
 # MPS/MPO
 #---------------------------------------------------------------------------------------------------
+function _umat(n::Int64)
+    B1 = ParityBasis(L=2, p=1, base=n)
+    B2 = ParityBasis(L=2, p=-1, base=n)
+    n1, n2 = size(B1, 1), size(B2, 1)
+    out = zeros(ComplexF64, n^2, n^2)
+    for i in 1:n1
+        a = 1 / change!(B1, i)
+        out[index(B1.dgt; base=n), i] += a 
+        reverse!(B1.dgt)
+        out[index(B1.dgt; base=n), i] += a 
+    end
+    for i in 1:n2
+        j = n1 + i 
+        b = 1im / change!(B2, i) 
+        out[index(B2.dgt; base=n), j] += b
+        reverse!(B2.dgt)
+        out[index(B2.dgt; base=n), j] -= b
+    end
+    out
+end
+const lru_umat = LRU{Int64, Matrix{ComplexF64}}(maxsize=30)
+function cached_umat(n::Int64)
+    get!(lru_umat, n) do
+        _umat(n)
+    end
+end
+#---------------------------------------------------------------------------------------------------
 export mps2pmps
 function mps2pmps(ψ::MPS, S::AbstractVector)
     s = siteinds(ψ)
@@ -161,21 +188,33 @@ function mps2pmps(ψ::MPS, S::AbstractVector)
         l1 = linkind(ψ, 1)
         Cl = combiner(l1, l1', tags="Link,l=1")
         C = ITensor(PAULI_CONVERSION, S[1], s[1]', s[1])
-        ψ[1]' * conj(ψ[1]) * C * Cl |> real
+        ψ[1]' * conj(ψ[1]) * C * Cl
     end
     
     for i in 2:L-1 
         li = linkind(ψ, i)
         Cl2 = combiner(li, li', tags="Link,l=$i")
         C = ITensor(PAULI_CONVERSION, S[i], s[i]', s[i])
-        psi[i] = ψ[i]' * conj(ψ[i]) * C * Cl * Cl2 |> real
+        psi[i] = ψ[i]' * conj(ψ[i]) * C * Cl * Cl2
         Cl = Cl2
     end
 
     psi[L] = begin
         C = ITensor(PAULI_CONVERSION, S[L], s[L]', s[L])
-        ψ[L]' * conj(ψ[L]) * C * Cl |> real
+        ψ[L]' * conj(ψ[L]) * C * Cl
     end
+
+    for i in 1:L-1
+        n = linkdim(ψ, i)
+        u = cached_umat(n)
+        l0 = commonind(psi[i], psi[i+1])
+        l = Index(n^2, tags="Link,l=$i")
+        U = ITensor(u, l0, l)
+        Ud = ITensor(u', l, l0)
+        psi[i] = psi[i] * U |> real
+        psi[i+1] = Ud * psi[i+1]
+    end
+    psi[L] = real(psi[L])
     psi
 end
 #---------------------------------------------------------------------------------------------------
@@ -197,23 +236,6 @@ function pmps2mpo(ψ::MPS, s::AbstractVector)
     end
     O
 end
-#---------------------------------------------------------------------------------------------------
-export mpo2pmps
-"""
-    mpo2pmps(O, S)
-
-Convert MPO to Pauli MPS.
-"""
-function mpo2pmps(O::MPO, S::AbstractVector)
-    s = siteinds(O)
-    L = length(s)
-    ψ = MPS(L) 
-    for i in eachindex(s)
-        C = ITensor(PAULI_CONVERSION, S[i], s[i]...)
-        ψ[i] = C * O[i] |> real
-    end
-    ψ
-end
 
 #---------------------------------------------------------------------------------------------------
 # Function on Pauli basis
@@ -232,7 +254,7 @@ function density_norm(ψ::MPS)
     scalar(V) |> abs
 end
 #---------------------------------------------------------------------------------------------------
-function density_expect(ψ::MPS, o::Integer)
+function density_expect(ψ::MPS, o::Integer; normalize::Bool=true)
     s = siteinds(ψ)
     L = let V = ITensor(1.0)
         l = Vector{ITensor}(undef, length(s)); l[1] = V
@@ -255,6 +277,43 @@ function density_expect(ψ::MPS, o::Integer)
         V = ψ[j] * state(s[j], o)
         out[j] = L[j] * V * R[j] |> scalar |> real 
     end
-    N = L[2]*R[1] |> scalar |> real 
-    out ./ N
+    if normalize
+        N = L[2]*R[1] |> scalar |> real 
+        out ./= N
+    end
+    out
+end
+#---------------------------------------------------------------------------------------------------
+function density_expect(ψ::MPS, h::AbstractMatrix)
+    n = round(Int, log(2, size(h, 1)))
+    hl = pauli_list(h)
+    s = siteinds(ψ)
+    L = let V = ITensor(1.0)
+        l = Vector{ITensor}(undef, length(s)); l[1] = V
+        for j in 2:length(s) 
+            V *= ψ[j-1] * state(s[j-1], 1)
+            l[j] = V
+        end
+        l
+    end
+    R = let V = ITensor(1.0)
+        l = Vector{ITensor}(undef, length(s)); l[end] = V
+        for j in length(s)-1:-1:1
+            V *= ψ[j+1] * state(s[j+1], 1)
+            l[j] = V
+        end
+        l
+    end
+    out = Vector{Float64}(undef, length(s)-n+1)
+    for j in eachindex(out)
+        V = L[j]
+        for k in j:j+n-1 
+            V = V * ψ[k]
+        end
+        V = V * R[j+n-1]
+        vec = Array(V, s[j+n-1:-1:j]...)
+        list = reshape(vec, :)
+        out[j] = dot(list, hl)
+    end
+    out
 end

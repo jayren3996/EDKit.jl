@@ -108,7 +108,13 @@ function TranslationFlipBasis(
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"
     @assert isone(p) || isone(-p) "Invalid parity"
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
-    k = mod(k, len)
+    #=
+    Change of definition: 
+        old: T|k⟩ = exp(+ik)|k⟩,
+        new: T|k⟩ = exp(-ik)|k⟩.
+    In the new definition, cₖ⁺|VAC⟩ = |k⟩.
+    =#
+    k = mod(-k, len)
     base = convert(dtype, base)
     MAX = base ^ L + 1
 

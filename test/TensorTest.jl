@@ -57,7 +57,7 @@ end
         states = [normalize(rand(d)) for i in 1:L]
 
         v = kron(states...)
-        ψ = product_state(sites, states)
+        ψ = productstate(sites, states)
 
         vec = mps2vec(ψ)
         for i in eachindex(v)
@@ -195,39 +195,8 @@ end
 #----------------------------------------------------------------------------------------------------
 # Pauli MPS
 #----------------------------------------------------------------------------------------------------
-@testset "MPO -> PMPS" begin
-    for L in 1:5
-        s = siteinds("S=1/2", L)
-        ps = siteinds("Pauli", L)
-        os = OpSum()
-        c = randn(4^L)
-        name = ["I", "Sx", "Sy", "Sz"]
-        for i in eachindex(c)
-            inds = digits(i-1, base=4, pad=L) |> reverse 
-            C = 2 ^ ( L - sum(iszero.(inds)) ) * c[i]
-            list = vcat([[name[inds[a]+1], a] for a in 1:L]...)
-            os += (C, list...)
-        end
-        O = MPO(os, s)
-        ψ = mpo2pmps(O, ps)
-        @test mps2vec(ψ) ≈ c 
-    end
-end
-#----------------------------------------------------------------------------------------------------
-@testset "PMPS -> MPO" begin
-    for L in 1:5
-        s = siteinds("S=1/2", L)
-        ps = siteinds("Pauli", L)
-        c = randn(4^L)
-        ψ = vec2mps(c, ps)
-        O = pmps2mpo(ψ, s)
-        v = mpo2pmps(O, ps) |> mps2vec
-        @test v ≈ c 
-    end
-end
-#----------------------------------------------------------------------------------------------------
 @testset "Fidelity" begin
-    for L in 1:6
+    for L in 2:7
         s = siteinds("S=1/2", L)
         ps = siteinds("Pauli", L)
         vec = rand(ComplexF64, 2^L) |> normalize!
@@ -240,7 +209,7 @@ end
 end
 #----------------------------------------------------------------------------------------------------
 @testset "MPS -> PMPS" begin
-    for L in 2:6
+    for L in 2:7
         s = siteinds("S=1/2", L)
         ps = siteinds("Pauli", L)
         vec = rand(ComplexF64, 2^L) |> normalize!
