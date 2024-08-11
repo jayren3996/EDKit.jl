@@ -186,14 +186,14 @@ function mps2pmps(ψ::MPS, S::AbstractVector)
     
     psi[1] = begin
         l1 = linkind(ψ, 1)
-        Cl = combiner(l1, l1', tags="Link,l=1")
+        Cl = combiner(l1, l1')
         C = ITensor(PAULI_CONVERSION, S[1], s[1]', s[1])
         ψ[1]' * conj(ψ[1]) * C * Cl
     end
     
     for i in 2:L-1 
         li = linkind(ψ, i)
-        Cl2 = combiner(li, li', tags="Link,l=$i")
+        Cl2 = combiner(li, li')
         C = ITensor(PAULI_CONVERSION, S[i], s[i]', s[i])
         psi[i] = ψ[i]' * conj(ψ[i]) * C * Cl * Cl2
         Cl = Cl2
