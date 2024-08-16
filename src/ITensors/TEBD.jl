@@ -133,13 +133,13 @@ function tebd4(
     s::Vector{<:Index},
     τ::Number
 )
-    n = round(Int64, log(space(s[1]), size(h,1)) )
+    n = round(Int64, log(space(s[1]), size(h[1],1)) )
     SW = if n == 2
         Order4
     elseif n == 3
         Order4n3
     else
-        "n should be 2 or 3, instead got $n."
+        error("n should be 2 or 3, instead got $n.")
     end
 
     N = length(s)
