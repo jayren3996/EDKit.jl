@@ -1,4 +1,11 @@
 #---------------------------------------------------------------------------------------------------
+"""
+Convert doubled space to Pauli space:
+    T[i,:,:] = σⁱ/2
+The orthogonality is from Tr[σⁱσʲ] = 2δⁱʲ. 
+The expectation ⟨ψ|σᵅ|ψ⟩ in the tranfermatrix is 
+    Bᵅ = Ā⋅σᵅ⋅A / 2
+"""
 const PAULI_CONVERSION = let T = zeros(ComplexF64, 4, 2, 2)
     for i in 1:4 
         T[i, :, :] += conj.(PAULI[i]) / 2
@@ -6,6 +13,10 @@ const PAULI_CONVERSION = let T = zeros(ComplexF64, 4, 2, 2)
     T
 end
 #---------------------------------------------------------------------------------------------------
+"""
+Reverse Pauli conversion:
+    ∑ᵢ T⁻¹[:,:,i]⊗T[i,:,:] = δ[2×2,2×2]
+"""
 const PAULI_INV_CONV = let T = zeros(ComplexF64, 2, 2, 4)
     for i in 1:4 
         T[:, :, i] += PAULI[i]
@@ -151,18 +162,21 @@ ITensors.state(::StateName"Dn", ::SiteType"Pauli") = [1/2, 0, 0, -1/2]
 #---------------------------------------------------------------------------------------------------
 # MPS/MPO
 #---------------------------------------------------------------------------------------------------
+"""
+This function create a symmetrization on the auxilliary space.
+"""
 function _umat(n::Int64)
-    B1 = ParityBasis(L=2, p=1, base=n)
-    B2 = ParityBasis(L=2, p=-1, base=n)
+    B1 = ParityBasis(L=2, p=1, base=n)      # symmetric basis 
+    B2 = ParityBasis(L=2, p=-1, base=n)     # anti-symmetrix basis 
     n1, n2 = size(B1, 1), size(B2, 1)
-    out = zeros(ComplexF64, n^2, n^2)
-    for i in 1:n1
-        a = 1 / change!(B1, i)
+    out = zeros(ComplexF64, n^2, n^2)       # whole space
+    for i in 1:n1                           # fill in the element in symmetric space 
+        a = 1 / change!(B1, i)              # normalization 
         out[index(B1.dgt; base=n), i] += a 
-        reverse!(B1.dgt)
+        reverse!(B1.dgt)                    # symmetrization
         out[index(B1.dgt; base=n), i] += a 
     end
-    for i in 1:n2
+    for i in 1:n2                           # fill in the element in the anti-symmetric space 
         j = n1 + i 
         b = 1im / change!(B2, i) 
         out[index(B2.dgt; base=n), j] += b
@@ -172,6 +186,9 @@ function _umat(n::Int64)
     out
 end
 const lru_umat = LRU{Int64, Matrix{ComplexF64}}(maxsize=30)
+"""
+Cached umat function.
+"""
 function cached_umat(n::Int64)
     get!(lru_umat, n) do
         _umat(n)
@@ -179,15 +196,20 @@ function cached_umat(n::Int64)
 end
 #---------------------------------------------------------------------------------------------------
 export mps2pmps
+"""
+Convert MPS to Pauli MPS
+"""
 function mps2pmps(ψ::MPS, S::AbstractVector)
     s = siteinds(ψ)
     L = length(s)
     psi = MPS(L)
     
+    # create doubled tensor
     psi[1] = begin
         l1 = linkind(ψ, 1)
         Cl = combiner(l1, l1')
         C = ITensor(PAULI_CONVERSION, S[1], s[1]', s[1])
+        # Bᵅ = Ā⋅σᵅ⋅A / 2
         ψ[1]' * conj(ψ[1]) * C * Cl
     end
     
@@ -204,6 +226,7 @@ function mps2pmps(ψ::MPS, S::AbstractVector)
         ψ[L]' * conj(ψ[L]) * C * Cl
     end
 
+    # symmetrize the doubled auxilliary space
     for i in 1:L-1
         n = linkdim(ψ, i)
         u = cached_umat(n)
@@ -235,6 +258,56 @@ function pmps2mpo(ψ::MPS, s::AbstractVector)
         O[i] = C * ψ[i]
     end
     O
+end
+#---------------------------------------------------------------------------------------------------
+
+export mpo2pmpo
+"""
+Convert MPO to Pauli MPO
+"""
+function mpo2pmpo(H::MPO, S::AbstractVector)
+    s = [e[2] for e in siteinds(H)]
+    L = length(s)
+    PH = MPO(L)
+    
+    # create doubled tensor
+    PH[1] = begin
+        l1 = linkind(H, 1)
+        Cl = combiner(l1, l1'')
+        C = ITensor(PAULI_CONVERSION, S[1]', s[1]''', s[1])
+        C2 = ITensor(PAULI_INV_CONV, s[1]'', s[1]', S[1])
+        H[1]'' * H[1] * C * C2 * Cl
+    end
+    
+    for i in 2:L-1 
+        li = linkind(H, i)
+        Cl2 = combiner(li, li'')
+        C = ITensor(PAULI_CONVERSION, S[i]', s[i]''', s[i])
+        C2 = ITensor(PAULI_INV_CONV, s[i]'', s[i]', S[i])
+        PH[i] = H[i]'' * H[i] * C * C2 * Cl * Cl2
+        Cl = Cl2
+    end
+
+    PH[L] = begin
+        C = ITensor(PAULI_CONVERSION, S[L]', s[L]''', s[L])
+        C2 = ITensor(PAULI_INV_CONV, s[L]'', s[L]', S[L])
+        H[L]'' * H[L] * C * C2 * Cl
+    end
+
+    #symmetrize the doubled auxilliary space
+    for i in 1:L-1
+        n = linkdim(H, i)
+        u = cached_umat(n)
+        l0 = commonind(PH[i], PH[i+1])
+        l = Index(n^2, tags="Link,l=$i")
+        U = ITensor(u, l0, l)
+        Ud = ITensor(u', l, l0)
+        PH[i] = PH[i] * U |> real
+        PH[i+1] = Ud * PH[i+1]
+    end
+    PH[L] = real(PH[L])
+
+    PH
 end
 
 #---------------------------------------------------------------------------------------------------

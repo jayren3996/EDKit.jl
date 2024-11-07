@@ -1,3 +1,8 @@
+include("../EDKit.jl")
+using Main.EDKit
+using LinearAlgebra
+import Base.:+
+import EDKit: binary_search
 #-------------------------------------------------------------------------------------------------------------------------
 # Abelian Operator
 #-------------------------------------------------------------------------------------------------------------------------
@@ -9,12 +14,12 @@ struct AbelianOperator{Tp <: Number}
 end
 #-------------------------------------------------------------------------------------------------------------------------
 function AbelianOperator(g::Int, k::Integer, f)
+    phase = 1im * 2π * k / g
     c = if iszero(k)
         ones(g)
     elseif 2k == g
         [iseven(j) ? 1 : -1 for j in 0:g-1]
     else
-        phase = 1im * 2π * k / g
         [exp(phase * j) for j in 0:g-1]
     end
     AbelianOperator([1], [g], [c], [f])
@@ -40,9 +45,13 @@ function init!(g::AbelianOperator)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 function (ag::AbelianOperator)(dgt::Vector)
-    for i in eachindex(ag.s)
-        ag.f[i](dgt) 
-        (ag.s[i] = ag.s[i] + 1) > ag.g[i] ? (ag.s[i] = 1) : break
+    ag.f[1](dgt) 
+    ag.s[1] += 1 
+    for i in 1:length(ag.s)-1 
+        ag.s[i] > ag.g[i] || break
+        ag.s[i] = 1
+        ag.f[i+1](dgt)
+        ag.s[i+1] += 1 
     end
     dgt
 end
@@ -67,13 +76,13 @@ end
 function shift_canonical!(dgt, g::AbelianOperator; base=2)
     init!(g)
     Im = index(dgt; base)
-    ms = g.s[:]
-    for _ in 1:order(g)
+    ms = deepcopy(g.s)
+    for i in 1:order(g)
         g(dgt) 
         In = index(dgt; base)
         if In < Im 
             Im = In
-            ms .= g.s
+            ms = deepcopy(g.s)
         end
     end
     g.s .= ms 
@@ -83,7 +92,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Abelian Basis
 #-------------------------------------------------------------------------------------------------------------------------
-struct AbelianBasis{Ti <: Integer, Tg <: Number} <: AbstractPermuteBasis
+struct AbelianBasis{Ti <: Integer, Tg <: Number} <: EDKit.AbstractPermuteBasis
     dgt::Vector{Ti}         # Digits
     I::Vector{Ti}           # Representing states
     R::Vector{Float64}      # Normalization
@@ -94,57 +103,27 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 function AbelianBasis(
     dtype::DataType=Int64;
-    L::Integer, G::AbelianOperator, base::Integer=2, f=x->true,
-    alloc=1000, threaded::Bool=true
+    L::Integer, G::AbelianOperator, base::Integer=2, f=x->true
 )
+    MAX = base ^ L + 1
+    dgt = zeros(dtype, L)
     Ng = order(G)
-    
-    C = zeros(Ng)
-    for i in eachindex(C)
-        iszero(mod(Ng, i)) && (C[i] = sqrt(Ng * i))
-    end
-
-    I, R = if threaded
-        nt = Threads.nthreads()
-        ni = dividerange(base^L, nt)
-        nI = Vector{Vector{dtype}}(undef, nt)
-        nR = Vector{Vector{Float64}}(undef, nt)
-        Threads.@threads for ti in 1:nt
-            nI[ti], nR[ti] = _abelian_select(f, deepcopy(G), L, ni[ti], C; base, alloc)
+    C = [sqrt(Ng * i) for i in 1:Ng]
+    I = dtype[]
+    R = Float64[]
+    for i in 1:MAX 
+        change!(dgt, i; base)
+        f(dgt) || continue
+        Q, n = check_min(dgt, G; base)
+        if Q 
+            push!(I, i)
+            push!(R, C[n])
         end
-        vcat(nI...), vcat(nR...)
-    else
-        _abelian_select(f, G, L, 1:base^L, C; base, alloc)
     end
     AbelianBasis(zeros(dtype, L), I, R, G, base)
 end
 
-function _abelian_select(
-    f, 
-    G,
-    L::Integer, 
-    rg::UnitRange{T},
-    C; 
-    base::Integer=2, 
-    alloc::Integer=1000
-) where T <: Integer
-    dgt = zeros(T, L)
-    Is = T[]
-    Rs = Float64[]
-    sizehint!(Is, alloc)
-    sizehint!(Rs, alloc)
-    for i in rg
-        change!(dgt, i; base)
-        f(dgt) || continue
-        Q, n = check_min(dgt, G; base)
-        Q || continue 
-        push!(Is, i)
-        push!(Rs, C[n])
-    end
-    Is, Rs
-end
-#-------------------------------------------------------------------------------------------------------------------------
-function index(B::AbelianBasis)
+function EDKit.index(B::AbelianBasis)
     Im, g = shift_canonical!(B.dgt, B.G; base=B.B)
     ind = binary_search(B.I, Im)
     if iszero(ind)
@@ -153,53 +132,23 @@ function index(B::AbelianBasis)
         return phase(g) * B.R[ind], ind
     end
 end
-#-------------------------------------------------------------------------------------------------------------------------
-function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis)
+
+function EDKit.schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis)
     dgt, R, g = b.dgt, b.R, b.G
-    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    S = EDKit.SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
     for i in eachindex(v)
         init!(g)
         change!(b, i)
         val = v[i] / R[i]
         addto!(S, val)
-        for _ in 2:order(g)
+        for j in 2:order(g)
             g(dgt)
             addto!(S, phase(g) * val)
         end
     end
     S.M
 end
-#-------------------------------------------------------------------------------------------------------------------------
-export basis
-function basis(
-    dtype::DataType=Int64; 
-    L::Integer, 
-    f=nothing,
-    base::Integer=2, 
-    N::Union{Nothing, Integer}=nothing, 
-    k::Union{Nothing, Integer}=nothing, a::Integer=1, 
-    p::Union{Nothing, Integer}=nothing, 
-    z::Union{Nothing, Integer}=nothing,
-    threaded::Bool=base^L>3000
-)
-    gs = AbelianOperator[]
-    isnothing(k) || push!(gs, AbelianOperator(L, k, x -> circshift!(x, a)))
-    isnothing(p) || push!(gs, AbelianOperator(2, isone(-p) ? 1 : 0, reverse!))
-    isnothing(z) || push!(gs, AbelianOperator(2, isone(-z) ? 1 : 0, x -> spinflip!(x, base)))
-    
-    if isempty(gs)
-        isnothing(f) && isnothing(N) && return TensorBasis(;L, base)
-        return ProjectedBasis(dtype; L, f, N, base, threaded)
-    else
-        g = if isnothing(N)
-            isnothing(f) ? x -> true : f
-        else
-            num = L*(base-1)-N
-            isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-        end
-        return AbelianBasis(dtype; L, G=sum(gs), base, f=g, threaded)
-    end
-end
+
 
 
 
