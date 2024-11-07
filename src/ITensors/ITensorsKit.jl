@@ -41,7 +41,7 @@ function mps2vec(psi::MPS)
     for t in psi 
         v *= t 
     end
-    T = Array(v, reverse(siteinds(psi)))
+    T = Array(v, reverse(siteinds(psi))...)
     reshape(T, :)
 end
 #----------------------------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ Convert a ITensor operator to a matrix
 """
 function op2mat(o::ITensor, s::Index...)
     rs = reverse(s)
-    T = Array(o, adjoint.(rs), rs) 
+    T = Array(o, adjoint.(rs)..., rs...)
     N = space(s[1]) ^ length(s)
     reshape(T, N, N)
 end
