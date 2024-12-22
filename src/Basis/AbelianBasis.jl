@@ -1,6 +1,19 @@
 #-------------------------------------------------------------------------------------------------------------------------
 # Abelian Operator
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    AbelianOperator{Tp <: Number} 
+
+Operator of Abelian group, which can be product of elementary cycling groups.
+The operator keeps tract of the state indices, which gives coefficients.
+
+Properties:
+-----------
+- s: State indices
+- g: Group orders
+- c: Coefficients
+- f: Permutation functions
+"""
 struct AbelianOperator{Tp <: Number}
     s::Vector{Int}
     g::Vector{Int}
@@ -8,6 +21,17 @@ struct AbelianOperator{Tp <: Number}
     f::Vector
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    AbelianOperator(g::Int, k::Integer, f)
+
+Create elementary cycling group operator.
+
+Inputs:
+-------
+- g: Group order 
+- k: Momentum 
+- f: Permutation function
+"""
 function AbelianOperator(g::Int, k::Integer, f)
     c = if iszero(k)
         ones(g)
@@ -28,6 +52,11 @@ function order(g::AbelianOperator)
     prod(g.g)
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+Return the phase 
+
+θ(s) = ∏ⱼexp(i*k*sⱼ)
+"""
 function phase(g::AbelianOperator)
     prod(g.c[i][g.s[i]] for i in eachindex(g.c))
 end
@@ -39,6 +68,9 @@ function init!(g::AbelianOperator)
     g
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+Apply Abelian Operator on digits.
+"""
 function (ag::AbelianOperator)(dgt::Vector)
     for i in eachindex(ag.s)
         ag.f[i](dgt) 
@@ -64,6 +96,11 @@ function check_min(dgt, g::AbelianOperator; base=2)
     true, N
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+Find the group element that shift |d⟩ to the representing digit |d̃⟩.
+
+|d̃⟩ = ∏ⱼ gⱼ^sⱼ|d⟩ 
+"""
 function shift_canonical!(dgt, g::AbelianOperator; base=2)
     init!(g)
     Im = index(dgt; base)

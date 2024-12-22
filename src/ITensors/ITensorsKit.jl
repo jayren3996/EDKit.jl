@@ -60,7 +60,8 @@ function mps2vec(psi::MPS, B::AbstractBasis)
         for j in 1:L
             val *= psi[j] * state(s[j], B.dgt[j]+1)
         end
-        v[i] = scalar(val) * L / R
+        # Normalization, why? 
+        v[i] = scalar(val) * R
     end
     v
 end
