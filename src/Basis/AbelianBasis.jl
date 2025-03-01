@@ -220,7 +220,7 @@ function basis(
     threaded::Bool=base^L>3000
 )
     gs = AbelianOperator[]
-    isnothing(k) || push!(gs, AbelianOperator(L, k, x -> circshift!(x, a)))
+    isnothing(k) || push!(gs, AbelianOperator(L÷a, k, x -> circshift!(x, a)))
     isnothing(p) || push!(gs, AbelianOperator(2, isone(-p) ? 1 : 0, reverse!))
     isnothing(z) || push!(gs, AbelianOperator(2, isone(-z) ? 1 : 0, x -> spinflip!(x, base)))
     
