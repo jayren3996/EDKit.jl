@@ -22,7 +22,7 @@ Deep copy digits.
 """
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
-function index(b::ProjectedBasis; check::Bool=true)
+function index(b::ProjectedBasis; check::Bool=false)
     i = index(b.dgt, base=b.B)
     ind = binary_search(b.I, i)
     ind > 0 && return 1, ind
