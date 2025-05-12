@@ -191,9 +191,9 @@ function index(B::AbelianBasis)
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------
-function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis)
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis; B1=nothing, B2=nothing)
     dgt, R, g = b.dgt, b.R, b.G
-    S = SchmidtMatrix(promote_type(eltype(v), eltype(b)), b, Ainds)
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
     for i in eachindex(v)
         init!(g)
         change!(b, i)
