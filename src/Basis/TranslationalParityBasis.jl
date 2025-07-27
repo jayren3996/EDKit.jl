@@ -195,5 +195,6 @@ function index(b::TranslationParityBasis)
     iszero(i) && return (zero(eltype(b)), one(eltype(b.I)))
     n * b.R[i], i
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
+order(b::TranslationParityBasis) = 2*length(b.dgt)
 

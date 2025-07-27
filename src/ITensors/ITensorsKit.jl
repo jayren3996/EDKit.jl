@@ -46,7 +46,7 @@ function mps2vec(psi::MPS)
 end
 #----------------------------------------------------------------------------------------------------
 """
-    mps2vec(psi::MPS, B::AbstractBasis)
+    mps2vec(psi::MPS, B)
 
 Convert MPS to a vector, with a given basis `B`.
 """
@@ -60,8 +60,7 @@ function mps2vec(psi::MPS, B::AbstractBasis)
         for j in 1:L
             val *= psi[j] * state(s[j], B.dgt[j]+1)
         end
-        # Normalization, why? 
-        v[i] = scalar(val) * R
+        v[i] = scalar(val) * order(B) / R
     end
     v
 end

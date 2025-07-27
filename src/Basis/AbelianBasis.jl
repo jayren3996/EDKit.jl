@@ -127,7 +127,7 @@ struct AbelianBasis{Ti <: Integer, Tg <: Number} <: AbstractPermuteBasis
     G::AbelianOperator{Tg}  # Generator
     B::Ti                   # Base
 end
-
+order(b::AbelianBasis) = order(b.G)
 #-------------------------------------------------------------------------------------------------------------------------
 function AbelianBasis(
     dtype::DataType=Int64;

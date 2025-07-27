@@ -75,4 +75,5 @@ function index(b::FlipBasis)
     iszero(i) && return (zero(eltype(b)), one(i))
     n * b.R[i], i
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
+order(b::FlipBasis) = 2

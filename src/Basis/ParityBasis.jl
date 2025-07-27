@@ -79,4 +79,5 @@ function index(b::ParityBasis)
     iszero(i) && return (zero(eltype(b)), one(i))
     n * b.R[i], i
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
+order(b::ParityBasis) = 2

@@ -177,4 +177,5 @@ function index(b::TranslationFlipBasis)
     iszero(i) && return (zero(eltype(b)), one(eltype(b.I)))
     n * b.R[i], i
 end
-
+#-------------------------------------------------------------------------------------------------------------------------
+order(b::TranslationFlipBasis) = 2*length(b.dgt)

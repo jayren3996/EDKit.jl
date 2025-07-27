@@ -276,3 +276,5 @@ function index(b::TranslationalBasis)
     N = b.C[M+1] * b.R[i]
     N, i
 end
+#-------------------------------------------------------------------------------------------------------------------------
+order(b::TranslationalBasis) = length(b.dgt)
