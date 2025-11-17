@@ -167,7 +167,7 @@ Operator of size (84, 84) with 8 terms.
 
 Consider the PXP model
 ```math
-H = \sum_i \left(P^0_{i-1} \sigma^x_i P^0_{i+1}\right).
+H = \sum_i P^0_{i-1} \sigma^x_i P^0_{i+1}.
 ```
 Note that the model is defined on the Hilbert space where there is no local ``|↑↑⟩`` configuration. We can use the following function to check whether a product state is in the constraint subspace:
 ```julia
