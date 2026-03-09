@@ -2,20 +2,18 @@ export TranslationalBasis
 """
     TranslationalBasis
 
-Basis for subspace that is spanned by momentum states, which can also incorporate projected restriction.
-For each basis vector represented by `dgt`, the vector is
-    |aₙ⟩ = ∑ᵢ Tⁱ |dgt⟩.
-The normalized basis is
-    |n⟩ = Rₙ⁻¹ |aₙ⟩,
-where Rₙ is the normalization.
+Basis of lattice-momentum eigenstates, optionally with an additional projected
+constraint such as fixed `N`.
 
-Properties:
------------
-- `dgt`: Digits.
-- `I`  : List of indicies.
-- `R`  : List of normalization.
-- `C`  : Unit phase factor.
-- `B`  : Base.
+For each representative digit string `dgt`, the unnormalized orbit state is
+
+    |aₙ⟩ = ∑ᵢ Tⁱ |dgt⟩.
+
+The normalized basis vector is
+
+    |n⟩ = Rₙ⁻¹ |aₙ⟩,
+
+where `T` is translation by one unit cell and `Rₙ` is the normalization.
 """
 struct TranslationalBasis{Ti <: Integer, T <: Number} <: AbstractPermuteBasis
     dgt::Vector{Ti}
@@ -167,25 +165,28 @@ function selectindexnorm_threaded(f, L::Integer; base::T=2, alloc::Integer=1000)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    TranslationalBasis(f, k, L; base=2, alloc=1000, threaded=true)
+    TranslationalBasis(dtype::DataType=Int64; L, f=nothing, k=0, N=nothing, a=1, base=2, alloc=1000, threaded=true, small_N=false)
 
-Construction for `TranslationalBasis`.
+Construct a momentum-resolved basis.
 
 Inputs:
 -------
 - `dtype`   : Data type of index.
 - `L`       : Length of the system.
-- `f`       : Selection function for the basis contents.
-- `k`       : Momentum number from 0 to L-1.
-- `N`       : Particle number.
+- `f`       : Optional predicate on digit vectors.
+- `k`       : Momentum-sector label. The physical momentum is `2πk/(L/a)`.
+- `N`       : Optional fixed charge sector in EDKit's digit convention.
 - `a`       : Length of unit cell.
 - `base`    : Base, default = 2.
 - `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
 - `threaded`: Whether use the multithreading, default = true.
+- `small_N` : Whether to enumerate fixed-`N` states directly.
 
 Outputs:
 --------
-- `b`: TranslationalBasis.
+- `b`: `TranslationalBasis`.
+
+When `a > 1`, translations are taken by one unit cell rather than one site.
 """
 function TranslationalBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing, a::Integer=1,

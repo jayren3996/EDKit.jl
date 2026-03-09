@@ -2,6 +2,16 @@
 # Level statistics
 #-------------------------------------------------------------------------------------------------------------------------
 export gapratio, meangapratio
+"""
+    gapratio(E::AbstractVector{<:Real})
+
+Compute adjacent-gap ratios from a sorted energy spectrum `E`.
+
+For consecutive level spacings `δ_n = E[n+1] - E[n]`, this returns the vector
+with entries `min(δ_n, δ_{n+1}) / max(δ_n, δ_{n+1})`.
+
+The input should already be sorted in ascending order.
+"""
 function gapratio(E::AbstractVector{<:Real})
     dE = diff(E)
     r = zeros(length(dE)-1)
@@ -17,6 +27,13 @@ function gapratio(E::AbstractVector{<:Real})
     r
 end
 
+"""
+    meangapratio(E::AbstractVector{<:Real})
+
+Return the mean adjacent-gap ratio of a sorted spectrum `E`.
+
+This is a convenience wrapper around [`gapratio`](@ref).
+"""
 meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -25,7 +42,11 @@ meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
 """
     expm(A, order::Integer=10)
 
-Matrix exponential using Taylor expansion.
+Approximate `exp(A)` using a truncated Taylor expansion of the given order.
+
+This routine is lightweight and convenient for small matrices, but it is not
+intended to replace the more numerically robust algorithms in dedicated linear
+algebra packages.
 """
 function expm(A; order::Integer=10)
     mat = I + A / order
@@ -42,7 +63,10 @@ end
 """
     expv(A, v::AbstractVecOrMat; order=10, λ=1)
 
-Compute exp(λA)*v using Taylor expansion
+Approximate `exp(λA) * v` using a truncated Taylor expansion.
+
+This avoids explicitly constructing `exp(λA)` and is useful for quick tests or
+small problems.
 """
 function expv(A, v::AbstractVecOrMat; order::Integer=10, λ::Number=1)
     vec = v + λ * A * v / order
@@ -63,15 +87,12 @@ export productstate
 """
     productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
 
-Construction for product state.
+Construct the basis vector corresponding to the product configuration `v`.
 
-Inputs:
--------
-- `v`: Vector representing the product state.
-- `B`: Basis.
-
-Outputs:
-- `s`: Vector representing the many-body state.
+`v` is a digit representation of local states in base `B.B`, for example
+`[0, 1, 0, 1]` for a spin-1/2 chain. The returned vector lives in the Hilbert
+space defined by `B`, so this works for tensor-product, projected, and
+symmetry-reduced bases alike.
 """
 function productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
     s = zeros(size(B, 1))

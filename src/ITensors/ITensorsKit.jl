@@ -48,7 +48,16 @@ end
 """
     mps2vec(psi::MPS, B)
 
-Convert MPS to a vector, with a given basis `B`.
+Convert an MPS to coordinates in the symmetry-reduced basis `B`.
+
+This routine is exact when `psi` already lies in the symmetry sector described
+by `B`. In that case it reconstructs the sector amplitudes from the amplitude on
+each representative product state together with the normalization/orbit data of
+`B`.
+
+It is not a generic orthogonal projector for arbitrary MPS outside the sector:
+for a general state, use an explicit projection constructed from the basis if
+you need the true projected coefficients.
 """
 function mps2vec(psi::MPS, B::AbstractBasis)
     L = length(psi)

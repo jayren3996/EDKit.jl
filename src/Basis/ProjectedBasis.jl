@@ -2,14 +2,10 @@ export ProjectedBasis
 """
     ProjectedBasis{Ti}
 
-Basis for subspace that is spanned only by product states.
-It is basically like the `TensorBasis`, but contains only a subset of all basis vectors, selected by a given function.
+Basis of product states selected from the full tensor-product Hilbert space.
 
-Properties:
------------
-- `dgt`: Digits.
-- `I`  : List of indicies.
-- `B`  : Base.
+This behaves like [`TensorBasis`](@ref), but only retains basis vectors whose
+digit representation satisfies a user-defined predicate or a fixed charge `N`.
 """
 struct ProjectedBasis{T <: Integer} <: AbstractOnsiteBasis
     dgt::Vector{T}
@@ -18,7 +14,9 @@ struct ProjectedBasis{T <: Integer} <: AbstractOnsiteBasis
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Deep copy digits.
+    copy(b::ProjectedBasis)
+
+Deep copy the working digit buffer of a projected basis.
 """
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
@@ -156,23 +154,28 @@ function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    ProjectedBasis(;L, N, base=2, alloc=1000, threaded=true)
+    ProjectedBasis(dtype::DataType=Int64; L, f=nothing, N=nothing, base=2, alloc=1000, threaded=true, small_N=false)
 
-Construction method for `ProjectedBasis` with fixed particle number (or total U(1) charge).
+Construct a projected basis on `L` sites.
 
 Inputs:
 -------
 - `dtype`   : Data type for indices.
 - `L`       : Length of the system.
-- `N`       : Quantum number of up spins / particle number / U(1) charge.
+- `f`       : Predicate on digit vectors. Only states with `f(dgt) == true` are kept.
+- `N`       : Fixed charge sector. In EDKit's digit convention this corresponds to
+              `sum(dgt) == L*(base-1) - N`.
 - `base`    : Base, default = 2.
 - `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
 - `threaded`: Whether use the multithreading, default = true.
-- `small_N` : Whether use the small-N algorithm.
+- `small_N` : Whether to enumerate fixed-`N` states directly instead of scanning the full space.
 
 Outputs:
 --------
-- `b` : ProjectedBasis.
+- `b` : `ProjectedBasis`.
+
+This constructor is useful for constrained Hilbert spaces such as PXP/Rydberg
+constraints or fixed-magnetization sectors.
 """
 function ProjectedBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
@@ -191,4 +194,3 @@ function ProjectedBasis(dtype::DataType=Int64;
     end
     ProjectedBasis(zeros(dtype, L), I, base)
 end
-

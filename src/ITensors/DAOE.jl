@@ -4,6 +4,7 @@
 export daoe
 function daoe(s::AbstractVector, l::Integer, γ::Real)
     d, L = space(s[1]), length(s)
+    @assert d == 4 "daoe expects local operator-basis indices of dimension 4, e.g. `siteinds(\"Pauli\", L)`."
     κ = exp(-γ)
     #=----------------------------------------------------------
     W¹¹ = I
@@ -39,6 +40,7 @@ end
 #-------------------------------------------------------------------------------
 export fdaoe
 function fdaoe(s::AbstractVector, l::Integer, γ::Real)
+    @assert space(s[1]) == 4 "fdaoe expects local operator-basis indices of dimension 4, e.g. `siteinds(\"Pauli\", L)`."
     L = length(s)
     κ = exp(-2γ)
     #=----------------------------------------------------------

@@ -208,6 +208,35 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Abelian
 end
 #-------------------------------------------------------------------------------------------------------------------------
 export basis
+"""
+    basis(dtype::DataType=Int64; L, f=nothing, base=2, N=nothing, k=nothing, a=1, p=nothing, z=nothing, threaded=base^L>3000)
+
+High-level basis constructor for the common symmetry combinations supported by
+EDKit.
+
+Keywords:
+- `L`: system size.
+- `f`: optional predicate used to impose additional local constraints.
+- `base`: local Hilbert-space dimension.
+- `N`: fixed U(1)-like charge sector.
+- `k`: translation quantum number.
+- `a`: unit-cell length used together with `k`.
+- `p`: reflection-parity eigenvalue `±1`.
+- `z`: spin-flip eigenvalue `±1`.
+
+Return value:
+- `TensorBasis` if no symmetry or constraint is requested.
+- `ProjectedBasis` if only `f` and/or `N` is requested.
+- `AbelianBasis` when one or more discrete symmetries (`k`, `p`, `z`) are used.
+
+Notes:
+- `k` and `p` are only simultaneously valid in the symmetry-compatible momentum
+  sectors handled by the underlying basis implementation.
+- `N` and `z` are only compatible in the half-filling sector for spin-1/2
+  systems, mirroring the restrictions of the dedicated basis types.
+- This is the most convenient user-facing entry point when you want to combine
+  several commuting symmetries without manually choosing a concrete basis type.
+"""
 function basis(
     dtype::DataType=Int64; 
     L::Integer, 
@@ -237,7 +266,6 @@ function basis(
         return AbelianBasis(dtype; L, G=sum(gs), base, f=g, threaded)
     end
 end
-
 
 
 
