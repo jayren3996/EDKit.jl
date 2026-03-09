@@ -1,195 +1,215 @@
 # EDKit.jl
 
-Julia package for general many-body exact diagonalization calculation. The package provides a general Hamiltonian constructing routine for specific symmetry sectors. The functionalities can be extended with user-defined bases.
+`EDKit.jl` is a Julia package for exact diagonalization and symmetry-resolved many-body calculations, with additional ITensor-based tools for MPS, operator-space evolution, and Lindblad or quadratic-fermion workflows.
+
+The package is built around one core idea:
+
+- describe local terms once,
+- choose a basis or symmetry sector,
+- construct an `Operator`,
+- use it as a linear map, a dense matrix, or a sparse matrix.
+
+## What EDKit covers
+
+- Generic many-body operator construction with `operator` and `trans_inv_operator`
+- Tensor-product and symmetry-reduced bases:
+  `TensorBasis`, `TranslationalBasis`, `TranslationParityBasis`, `ParityBasis`, `FlipBasis`, `ProjectedBasis`, and the high-level `basis(...)` helper
+- Entanglement utilities such as `ent_S`
+- Pauli-basis and operator-space utilities:
+  `pauli`, `pauli_list`, `commutation_mat`, `dissipation_mat`
+- ITensor/MPS helpers:
+  `vec2mps`, `mps2vec`, `mat2op`, `op2mat`, `mps2pmps`, `pmps2mpo`, `mpo2pmpo`, `tebd4`
+- Operator-space truncation MPOs:
+  `daoe` and `fdaoe`
+- Lindblad and quadratic-fermion solvers:
+  `lindblad`, `qimsolve`, `quadraticlindblad`, and related helpers
 
 ## Installation
 
-Run the following script in the Julia Pkg REPL environment:
+From the Julia package manager:
 
 ```julia
 pkg> add EDKit
 ```
 
-Alternatively, you can install `EDKit` directly from GitHub using the following script. 
+Or install the GitHub version directly:
 
 ```julia
 pkg> add https://github.com/jayren3996/EDKit.jl
 ```
 
-This is useful if you want to access the latest version of `EDKit`, which includes new features not yet registered in the Julia Pkg system but may also contain bugs. 
+Current compat:
 
-## Examples
+- Julia `1.9+`
+- `ITensors.jl` `0.7`
+- `ITensorMPS.jl` `0.3`
 
-Instead of providing documentation, I have chosen to introduce the functionality of this package through practical calculation examples. You can find a collection of Jupyter notebooks in the [examples](https://github.com/jayren3996/EDKit.jl/tree/main/examples) folder, each showcasing various computations.
+## Quick Start
 
-Here are a few basic examples:
+The simplest workflow is:
 
-### XXZ Model with Random Field
+1. define local operators,
+2. specify where they act,
+3. choose a basis,
+4. construct the many-body operator.
 
-Consider the Hamiltonian 
-```math
-H = \sum_i\left(\sigma_i^x \sigma^x_{i+1} + \sigma^y_i\sigma^y_{i+1} + h_i \sigma^z_i\sigma^z_{i+1}\right).
-```
-We choose the system size to be ``L=10``. The Hamiltonian needs 3 pieces of information: 
-
-1. Local operators represented by matrices;
-2. Site indices where each local operator acts on;
-3. Basis, if using the default tensor-product basis, only need to provide the system size.
-
-The following script generates the information we need to generate XXZ Hamiltonian:
+Example: open XXZ chain on `L = 8` sites.
 
 ```julia
-L = 10
+using EDKit, LinearAlgebra
+
+L = 8
+Delta = 1.5
+
 mats = [
-    fill(spin("XX"), L);
-    fill(spin("YY"), L);
-    [randn() * spin("ZZ") for i=1:L]
+    fill(spin("XX"), L - 1);
+    fill(spin("YY"), L - 1);
+    fill(Delta * spin("ZZ"), L - 1);
 ]
-inds = [
-    [[i, mod(i, L)+1] for i=1:L];
-    [[i, mod(i, L)+1] for i=1:L];
-    [[i, mod(i, L)+1] for i=1:L]
-]
+
+inds = vcat(
+    [[i, i + 1] for i in 1:L-1],
+    [[i, i + 1] for i in 1:L-1],
+    [[i, i + 1] for i in 1:L-1],
+)
+
 H = operator(mats, inds, L)
 ```
 
-Then we can use the constructor `operator` to create Hamiltonian:
+`H` is an `Operator`, not just a matrix. You can:
 
 ```julia
-julia> H = operator(mats, inds, L)
-Operator of size (1024, 1024) with 10 terms.
+psi = normalize(randn(ComplexF64, 2^L))
+Hpsi = H * psi
+
+Hdense = Array(H)
+Hsparse = sparse(H)
+
+vals = eigvals(Hermitian(Hdense))
 ```
 
-The constructor returns an Operator object, a linear operator that can act on vector/ matrix. For example, we can act `H` on a random state:
+## Symmetry Sectors
+
+EDKit becomes most useful when you stop working in the full Hilbert space.
+
+Example: momentum-zero, half-filling sector of a spin-1/2 chain:
 
 ```julia
-ψ = normalize(rand(2^L))
-ψ2 = H * ψ
+using EDKit
+
+L = 12
+B = basis(L = L, N = L ÷ 2, k = 0)
+
+h2 = spin((1.0, "xx"), (1.0, "yy"), (1.0, "zz"))
+H = trans_inv_operator(h2, 1:2, B)
 ```
 
-If we need a matrix representation of the Hamitonian, we can convert `H` to julia array by:
+You can then diagonalize the reduced matrix:
 
 ```julia
-julia> Array(H)
-1024×1024 Matrix{Float64}:
- -1.55617  0.0       0.0       0.0     …   0.0      0.0       0.0
-  0.0      4.18381   2.0       0.0         0.0      0.0       0.0
-  0.0      2.0      -1.42438   0.0         0.0      0.0       0.0
-  0.0      0.0       0.0      -1.5901      0.0      0.0       0.0
-  0.0      0.0       2.0       0.0         0.0      0.0       0.0
-  0.0      0.0       0.0       2.0     …   0.0      0.0       0.0
-  ⋮                                    ⋱                     
-  0.0      0.0       0.0       0.0         0.0      0.0       0.0
-  0.0      0.0       0.0       0.0         2.0      0.0       0.0
-  0.0      0.0       0.0       0.0     …   0.0      0.0       0.0
-  0.0      0.0       0.0       0.0        -1.42438  2.0       0.0
-  0.0      0.0       0.0       0.0         2.0      4.18381   0.0
-  0.0      0.0       0.0       0.0         0.0      0.0      -1.55617
+vals, vecs = eigen(Hermitian(Array(H)))
 ```
 
-Or use the function `sparse` to create the sparse matrix (requires the module `SparseArrays` being imported):
+Available symmetry-oriented basis types include:
+
+- `TranslationalBasis`
+- `TranslationParityBasis`
+- `ParityBasis`
+- `FlipBasis`
+- `ProjectedBasis`
+- `AbelianBasis`
+- `basis(...)` for common combinations of quantum numbers
+
+## ITensor and Operator-Space Tools
+
+EDKit also includes a second layer of tooling for tensor-network workflows.
+
+### MPS conversion
 
 ```julia
-julia> sparse(H)
-1024×1024 SparseMatrixCSC{Float64, Int64} with 6144 stored entries:
-⠻⣦⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⢹⡻⣮⡳⠄⢠⡀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠙⠎⢿⣷⡀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠲⣄⠈⠻⣦⣄⠙⠀⠀⠀⢦⡀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠈⠳⣄⠙⡻⣮⡳⡄⠀⠀⠙⢦⡀⠀⠀⠀⠈⠳⣄⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠙⠮⢻⣶⡄⠀⠀⠀⠙⢦⡀⠀⠀⠀⠈⠳⣄⠀
-⢤⡀⠀⠀⠀⠀⠠⣄⠀⠀⠀⠉⠛⣤⣀⠀⠀⠀⠙⠂⠀⠀⠀⠀⠈⠓
-⠀⠙⢦⡀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠘⠿⣧⡲⣄⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠙⢦⡀⠀⠀⠀⠈⠳⣄⠀⠀⠘⢮⡻⣮⣄⠙⢦⡀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠈⠳⠀⠀⠀⣄⠙⠻⣦⡀⠙⠦⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠈⢿⣷⡰⣄⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠈⠃⠐⢮⡻⣮⣇⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠙⠻⣦
+using EDKit, ITensors, ITensorMPS, LinearAlgebra
+
+L = 6
+s = siteinds(2, L)
+psi = randn(ComplexF64, 2^L) |> normalize
+
+psi_mps = vec2mps(psi, s)
+psi_back = mps2vec(psi_mps)
 ```
 
-### Solving AKLT Model Using Symmetries
+### Pauli-space evolution
 
-Consider the AKLT model 
-```math
-H = \sum_i\left[\vec S_i \cdot \vec S_{i+1} + \frac{1}{3}\left(\vec S_i \cdot \vec S_{i+1}\right)^2\right],
-```
-with the system size chosen to be ``L=8``. The Hamiltonian operator for this translational-invariant Hamiltonian can be constructed using the `trans_inv_operator` function:
+For operator growth or Lindbladian calculations, EDKit can work in a Pauli basis:
 
 ```julia
-L = 8
-SS = spin((1, "xx"), (1, "yy"), (1, "zz"), D=3)
-mat = SS + 1/3 * SS^2
-H = trans_inv_operator(mat, 1:2, L)
+using EDKit, ITensors, ITensorMPS
+
+L = 5
+ps = siteinds("Pauli", L)
+h2 = spin((1.0, "xx"), (1.0, "yy"), (1.0, "zz"))
+superop = commutation_mat(h2)
+gates = tebd4(fill(superop, L - 1), ps, 0.05)
+
+O = productMPS(ps, ["X", fill("I", L - 1)...])
+O = apply(gates, O)
+normalize!(O)
 ```
 
-The second input specifies the indices the operators act on.
+### DAOE and fDAOE
 
-Because of the translational symmetry, we can simplify the problem by considering the symmetry. We construct a translational-symmetric basis by:
+The package includes two MPO filters for operator-space truncation:
 
 ```julia
-B = TranslationalBasis(L=8, k=0, base=3)
+D = daoe(ps, 3, 0.4)
+FD = fdaoe(ps, 2, 0.3)
 ```
 
-Here, `L` is the length of the system, and `k` labels the momentum ``k = 0,...,L-1`` (integer multiplies of 2π/L). The function `TranslationalBasis` returns a basis object containing 834 states. We can obtain the Hamiltonian in this sector by:
+See the dedicated notebooks in [`examples/DAOE`](examples/DAOE) for small physical benchmarks.
+
+## Examples
+
+The main documentation style in this repository is example-driven.
+
+Start here:
+
+- [`examples/README.md`](examples/README.md)
+- [`examples/DAOE/README.md`](examples/DAOE/README.md)
+
+Basic scripts:
+
+Basic notebooks:
+
+- [`examples/Basic/OperatorConstruction.ipynb`](examples/Basic/OperatorConstruction.ipynb): construct a many-body Hamiltonian, apply it as a linear map, and compare dense and sparse forms.
+- [`examples/Basic/SymmetryReduction.ipynb`](examples/Basic/SymmetryReduction.ipynb): build the same model in full and symmetry-reduced bases, then verify sector recombination.
+- [`examples/Basic/MPSAndPauli.ipynb`](examples/Basic/MPSAndPauli.ipynb): convert vectors to MPS, move into Pauli-space MPS/MPO form, and inspect bond dimensions.
+
+Notable notebooks and scripts:
+
+- [`examples/Basics.ipynb`](examples/Basics.ipynb)
+- [`examples/Tensors.ipynb`](examples/Tensors.ipynb)
+- [`examples/Symmetries/MPSProjection.ipynb`](examples/Symmetries/MPSProjection.ipynb)
+- [`examples/DAOE/XXZOperatorGrowth.ipynb`](examples/DAOE/XXZOperatorGrowth.ipynb)
+- [`examples/DAOE/XXMajoranaGrowth.ipynb`](examples/DAOE/XXMajoranaGrowth.ipynb)
+- [`examples/ConstrainedPXP.jl`](examples/ConstrainedPXP.jl)
+- [`examples/GapRatioXXZ.jl`](examples/GapRatioXXZ.jl)
+
+## Design Notes
+
+`Operator` is the main abstraction. It lets you keep model construction separate from representation choice:
+
+- stay matrix-free for large sparse calculations,
+- convert to `Array` when exact diagonalization is affordable,
+- convert to `sparse` when you want explicit sparse storage,
+- reuse the same local terms across different bases or symmetry sectors.
+
+That separation is what makes EDKit flexible enough to handle both textbook ED workflows and the operator-space or MPS-based utilities added later.
+
+## Development
+
+The repository examples usually default to loading the local source tree with:
 
 ```julia
-julia> H = trans_inv_operator(mat, 1:2, B)
-Operator of size (834, 834) with 8 terms.
+const DEV = true
 ```
 
-In addition, we can take into account the total ``S^z`` conservation, by constructing the basis
-
-```julia
-B = TranslationalBasis(L=8, N=8, k=0, base=3)
-```
-
-where the `N` is the filling number with respect to the all-spin-down state. N=L means we select those states whose total `Sz` equals 0 (note that we use 0,1,2 to label the `Sz=1,0,-1` states). This gives a further reduced Hamiltonian matrix:
-
-```julia
-julia> H = trans_inv_operator(mat, 1:2, B)
-Operator of size (142, 142) with 8 terms.
-```
-
-We can go one step further by considering the spatial reflection symmetry.
-
-```julia
-B = TranslationParityBasis(L=8, N=0, k=0, p=1, base=3)
-```
-
-where the `p` argument is the parity `p = ±1`.
-
-```julia
-julia> H = trans_inv_operator(mat, 1:2, B)
-Operator of size (84, 84) with 8 terms.
-```
-
-### PXP Model and Entanglement Entropy
-
-Consider the PXP model
-```math
-H = \sum_i P^0_{i-1} \sigma^x_i P^0_{i+1}.
-```
-Note that the model is defined on the Hilbert space where there is no local ``|↑↑⟩`` configuration. We can use the following function to check whether a product state is in the constraint subspace:
-```julia
-function pxpf(v::Vector{<:Integer})
-    for i in eachindex(v)
-        iszero(v[i]) && iszero(v[mod(i, length(v))+1]) && return false
-    end
-    return true
-end
-```
-For system size ``L=20`` and in sector ``k=0,p=+1``, the Hamiltonian is constructed by:
-```julia
-mat = begin
-    P = [0 0; 0 1]
-    kron(P, spin("X"), P)
-end
-basis = TranslationParityBasis(L=20, f=pxpf, k=0, p=1)
-H = trans_inv_operator(mat, 3, basis)
-```
-where `f` argument is the selection function for the basis state that can be user-defined. We can then diagonalize the Hamiltonian. The bipartite entanglement entropy for each eigenstate can be computed by
-```julia
-vals, vecs = Array(H) |> Hermitian |> eigen
-EE = [ent_S(vecs[:,i], 1:L÷2, basis) for i=1:size(basis,1)]
-```
-
+Set `DEV = false` inside those example files if you want them to run against an installed package instead.

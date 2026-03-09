@@ -1,6 +1,12 @@
 # Examples
 
-The notebooks in this folder are the main walkthroughs for the package. The scripts below are smaller terminal-friendly examples that exercise the same API without requiring Jupyter.
+The notebooks in this folder are the main walkthroughs for the package.
+
+Basic notebook examples:
+
+- `Basic/OperatorConstruction.ipynb`: construct a nearest-neighbor spin Hamiltonian, apply it as a linear map, and compare dense and sparse representations.
+- `Basic/SymmetryReduction.ipynb`: build the same model in a full basis and reduced symmetry sectors, then check parity-sector recombination.
+- `Basic/MPSAndPauli.ipynb`: convert vectors to MPS, move to Pauli-space MPS/MPO objects, and inspect bond dimensions.
 
 Additional ITensor notebooks:
 
