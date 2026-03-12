@@ -175,8 +175,6 @@ Start here:
 - [`examples/README.md`](examples/README.md)
 - [`examples/DAOE/README.md`](examples/DAOE/README.md)
 
-Basic scripts:
-
 Basic notebooks:
 
 - [`examples/Basic/OperatorConstruction.ipynb`](examples/Basic/OperatorConstruction.ipynb): construct a many-body Hamiltonian, apply it as a linear map, and compare dense and sparse forms.
