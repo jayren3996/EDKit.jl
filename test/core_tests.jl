@@ -27,6 +27,7 @@
 
     bell = normalize([1.0, 0.0, 0.0, 1.0])
     @test ent_S(bell, [1], TensorBasis(L = 2, base = 2)) ≈ log(2)
+    @test ent_S(bell, [1], 2) ≈ log(2)
 
     E = [0.0, 1.0, 3.0, 6.0]
     @test gapratio(E) ≈ [0.5, 2 / 3]
