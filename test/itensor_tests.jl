@@ -63,9 +63,8 @@
         @test length(pmpo) == 3
     end
 
-    @testset "TEBD And DAOE Smoke Tests" begin
+    @testset "TEBD Smoke Tests" begin
         s = siteinds("S=1/2", 4)
-        ps = siteinds("Pauli", 4)
         h2 = [Array(spin((0.1, "xx"), (0.2, "zz"))) for _ in 1:3]
         gates = tebd4(h2, s, 0.05)
         @test !isempty(gates)
@@ -76,24 +75,5 @@
         tebd_n!(ψ, idgates, reverse(idgates), cutoff = 1e-12, maxdim = 16)
         @test norm(mps2vec(ψ)) ≈ 1.0 atol = 1e-10
         @test abs(abs(dot(before, mps2vec(ψ))) - 1) < 1e-8
-
-        D = daoe(ps, 2, 0.3)
-        @test length(D) == 4
-
-        ψI = productMPS(ps, fill("I", 4))
-        ψX = productMPS(ps, ["X", "I", "I", "I"])
-        ψXX = productMPS(ps, ["X", "X", "I", "I"])
-        @test inner(ψI, apply(D, ψI)) ≈ 1.0
-        @test inner(ψX, apply(D, ψX)) ≈ 1.0
-        @test inner(ψXX, apply(D, ψXX)) ≈ exp(-0.3)
-
-        FD = fdaoe(ps, 2, 0.3)
-        ψZ = productMPS(ps, ["Z", "I", "I", "I"])
-        ψZZ = productMPS(ps, ["Z", "Z", "I", "I"])
-        ψXZ = productMPS(ps, ["X", "Z", "I", "I"])
-        @test inner(ψZ, apply(FD, ψZ)) ≈ 1.0
-        @test inner(ψZZ, apply(FD, ψZZ)) ≈ 1.0
-        @test inner(ψXX, apply(FD, ψXX)) ≈ 1.0
-        @test inner(ψXZ, apply(FD, ψXZ)) ≈ exp(-0.6)
     end
 end

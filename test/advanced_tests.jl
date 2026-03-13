@@ -3,9 +3,60 @@
     N = 2
 
     Bfull = TensorBasis(L = L, base = 2)
-    T = DoubleBasis(Bfull, Bfull)
     ψfull = randn(ComplexF64, size(Bfull, 1))
-    @test T(ψfull) ≈ ψfull
+    T = DoubleBasis(Bfull, Bfull)
+    Sfull = symmetrizer(T)
+    @test Sfull * ψfull ≈ ψfull
+    @test Sfull ≈ Matrix{ComplexF64}(I, size(Bfull, 1), size(Bfull, 1))
+
+    Bpar = ParityBasis(L = L, p = 1, base = 2)
+    Tpar = DoubleBasis(Bpar, Bfull)
+    Ppar = sector_embedding(Bpar)
+    Spar = symmetrizer(Tpar)
+    @test Spar ≈ Ppar'
+    @test Tpar(ψfull) ≈ Spar * ψfull
+
+    ψproj = Ppar * (Spar * ψfull)
+    @test ψproj ≈ Ppar * (Ppar' * ψfull)
+
+    bases = [
+        ("tensor", TensorBasis(L = L, base = 2), randn(ComplexF64, size(Bfull, 1))),
+        ("projected", ProjectedBasis(L = L, N = N, base = 2, threaded = false), randn(ComplexF64, binomial(L, N))),
+        ("abelian", basis(L = L, N = N, k = 0, p = 1, base = 2, threaded = false), nothing),
+        ("parity", ParityBasis(L = L, p = 1, base = 2, threaded = false), nothing),
+        ("flip", FlipBasis(L = L, p = 1, N = N, base = 2, threaded = false), nothing),
+        ("parity-flip", ParityFlipBasis(L = L, p = 1, z = 1, N = N, base = 2, threaded = false), nothing),
+        ("translation", TranslationalBasis(L = L, k = 0, N = N, base = 2, threaded = false), nothing),
+        ("translation-parity", TranslationParityBasis(L = L, k = 0, p = 1, N = N, base = 2, threaded = false), nothing),
+        ("translation-flip", TranslationFlipBasis(L = L, k = 0, p = 1, N = N, base = 2, threaded = false), nothing),
+    ]
+    bases = [(name, B, isnothing(v) ? randn(ComplexF64, size(B, 1)) : v) for (name, B, v) in bases]
+
+    @testset "DoubleBasis fast action matches symmetrizer for all basis types" begin
+        for (target_name, Btarget, _) in bases
+            for (source_name, Bsource, v) in bases
+                T = DoubleBasis(Btarget, Bsource)
+                @test T(v) ≈ symmetrizer(T) * v atol = 1e-10 rtol = 1e-10
+            end
+        end
+    end
+
+    @test_throws ArgumentError DoubleBasis(TensorBasis(L = 3, base = 2), TensorBasis(L = 4, base = 2))
+    @test_throws ArgumentError DoubleBasis(TensorBasis(L = 4, base = 2), TensorBasis(L = 4, base = 3))
+
+    mat = rand(2, 2) |> Hermitian
+    Hrect = trans_inv_operator(mat, 1, Tpar) |> Array
+    @test size(Hrect) == (size(Bpar, 1), size(Bfull, 1))
+
+    Bn = ProjectedBasis(L = L, N = N, base = 2, threaded = false)
+    Bnp = ProjectedBasis(L = L, N = N + 1, base = 2, threaded = false)
+    Tup = DoubleBasis(Bnp, Bn)
+    Splus_rect = operator(fill(spin("+"), L), collect(1:L), Tup) |> Array
+    Splus_full = operator(fill(spin("+"), L), collect(1:L), Bfull) |> Array
+    Psrc = symmetrizer(DoubleBasis(Bn, Bfull))
+    Ptgt = symmetrizer(DoubleBasis(Bnp, Bfull))
+    @test size(Splus_rect) == (size(Bnp, 1), size(Bn, 1))
+    @test Splus_rect ≈ Ptgt * Splus_full * Psrc'
 
     σz = Array(spin("Z"))
     dm = densitymatrix([1.0, 0.0])

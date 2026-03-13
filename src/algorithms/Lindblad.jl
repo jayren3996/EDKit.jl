@@ -100,7 +100,8 @@ function quadraticlindblad(
     M::AbstractVector{<:AbstractMatrix}
 )
     B = L * L' 
-    X = H - 2 * real(B) + 8 * sum(Ms^2 for Ms in M)
+    shift = isempty(M) ? zeros(eltype(H), size(H)) : 8 * sum(Ms^2 for Ms in M)
+    X = H - 2 * real(B) + shift
     Y = 4 * imag(B)
     Z = [4 * Ms for Ms in M]
     QuardraticLindblad(X, Y, Z)
@@ -164,7 +165,8 @@ end
 # Evolution of Covariance Matrix
 #---------------------------------------------------------------------------------------------------
 function *(ql::QuardraticLindblad, Γ::AbstractMatrix{<:Real})
-    transpose(ql.X) * Γ + Γ * ql.X + sum(transpose(Zs) * Γ * Zs for Zs in ql.Z)
+    dissipative = isempty(ql.Z) ? zeros(eltype(Γ), size(Γ)) : sum(transpose(Zs) * Γ * Zs for Zs in ql.Z)
+    transpose(ql.X) * Γ + Γ * ql.X + dissipative
 end
 #---------------------------------------------------------------------------------------------------
 function (ql::QuardraticLindblad)(cm::CovarianceMatrix, dt::Real=0.05; order::Integer=5)
@@ -192,4 +194,3 @@ function majoranaform(A::AbstractMatrix, B::AbstractMatrix)
     AR, AI, BR, BI = real(A), imag(A), real(B), imag(B)
     [-AI-BI AR-BR; -AR-BR -AI+BI]
 end
-

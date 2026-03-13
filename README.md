@@ -1,6 +1,6 @@
 # EDKit.jl
 
-`EDKit.jl` is a Julia package for exact diagonalization and symmetry-resolved many-body calculations, with additional ITensor-based tools for MPS, operator-space evolution, and Lindblad or quadratic-fermion workflows.
+`EDKit.jl` is a Julia package for exact diagonalization and symmetry-resolved many-body calculations, with additional ITensor-based tools for MPS, Pauli-space operator representations, and Lindblad or quadratic-fermion workflows.
 
 The package is built around one core idea:
 
@@ -19,8 +19,6 @@ The package is built around one core idea:
   `pauli`, `pauli_list`, `commutation_mat`, `dissipation_mat`
 - ITensor/MPS helpers:
   `vec2mps`, `mps2vec`, `mat2op`, `op2mat`, `mps2pmps`, `pmps2mpo`, `mpo2pmpo`, `tebd4`
-- Operator-space truncation MPOs:
-  `daoe` and `fdaoe`
 - Lindblad and quadratic-fermion solvers:
   `lindblad`, `qimsolve`, `quadraticlindblad`, and related helpers
 
@@ -41,7 +39,7 @@ pkg> add https://github.com/jayren3996/EDKit.jl
 Current compat:
 
 - Julia `1.9+`
-- `ITensors.jl` `0.7`
+- `ITensors.jl` `0.7` to `0.9`
 - `ITensorMPS.jl` `0.3`
 
 ## Quick Start
@@ -155,17 +153,6 @@ O = apply(gates, O)
 normalize!(O)
 ```
 
-### DAOE and fDAOE
-
-The package includes two MPO filters for operator-space truncation:
-
-```julia
-D = daoe(ps, 3, 0.4)
-FD = fdaoe(ps, 2, 0.3)
-```
-
-See the dedicated notebooks in [`examples/DAOE`](examples/DAOE) for small physical benchmarks.
-
 ## Examples
 
 The main documentation style in this repository is example-driven.
@@ -173,7 +160,12 @@ The main documentation style in this repository is example-driven.
 Start here:
 
 - [`examples/README.md`](examples/README.md)
-- [`examples/DAOE/README.md`](examples/DAOE/README.md)
+- [`examples/Basic/README.md`](examples/Basic/README.md)
+- [`examples/Maps/README.md`](examples/Maps/README.md)
+- [`examples/Symmetries/README.md`](examples/Symmetries/README.md)
+- [`examples/TensorNetworks/README.md`](examples/TensorNetworks/README.md)
+- [`examples/Lindblad/README.md`](examples/Lindblad/README.md)
+- [`examples/Models/README.md`](examples/Models/README.md)
 
 Basic notebooks:
 
@@ -181,15 +173,27 @@ Basic notebooks:
 - [`examples/Basic/SymmetryReduction.ipynb`](examples/Basic/SymmetryReduction.ipynb): build the same model in full and symmetry-reduced bases, then verify sector recombination.
 - [`examples/Basic/MPSAndPauli.ipynb`](examples/Basic/MPSAndPauli.ipynb): convert vectors to MPS, move into Pauli-space MPS/MPO form, and inspect bond dimensions.
 
-Notable notebooks and scripts:
+Maps notebooks:
 
-- [`examples/Basics.ipynb`](examples/Basics.ipynb)
-- [`examples/Tensors.ipynb`](examples/Tensors.ipynb)
+- [`examples/Maps/DoubleBasisBasics.ipynb`](examples/Maps/DoubleBasisBasics.ipynb): introduce `DoubleBasis(Btarget, Bsource)`, map direction, and the agreement between `T(v)` and `symmetrizer(T) * v`.
+- [`examples/Maps/Symmetrizers.ipynb`](examples/Maps/Symmetrizers.ipynb): project full-space states into parity or Abelian symmetry sectors and lift them back to the full Hilbert space.
+- [`examples/Maps/InterbasisOperators.ipynb`](examples/Maps/InterbasisOperators.ipynb): build non-square operators with `DoubleBasis` and compare them with explicit symmetrization.
+
+Lindblad notebooks:
+
+- [`examples/Lindblad/DissipativeXXChain.ipynb`](examples/Lindblad/DissipativeXXChain.ipynb): small many-body open-system walkthrough for a two-site XX chain with local loss.
+- [`examples/Lindblad/QuadraticXXLoss.ipynb`](examples/Lindblad/QuadraticXXLoss.ipynb): free-fermion loss benchmark comparing `quadraticlindblad` with full many-body evolution.
+- [`examples/Lindblad/PauliSuperoperators.ipynb`](examples/Lindblad/PauliSuperoperators.ipynb): Pauli-basis walkthrough for `pauli`, `pauli_list`, `commutation_mat`, and `dissipation_mat`.
+
+Other topic folders:
+
 - [`examples/Symmetries/MPSProjection.ipynb`](examples/Symmetries/MPSProjection.ipynb)
-- [`examples/DAOE/XXZOperatorGrowth.ipynb`](examples/DAOE/XXZOperatorGrowth.ipynb)
-- [`examples/DAOE/XXMajoranaGrowth.ipynb`](examples/DAOE/XXMajoranaGrowth.ipynb)
-- [`examples/ConstrainedPXP.jl`](examples/ConstrainedPXP.jl)
-- [`examples/GapRatioXXZ.jl`](examples/GapRatioXXZ.jl)
+- [`examples/Symmetries/SectorCatalogue.ipynb`](examples/Symmetries/SectorCatalogue.ipynb)
+- [`examples/TensorNetworks/Tensors.ipynb`](examples/TensorNetworks/Tensors.ipynb)
+- [`examples/TensorNetworks/MPSBasics.ipynb`](examples/TensorNetworks/MPSBasics.ipynb)
+- [`examples/Models/PXPDrive.ipynb`](examples/Models/PXPDrive.ipynb)
+- [`examples/Models/ConstrainedPXP.ipynb`](examples/Models/ConstrainedPXP.ipynb)
+- [`examples/Models/GapRatioXXZ.ipynb`](examples/Models/GapRatioXXZ.ipynb)
 
 ## Design Notes
 
@@ -200,7 +204,7 @@ Notable notebooks and scripts:
 - convert to `sparse` when you want explicit sparse storage,
 - reuse the same local terms across different bases or symmetry sectors.
 
-That separation is what makes EDKit flexible enough to handle both textbook ED workflows and the operator-space or MPS-based utilities added later.
+That separation is what makes EDKit flexible enough to handle both textbook ED workflows and the symmetry or MPS-based utilities added later.
 
 ## Development
 

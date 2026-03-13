@@ -1,23 +1,26 @@
 # Examples
 
-The notebooks in this folder are the main walkthroughs for the package.
+The `examples/` directory is now organized by topic. Start with the folder that matches the workflow you want to learn.
 
-Basic notebook examples:
+- `Basic/`: first-use walkthroughs for operator construction, symmetry reduction, and simple MPS/Pauli conversions.
+- `Maps/`: basis-to-basis maps, `DoubleBasis`, `symmetrizer`, and rectangular operators.
+- `Symmetries/`: sector-construction examples, Abelian basis combinations, and MPS projection workflows.
+- `TensorNetworks/`: tensor-network and ITensor-oriented examples beyond the basic introduction.
+- `Lindblad/`: open-system examples for both many-body and quadratic Lindblad evolution.
+- `Models/`: model-specific examples where multiple package features come together in one physics problem.
 
-- `Basic/OperatorConstruction.ipynb`: construct a nearest-neighbor spin Hamiltonian, apply it as a linear map, and compare dense and sparse representations.
-- `Basic/SymmetryReduction.ipynb`: build the same model in a full basis and reduced symmetry sectors, then check parity-sector recombination.
-- `Basic/MPSAndPauli.ipynb`: convert vectors to MPS, move to Pauli-space MPS/MPO objects, and inspect bond dimensions.
+Suggested starting points:
 
-Additional ITensor notebooks:
+- `Basic/OperatorConstruction.ipynb`
+- `Basic/SymmetryReduction.ipynb`
+- `Basic/MPSAndPauli.ipynb`
+- `Maps/DoubleBasisBasics.ipynb`
+- `Maps/Symmetrizers.ipynb`
+- `Lindblad/PauliSuperoperators.ipynb`
+- `Symmetries/SectorCatalogue.ipynb`
+- `Lindblad/DissipativeXXChain.ipynb`
 
-- `DAOE/XXZOperatorGrowth.ipynb`: short-chain XXZ/Heisenberg benchmark comparing exact operator growth, raw Pauli-MPS TEBD, and DAOE-filtered TEBD.
-- `DAOE/XXMajoranaGrowth.ipynb`: short-chain XX benchmark comparing exact free-fermion string growth against `daoe` and `fdaoe`.
-
-- `ConstrainedPXP.jl`: projected Hilbert spaces, `productstate`, diagonalization, and entanglement entropy.
-- `GapRatioXXZ.jl`: random-field spin chain in a symmetry sector and level-statistics analysis with `meangapratio`.
-- `AbelianBasisSectors.jl`: the high-level `basis(...)` helper for combining `N`, `k`, and `p` quantum numbers.
-
-Each script defaults to loading the local source tree:
+Each script or notebook defaults to loading the local source tree:
 
 ```julia
 const DEV = true
