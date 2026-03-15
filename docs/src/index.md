@@ -1,0 +1,96 @@
+# EDKit.jl
+
+`EDKit.jl` is a Julia package for exact diagonalization, symmetry-resolved many-body calculations, and selected tensor-network and open-system workflows.
+
+It is built around a simple pattern:
+
+1. describe local terms once,
+2. choose the basis or symmetry sector you care about,
+3. construct an operator,
+4. use that same object as a linear map, a dense matrix, or a sparse matrix.
+
+## What EDKit Covers
+
+EDKit has a few major subsystems:
+
+- basis construction for full Hilbert spaces, projected subspaces, and symmetry sectors,
+- many-body operator construction from local terms,
+- inter-basis maps and symmetrizers,
+- entanglement and Schmidt-decomposition helpers,
+- ITensor/MPS utilities, including Pauli-space workflows,
+- Lindblad and quadratic-fermion open-system tools.
+
+If you are new to the package, start with [Getting Started](getting-started.md), then move to the manual pages for the subsystem you need.
+
+## Installation
+
+Install the registered package with Julia's package manager:
+
+```julia
+pkg> add EDKit
+```
+
+Or use the GitHub repository directly:
+
+```julia
+pkg> add https://github.com/jayren3996/EDKit.jl
+```
+
+Current package compat:
+
+- Julia `1.9+`
+- `ITensors.jl` `0.7` to `0.9`
+- `ITensorMPS.jl` `0.3`
+
+## Choose A Path
+
+### I want to build and diagonalize many-body Hamiltonians
+
+Start with:
+
+- [Getting Started](getting-started.md)
+- [Operators](manual/operators.md)
+- [Bases and Sectors](manual/bases.md)
+
+### I want to reduce into symmetry sectors
+
+Start with:
+
+- [Bases and Sectors](manual/bases.md)
+- [Maps and Symmetrizers](manual/maps.md)
+- [Symmetry Workflows](examples/symmetry-workflows.md)
+
+### I want to work with ITensors, MPS, or Pauli-space representations
+
+Start with:
+
+- [ITensor Workflows](manual/itensors.md)
+- [Tensor-Network Workflows](examples/tensor-network-workflows.md)
+
+### I want open-system or quadratic-fermion evolution
+
+Start with:
+
+- [Lindblad Workflows](manual/lindblad.md)
+- [Open-System Workflows](examples/open-system-workflows.md)
+
+## Design Philosophy
+
+EDKit keeps model construction separate from representation choice.
+
+That separation matters in practice:
+
+- you can stay matrix-free when systems are too large for explicit diagonalization,
+- convert to dense arrays when exact eigensolvers are appropriate,
+- convert to sparse matrices for sparse linear algebra or interoperability,
+- and reuse the same local terms across different bases and symmetry sectors.
+
+## Manual Layout
+
+The docs are organized in three layers:
+
+- the manual explains concepts and workflows,
+- the worked examples show compact end-to-end use cases,
+- the API reference lists the core functions and types grouped by subsystem.
+
+The package is a single Julia module, `EDKit`, but it contains several functional layers. The [Architecture](manual/architecture.md) page explains how those layers fit together.

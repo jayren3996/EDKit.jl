@@ -28,6 +28,14 @@ struct DensityMatrix{T}
     ρ::Matrix{T}
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    densitymatrix(ρ)
+    densitymatrix(ψ)
+    densitymatrix(i, L; base=2)
+
+Construct a [`DensityMatrix`](@ref) from an explicit matrix, a pure-state
+vector, or a basis-state index.
+"""
 densitymatrix(ρ::AbstractArray) = DensityMatrix(ρ)
 densitymatrix(ψ::AbstractVector) = DensityMatrix(ψ * ψ')
 function densitymatrix(i::Integer, L::Integer; base::Integer=2)
@@ -45,6 +53,11 @@ function LinearAlgebra.normalize!(dm::DenseMatrix)
     dm.ρ ./= tr(dm.ρ)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    expectation(O, dm::DensityMatrix)
+
+Return the expectation value of observable `O` in the density matrix `dm`.
+"""
 expectation(O::AbstractMatrix, dm::DensityMatrix) = tr(O * dm.ρ)
 expectation(O::Hermitian, dm::DensityMatrix) = real(tr(O * dm.ρ))
 #---------------------------------------------------------------------------------------------------
@@ -94,6 +107,13 @@ struct QuardraticLindblad{T1 <: Real, T2 <: Real, T3 <: Real}
     Z::Vector{Matrix{T3}}
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    quadraticlindblad(H, L, M=Matrix[])
+
+Construct the quadratic Lindblad generator acting on Majorana covariance
+matrices from Hamiltonian matrix `H`, linear jump matrix `L`, and optional
+quadratic dissipative terms `M`.
+"""
 function quadraticlindblad(
     H::AbstractMatrix, 
     L::AbstractMatrix, 
@@ -121,11 +141,24 @@ end
 #---------------------------------------------------------------------------------------------------
 # Majorana Covariant Matrix
 #---------------------------------------------------------------------------------------------------
+"""
+    CovarianceMatrix
+
+Container for a Majorana covariance matrix together with the corresponding
+number of fermionic modes.
+"""
 struct CovarianceMatrix{T <: Real}
     Γ::Matrix{T}
     N::Integer
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    covariancematrix(Γ)
+    covariancematrix(n)
+
+Construct a [`CovarianceMatrix`](@ref) either from an explicit covariance
+matrix `Γ` or from a vector of mode occupations `n`.
+"""
 function covariancematrix(Γ::AbstractMatrix{<:Real})
     N = size(Γ, 1) ÷ 2 
     CovarianceMatrix(Γ, N)
@@ -138,6 +171,12 @@ function covariancematrix(n::AbstractVector{<:Integer})
     CovarianceMatrix([Z D; -D Z], N)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    fermioncorrelation(cm::CovarianceMatrix)
+    fermioncorrelation(cm::CovarianceMatrix, i)
+
+Recover fermionic correlation blocks from a Majorana covariance matrix.
+"""
 function fermioncorrelation(cm::CovarianceMatrix)
     Γ, n = cm.Γ, cm.N
     Γ11, Γ12, Γ21, Γ22 = Γ[1:n,1:n], Γ[1:n,n+1:2n], Γ[n+1:2n,1:n], Γ[n+1:2n,n+1:2n]

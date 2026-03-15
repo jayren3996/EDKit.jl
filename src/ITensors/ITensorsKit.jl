@@ -75,6 +75,14 @@ function mps2vec(psi::MPS, B::AbstractBasis)
 end
 #----------------------------------------------------------------------------------------------------
 export vec2mps
+"""
+    vec2mps(v::AbstractVector, s)
+
+Convert a state vector `v` into an MPS on the ITensor site indices `s`.
+
+The vector is interpreted in EDKit's row-major site ordering convention, then
+reshaped into a tensor and wrapped as an `MPS`.
+"""
 function vec2mps(v::AbstractVector, s::AbstractVector{<:Index})
     T = vec2tensor(v; base=space(s[1]))
     MPS(T, s)

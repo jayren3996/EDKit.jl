@@ -33,6 +33,13 @@ function covmat(ol::AbstractVector, v::AbstractVecOrMat{<:Number})
 end
 #---------------------------------------------------------------------------------------------------
 export qimsolve
+"""
+    qimsolve(ol, v; tol=1e-7)
+
+Solve the quantum inverse method problem for a list of operators `ol` and
+target state data `v` by finding the small-variance directions of the
+covariance matrix.
+"""
 function qimsolve(ol::AbstractVector, v::AbstractVecOrMat{<:Number}; tol::Real=1e-7)
     cm = covmat(ol, v)
     e, v = eigen(cm)

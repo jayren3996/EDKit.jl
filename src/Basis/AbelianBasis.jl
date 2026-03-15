@@ -120,6 +120,16 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 # Abelian Basis
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    AbelianBasis
+
+Basis built from a collection of commuting discrete symmetries represented as
+Abelian actions on digit strings.
+
+This is the general symmetry-reduction backend used by the high-level
+[`basis`](@ref) constructor when one or more symmetry quantum numbers such as
+translation momentum, reflection parity, or spin-flip parity are requested.
+"""
 struct AbelianBasis{Ti <: Integer, Tg <: Number} <: AbstractPermuteBasis
     dgt::Vector{Ti}         # Digits
     I::Vector{Ti}           # Representing states
@@ -266,7 +276,6 @@ function basis(
         return AbelianBasis(dtype; L, G=sum(gs), base, f=g, threaded)
     end
 end
-
 
 
 

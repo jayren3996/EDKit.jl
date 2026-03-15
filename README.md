@@ -1,5 +1,7 @@
 # EDKit.jl
 
+[Documentation](https://jayren3996.github.io/EDKit.jl/)
+
 `EDKit.jl` is a Julia package for exact diagonalization and symmetry-resolved many-body calculations, with additional ITensor-based tools for MPS, Pauli-space operator representations, and Lindblad or quadratic-fermion workflows.
 
 The package is built around one core idea:

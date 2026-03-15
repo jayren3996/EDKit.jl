@@ -128,6 +128,15 @@ const Order4n3 = begin # Bartel & Zhang, Annals of Physics 418, 168165 (2020) Eq
 end
 #----------------------------------------------------------------------------------------------------
 export tebd4
+"""
+    tebd4(h, s, τ)
+
+Construct a fourth-order Trotter gate sequence for local Hamiltonian terms `h`
+acting on the ITensor site indices `s`.
+
+The output is a vector of ITensor gates that can be applied in order to perform
+one fourth-order TEBD time step of size `τ`.
+"""
 function tebd4(
     h::Vector{<:AbstractMatrix},
     s::Vector{<:Index},
@@ -157,6 +166,5 @@ function tebd4(
     end
     gates
 end
-
 
 
