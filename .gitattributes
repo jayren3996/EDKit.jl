@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep tracked notebooks visible in the repo, but don't let them dominate
+# GitHub's language statistics for the Julia package itself.
+*.ipynb linguist-detectable=false
