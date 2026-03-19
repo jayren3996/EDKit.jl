@@ -47,6 +47,9 @@ Approximate `exp(A)` using a truncated Taylor expansion of the given order.
 This routine is lightweight and convenient for small matrices, but it is not
 intended to replace the more numerically robust algorithms in dedicated linear
 algebra packages.
+
+Returns:
+- An approximation to the matrix exponential of `A`.
 """
 function expm(A; order::Integer=10)
     mat = I + A / order
@@ -67,6 +70,9 @@ Approximate `exp(λA) * v` using a truncated Taylor expansion.
 
 This avoids explicitly constructing `exp(λA)` and is useful for quick tests or
 small problems.
+
+Returns:
+- An approximation to the action of `exp(λA)` on `v`.
 """
 function expv(A, v::AbstractVecOrMat; order::Integer=10, λ::Number=1)
     vec = v + λ * A * v / order

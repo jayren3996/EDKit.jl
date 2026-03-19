@@ -12,13 +12,11 @@ or for a set of vector,
     Cᵢⱼ = 1/2Tr[ρ{hᵢ,hⱼ}] - Tr[ρhᵢ]Tr[ρhⱼ],
 where ρ = 1/N∑ₙ|vₙ⟩⟨vₙ|.
 
-Inputs:
--------
+Arguments:
 - `ol`: List of operators, represented by matrices or `Operator`s.
 - `V` : Target state represented by a vector, or target states represented by a matrix.
 
-Outputs:
---------
+Returns:
 - cm: (Symmetric real) matrix.
 """
 function covmat(ol::AbstractVector, v::AbstractVecOrMat{<:Number})
@@ -39,6 +37,9 @@ export qimsolve
 Solve the quantum inverse method problem for a list of operators `ol` and
 target state data `v` by finding the small-variance directions of the
 covariance matrix.
+
+Returns:
+- A simplified basis for the null or near-null space selected by `tol`.
 """
 function qimsolve(ol::AbstractVector, v::AbstractVecOrMat{<:Number}; tol::Real=1e-7)
     cm = covmat(ol, v)
@@ -51,14 +52,14 @@ end
 # Helper
 #---------------------------------------------------------------------------------------------------
 """
-Inner product ⟨v₁|v₂⟩. For two set of vector.
+Inner product `⟨v₁|v₂⟩`, averaged over columns when matrices are supplied.
 """
 function inner_product(v1::AbstractVecOrMat, v2::AbstractVecOrMat)
     dot(v1, v2) / size(v1, 2)
 end
 #---------------------------------------------------------------------------------------------------
 """
-Simplify the solutions.
+Simplify a basis of candidate solutions by column elimination and normalization.
 """
 function simplify(h)
     n = size(h, 2)

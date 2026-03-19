@@ -2,7 +2,14 @@
 
 The reference pages group the main EDKit APIs by subsystem.
 
-Use the manual when you want conceptual guidance or workflow advice. Use this section when you need exact names, signatures, or a quick reminder of the relevant entry points.
+Use the manual when you want conceptual guidance or workflow advice. Use this
+section when you need exact names, signatures, or a quick reminder of the
+relevant entry points.
+
+For the most detailed semantics of arguments, return values, invariants, and
+internal helper roles, read the source-level docstrings in `src/`. The
+Documenter reference pages expose those docstrings, but the source files remain
+the authoritative implementation-facing layer.
 
 ## Reference Map
 

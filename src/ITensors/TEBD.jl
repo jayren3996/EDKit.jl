@@ -5,7 +5,17 @@ export tebd_n!
 """
     tebd_n!(ψ, G1, G2; cutoff=1e-14, maxdim=30)
 
-n-site TEBD.
+Apply one n-site TEBD sweep to `ψ`.
+
+Arguments:
+- `ψ`: MPS to update in place.
+- `G1`, `G2`: forward and backward gate layers.
+- `cutoff`, `maxdim`: truncation controls passed to `svd`.
+
+Returns:
+- The mutated and normalized `ψ`.
+
+This is a low-level routine intended for already-constructed gate sequences.
 """
 function tebd_n!(ψ::MPS, G1::Vector, G2::Vector; cutoff::Real=1e-14, maxdim::Integer=30)
     L = length(ψ)
@@ -62,6 +72,11 @@ end
 #----------------------------------------------------------------------------------------------------
 # TEBD4
 #----------------------------------------------------------------------------------------------------
+"""
+    TrotterSweep
+
+Internal descriptor for one sub-sweep in a Suzuki-Trotter decomposition.
+"""
 struct TrotterSweep
     τ::Float64
     step::Int64
@@ -136,6 +151,14 @@ acting on the ITensor site indices `s`.
 
 The output is a vector of ITensor gates that can be applied in order to perform
 one fourth-order TEBD time step of size `τ`.
+
+Arguments:
+- `h`: local Hamiltonian matrices placed along the chain.
+- `s`: ITensor site indices.
+- `τ`: physical time step.
+
+Returns:
+- A vector of gate ITensors ordered according to the fourth-order decomposition.
 """
 function tebd4(
     h::Vector{<:AbstractMatrix},
@@ -166,5 +189,4 @@ function tebd4(
     end
     gates
 end
-
 

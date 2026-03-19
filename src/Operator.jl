@@ -1,7 +1,14 @@
 """
 Operator
 
-Construction of `Operator` object.
+Construction and application of EDKit many-body operators.
+
+This file defines the central `Operator` abstraction together with the helpers
+that:
+- build it from local terms,
+- apply it matrix-free to vectors and matrices,
+- convert it into dense or sparse explicit matrices,
+- and create common local operators such as Pauli/spin products.
 """
 #---------------------------------------------------------------------------------------------------
 export operator, trans_inv_operator
@@ -126,6 +133,21 @@ function LinearAlgebra.adjoint(opt::Operator)
     operator(M, opt.I, opt.B)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    find_base(a, b)
+
+Infer the local on-site dimension from a local operator acting on `b` sites.
+
+Arguments:
+- `a`: matrix dimension of the local operator.
+- `b`: number of sites the local operator acts on.
+
+Returns:
+- The local base `D` satisfying `D^b == a`.
+
+An error is thrown when no integer base is compatible with the given local
+operator dimension.
+"""
 function find_base(a::Integer, b::Integer)
     isone(b) && return a
     for i in 2:a
@@ -153,6 +175,17 @@ function addto!(M::AbstractMatrix, opt::Operator)
     M
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    Array(opt::Operator)
+
+Materialize `opt` as a dense matrix.
+
+Returns:
+- A newly allocated dense matrix of size `size(opt)`.
+
+This is convenient for exact diagonalization, but may be prohibitively
+expensive for large Hilbert spaces.
+"""
 function Array(opt::Operator)
     M = zeros(eltype(opt), size(opt))
     if size(M, 1) > 0 && size(M, 2) > 0
@@ -161,6 +194,17 @@ function Array(opt::Operator)
     M
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    sparse(opt::Operator)
+
+Materialize `opt` as an explicit sparse matrix.
+
+Returns:
+- A newly allocated sparse matrix of size `size(opt)`.
+
+Compared with `Array(opt)`, this preserves sparsity but still constructs the
+full operator explicitly.
+"""
 function SparseArrays.sparse(opt::Operator)
     M = spzeros(eltype(opt), size(opt)...)
     if size(M, 1) > 0 && size(M, 2) > 0
@@ -176,6 +220,21 @@ LinearAlgebra.eigvals(opt::Operator) = Array(opt) |>eigvals
 LinearAlgebra.svd(opt::Operator) = Array(opt) |> svd
 LinearAlgebra.svdvals(opt::Operator) = Array(opt) |> svdvals
 #---------------------------------------------------------------------------------------------------
+"""
+    mul!(target, opt::Operator, v::AbstractVector)
+
+Accumulate `opt * v` into the preallocated vector `target`.
+
+Arguments:
+- `target`: output buffer of length `size(opt, 1)`.
+- `opt`: operator to apply.
+- `v`: input coordinate vector.
+
+Returns:
+- The mutated `target`.
+
+This is the single-threaded in-place application path underlying `opt * v`.
+"""
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     for j = 1:length(v)
         colmn!(target, opt, j, v[j])
@@ -183,6 +242,11 @@ function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     target
 end
 
+"""
+    mul!(target, opt::Operator, m::AbstractMatrix)
+
+Accumulate `opt * m` into the preallocated matrix `target`.
+"""
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     for j = 1:size(m, 1)
         colmn!(target, opt, j, view(m, j, :))
@@ -266,6 +330,15 @@ function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b:
     nothing
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    colmn!(target, opt::Operator, j, coeff=1)
+
+Apply column `j` of `opt` to `target`.
+
+This is an internal helper used to build explicit matrix columns and to apply an
+operator matrix-free. It assumes `target` has already been allocated and will
+mutate the basis working buffer stored in `opt.B`.
+"""
 function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, coeff=1)
     b, M, I = opt.B, opt.M, opt.I
     r = change!(b, j)
@@ -294,33 +367,137 @@ const GELLMANN = sparse.([
     [1 0 0; 0 1 0; 0 0 1]
 ])
 
+"""
+    σ(i::Integer)
+    σ(Is::Integer...)
+    σ(Is::Union{<:Tuple, <:AbstractVector})
+
+Return Pauli-basis matrices indexed by integers.
+
+Conventions:
+- `σ(0)` is the `2 × 2` identity,
+- `σ(1)`, `σ(2)`, `σ(3)` are the usual Pauli `X`, `Y`, `Z` matrices.
+
+When multiple indices are supplied, the result is the Kronecker product in the
+same order. This helper is mainly useful for compact low-level construction and
+testing; `spin("X")`, `spin("XX")`, and related string interfaces are usually
+more convenient for user-facing code.
+"""
 σ(i::Integer) = PAULI[i+1]
 σ(Is::Integer...) = kron((σ(i) for i in Is)...)
 σ(Is::Union{<:Tuple, <:AbstractVector}) = σ(Is...)
 
+"""
+    λ(i::Integer)
+    λ(Is::Integer...)
+    λ(Is::Union{<:Tuple, <:AbstractVector})
+
+Return generalized Gell-Mann matrices indexed by integers.
+
+Conventions:
+- `λ(0)` is the `3 × 3` identity,
+- `λ(1)` through `λ(8)` are the standard traceless Gell-Mann generators.
+
+When several indices are passed, EDKit returns their Kronecker product in order.
+This is the qutrit analogue of [`σ`](@ref).
+"""
 λ(i::Integer) = GELLMANN[i+1]
 λ(Is::Integer...) = kron((λ(i) for i in Is)...)
 λ(Is::Union{<:Tuple, <:AbstractVector}) = λ(Is...)
 #---------------------------------------------------------------------------------------------------
 export spin
+"""
+    spin_coeff(D::Integer)
+
+Return the ladder-operator coefficients for a spin representation of local
+dimension `D`.
+
+The returned vector has length `D - 1` and stores the coefficients
+`sqrt(i * (D - i))` used to assemble `S+`, `S-`, `Sx`, and `iSy` in EDKit's
+local-spin convention. This helper is internal to the `spin_*` constructors but
+is documented because it captures the normalization shared by the whole family.
+"""
 spin_coeff(D::Integer) = [sqrt(i*(D-i)) for i = 1:D-1]
+
+"""
+    spin_Sp(D::Integer)
+
+Return the local raising operator `S+` for a `D`-dimensional spin space.
+
+The matrix is sparse and uses the same coefficient convention as
+[`spin_coeff`](@ref). For spin-`1/2`, this is the usual two-level raising
+operator.
+"""
 spin_Sp(D::Integer) = sparse(1:D-1, 2:D, spin_coeff(D), D, D)
+
+"""
+    spin_Sm(D::Integer)
+
+Return the local lowering operator `S-` for a `D`-dimensional spin space.
+
+This is the Hermitian-adjoint partner of [`spin_Sp`](@ref) in EDKit's local
+spin convention.
+"""
 spin_Sm(D::Integer) = sparse(2:D, 1:D-1, spin_coeff(D), D, D)
+
+"""
+    spin_Sx(D::Integer)
+
+Return the local `Sx` operator for a `D`-dimensional spin space.
+
+EDKit assembles this as `(S+ + S-) / 2`, using the coefficient convention from
+[`spin_coeff`](@ref).
+"""
 function spin_Sx(D::Integer)
     coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp + sp'
 end
+
+"""
+    spin_iSy(D::Integer)
+
+Return the antisymmetric matrix corresponding to `i Sy` for a local spin space
+of dimension `D`.
+
+This is intentionally `i Sy` rather than `Sy` itself, so that lowercase `"y"`
+spin strings can remain real-valued in EDKit's many-body construction
+convention. The final complex phase, when needed, is restored by [`spin`](@ref)
+through `spin_ny`.
+"""
 function spin_iSy(D::Integer)
     coeff = spin_coeff(D) / 2
     sp = sparse(1:D-1, 2:D, coeff, D, D)
     sp - sp'
 end
+
+"""
+    spin_Sz(D::Integer)
+
+Return the diagonal `Sz` operator for a `D`-dimensional spin space.
+
+The diagonal entries run from `J` down to `-J` with `J = (D - 1) / 2`, matching
+the standard spin-`J` representation.
+"""
 function spin_Sz(D::Integer)
     J = (D-1) / 2
     sparse(1:D, 1:D, J:-1:-J)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    spin_dict(c::Char, D::Integer)
+
+Translate one character from EDKit's spin-string syntax into a local sparse
+operator matrix.
+
+Supported symbols include:
+- lowercase `"x"`, `"y"`, `"z"`, `"+"`, `"-"` for generic spin representations,
+- `"1"` or `"I"` for the local identity,
+- uppercase `"X"`, `"Y"`, `"Z"` for Pauli-style spin-`1/2` operators only.
+
+This is an internal parser used by [`spin_product`](@ref). It throws when a
+symbol is invalid for the requested local dimension.
+"""
 function spin_dict(c::Char, D::Integer)
     isequal(c, '+') && return spin_Sp(D)
     isequal(c, '-') && return spin_Sm(D)
@@ -337,6 +514,16 @@ function spin_dict(c::Char, D::Integer)
     error("Invalid spin symbol: $c.")
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    spin_ny(s::AbstractString, D::Integer)
+
+Count how many `y`-type factors appear in the symbolic spin string `s`.
+
+For `D = 2`, both lowercase `"y"` and uppercase `"Y"` count. For higher local
+dimension only lowercase `"y"` is meaningful. This count is used by
+[`spin`](@ref) to restore the correct phase relating the real-valued internal
+`i Sy` convention to the requested physical operator.
+"""
 @inline function spin_ny(s::AbstractString, D::Integer)
     n = 0
     if isequal(D, 2)
@@ -351,6 +538,16 @@ end
     n
 end
 
+"""
+    spin_product(s::AbstractString, D::Integer)
+
+Form the raw Kronecker product associated with the symbolic spin string `s`.
+
+Each character is converted by [`spin_dict`](@ref), then combined left-to-right
+with `kron`. The result does not yet include the phase correction associated
+with repeated `y` factors; [`spin`](@ref) applies that correction afterwards and
+caches the final matrix.
+"""
 function spin_product(s::AbstractString, D::Integer)
     isempty(s) && error("Empty spin string.")
     mat = spin_dict(first(s), D)
@@ -371,6 +568,9 @@ For `D = 2`, uppercase Pauli-style labels such as `"X"`, `"Y"`, `"Z"` are
 supported, as well as lowercase spin-operator labels such as `"x"`, `"y"`,
 `"z"`, `"+"`, `"-"`, and `"1"`. Multi-site strings like `"xx"` or `"x1z"`
 build Kronecker products in the given order.
+
+Returns:
+- A sparse local operator matrix acting on `length(s)` sites.
 """
 function spin(s::String; D::Integer=2)
     key = (Int(D), s)
@@ -391,6 +591,9 @@ Build a linear combination of local operators.
 
 Each argument should be a pair `(coefficient, "operator_string")`, for example
 `spin((1.0, "xx"), (1.0, "yy"), (0.5, "zz"))`.
+
+Returns:
+- The sparse linear combination of all requested local operator strings.
 """
 function spin(spins::Tuple{<:Number, String}...; D::Integer=2)
     sum(ci * spin(si, D=D) for (ci, si) in spins)
@@ -398,26 +601,57 @@ end
 
 spin(spins::AbstractVector{<:Tuple{<:Number, String}}; D::Integer=2) = spin(spins..., D=D)
 #---------------------------------------------------------------------------------------------------
+"""
+    operator(s::String, inds, basis)
+
+Convenience wrapper around [`spin`](@ref) and [`operator`](@ref) that builds a
+local operator matrix from a symbolic string before embedding it in the many-body
+basis.
+"""
 function operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
     mat = spin(s, D=basis.B)
     operator(mat, inds, basis)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    operator(s::String, inds, L; base=2)
+
+Construct an [`Operator`](@ref) from a symbolic local operator string acting on
+the full tensor-product basis of a length-`L` system.
+"""
 function operator(s::String, inds::AbstractVector{<:Integer}, L::Integer; base::Integer=2)
     basis = TensorBasis(L=L, base=base)
     operator(s, inds, basis)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    trans_inv_operator(s::String, inds, basis)
+
+Convenience wrapper around [`spin`](@ref) and [`trans_inv_operator`](@ref) for
+translation-invariant symbolic local terms.
+"""
 function trans_inv_operator(s::String, inds::AbstractVector{<:Integer}, basis::AbstractBasis)
     mat = spin(s, D=basis.B)
     trans_inv_operator(mat, inds, basis)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    trans_inv_operator(s::String, basis)
+
+Construct a translation-invariant many-body operator from a symbolic local
+operator string whose support size is inferred from `length(s)`.
+"""
 function trans_inv_operator(s::String, basis::AbstractBasis)
     mat = spin(s, D=basis.B)
     trans_inv_operator(mat, length(s), basis)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    trans_inv_operator(s::String, L; base=2)
+
+Construct a translation-invariant symbolic operator on the full tensor-product
+basis of a length-`L` system.
+"""
 function trans_inv_operator(s::String, L::Integer; base::Integer=2)
     basis = TensorBasis(L=L, base=base)
     trans_inv_operator(s, basis)

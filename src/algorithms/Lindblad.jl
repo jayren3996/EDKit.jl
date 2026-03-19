@@ -5,7 +5,8 @@ export lindblad, densitymatrix, expectation
 """
 Lindblad Equation:
     ∂ₜρ = -i[H, ρ] + ∑ᵢ LᵢρLᵢ⁺ - 1/2 ∑ᵢ {Lᵢ⁺Lᵢ, ρ} 
-The object `Lindblad` store the information of the supper operator. 
+The object `Lindblad` stores the data needed to apply the corresponding
+many-body superoperator directly to a density matrix.
 """
 struct Lindblad{T1, T2}
     H::Matrix{T1}
@@ -13,7 +14,12 @@ struct Lindblad{T1, T2}
 end
 
 """
-Construction for `Lindblad`.
+    lindblad(H, L)
+
+Construct a [`Lindblad`](@ref) object from a Hamiltonian `H` and a collection of
+jump operators `L`.
+
+All inputs are materialized as dense matrices.
 """
 lindblad(H, L) = Lindblad(Array(H), [Array(l) for l in L])
 eltype(::Lindblad{T1, T2}) where {T1, T2} = promote_type(T1, T2)
@@ -22,7 +28,9 @@ eltype(::Lindblad{T1, T2}) where {T1, T2} = promote_type(T1, T2)
 # Density Matrix
 #---------------------------------------------------------------------------------------------------
 """
-Density Matrix under Many-body Basis
+    DensityMatrix
+
+Wrapper for a many-body density matrix used by the explicit Lindblad workflow.
 """
 struct DensityMatrix{T}
     ρ::Matrix{T}
@@ -45,6 +53,11 @@ function densitymatrix(i::Integer, L::Integer; base::Integer=2)
     DensityMatrix(ρ)
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    Array(dm::DensityMatrix)
+
+Return the Hermitian matrix view of the wrapped density matrix.
+"""
 Array(dm::DensityMatrix) = Hermitian(dm.ρ)
 """
 Normalize the density operator so that tr[ρ]=1.
@@ -61,6 +74,11 @@ Return the expectation value of observable `O` in the density matrix `dm`.
 expectation(O::AbstractMatrix, dm::DensityMatrix) = tr(O * dm.ρ)
 expectation(O::Hermitian, dm::DensityMatrix) = real(tr(O * dm.ρ))
 #---------------------------------------------------------------------------------------------------
+"""
+    entropy(dm::DensityMatrix; α=1, cutoff=1e-20)
+
+Compute the entropy of a density matrix from its eigenvalues.
+"""
 function entropy(dm::DensityMatrix; α::Real=1, cutoff::Real=1e-20)
     λ = eigvals(Hermitian(dm.ρ))
     entropy(λ, α=α, cutoff=cutoff)
@@ -69,6 +87,15 @@ end
 #---------------------------------------------------------------------------------------------------
 # Lindblad Evolution
 #---------------------------------------------------------------------------------------------------
+"""
+    *(lb::Lindblad, ρ::Matrix)
+
+Apply the Lindblad generator to density matrix `ρ`.
+
+Returns:
+- The derivative-like matrix implied by the Lindblad equation, i.e. the right
+  hand side of `dρ/dt = 𝓛(ρ)`.
+"""
 function *(lb::Lindblad, ρ::Matrix)
     H, L = lb.H, lb.L
     out = -1im * (H * ρ - ρ * H)
@@ -84,6 +111,14 @@ function *(lb::Lindblad, ρ::Matrix)
     out
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    (lb::Lindblad)(dm::DensityMatrix, dt=0.05; order=5)
+
+Advance density matrix `dm` by one truncated-Taylor time step of size `dt`.
+
+Returns:
+- A new [`DensityMatrix`](@ref).
+"""
 function (lb::Lindblad)(dm::DensityMatrix, dt::Real=0.05; order::Integer=5)
     ρ = dm.ρ
     mat = Array(ρ)
@@ -101,6 +136,12 @@ end
 # Single-body Lindblad Form
 #---------------------------------------------------------------------------------------------------
 export quadraticlindblad, covariancematrix,majoranaform, fermioncorrelation
+"""
+    QuardraticLindblad
+
+Internal container for the affine covariance-matrix evolution law used by the
+quadratic Lindblad workflow.
+"""
 struct QuardraticLindblad{T1 <: Real, T2 <: Real, T3 <: Real} 
     X::Matrix{T1}
     Y::Matrix{T2}
@@ -176,6 +217,10 @@ end
     fermioncorrelation(cm::CovarianceMatrix, i)
 
 Recover fermionic correlation blocks from a Majorana covariance matrix.
+
+Returns:
+- For the one-argument form, a pair `(A, B)` of correlation blocks.
+- For the two-argument form, one selected correlation block.
 """
 function fermioncorrelation(cm::CovarianceMatrix)
     Γ, n = cm.Γ, cm.N
@@ -203,11 +248,22 @@ end
 #---------------------------------------------------------------------------------------------------
 # Evolution of Covariance Matrix
 #---------------------------------------------------------------------------------------------------
+"""
+    *(ql::QuardraticLindblad, Γ)
+
+Apply the homogeneous part of the quadratic Lindblad evolution equation to a
+covariance matrix `Γ`.
+"""
 function *(ql::QuardraticLindblad, Γ::AbstractMatrix{<:Real})
     dissipative = isempty(ql.Z) ? zeros(eltype(Γ), size(Γ)) : sum(transpose(Zs) * Γ * Zs for Zs in ql.Z)
     transpose(ql.X) * Γ + Γ * ql.X + dissipative
 end
 #---------------------------------------------------------------------------------------------------
+"""
+    (ql::QuardraticLindblad)(cm::CovarianceMatrix, dt=0.05; order=5)
+
+Advance covariance matrix `cm` by one truncated-Taylor time step.
+"""
 function (ql::QuardraticLindblad)(cm::CovarianceMatrix, dt::Real=0.05; order::Integer=5)
     Γ = cm.Γ
     mat = Array(Γ)

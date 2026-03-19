@@ -4,6 +4,15 @@
 
 `EDKit.jl` is a Julia package for exact diagonalization and symmetry-resolved many-body calculations, with additional ITensor-based tools for MPS, Pauli-space operator representations, and Lindblad or quadratic-fermion workflows.
 
+This README is intentionally written as a repository-orientation guide as much
+as a package overview. It should help both human contributors and AI agents
+answer:
+
+- what the package is fundamentally for,
+- which abstractions are central,
+- where the implementation of each subsystem lives,
+- and which files or APIs are the right entry points for a given task.
+
 The package is built around one core idea:
 
 - describe local terms once,
@@ -23,6 +32,78 @@ The package is built around one core idea:
   `vec2mps`, `mps2vec`, `mat2op`, `op2mat`, `mps2pmps`, `pmps2mpo`, `mpo2pmpo`, `tebd4`
 - Lindblad and quadratic-fermion solvers:
   `lindblad`, `qimsolve`, `quadraticlindblad`, and related helpers
+
+## Repository Orientation
+
+If you are an AI agent or a new contributor, the most important structural fact
+about EDKit is that it is a single Julia module with several clearly separated
+subsystems.
+
+### Main source layout
+
+- `src/EDKit.jl`
+  Top-level module that includes and re-exports everything.
+- `src/Basis/`
+  Basis representations and symmetry reduction logic. Start here for questions
+  about digits, representatives, momentum sectors, parity, spin flip, or the
+  high-level `basis(...)` helper.
+- `src/Operator.jl`
+  The core many-body `Operator` abstraction, local term assembly, matrix-free
+  application, and symbolic spin-string helpers.
+- `src/LinearMap.jl`
+  Inter-basis maps such as `DoubleBasis` and `symmetrizer`.
+- `src/Schmidt.jl`
+  Entanglement and Schmidt-decomposition logic across full and reduced bases.
+- `src/ToolKit.jl`
+  Small numerical helpers such as gap-ratio statistics and convenience
+  exponentials.
+- `src/ITensors/`
+  Vector/MPS/MPO conversion, Pauli-basis utilities, and TEBD support.
+- `src/algorithms/`
+  Lindblad and quantum-inverse-method workflows.
+
+### Canonical entry points
+
+For most tasks, prefer these APIs first:
+
+- Basis selection:
+  `TensorBasis`, `ProjectedBasis`, `TranslationalBasis`, `ParityBasis`,
+  `FlipBasis`, `ParityFlipBasis`, `TranslationParityBasis`,
+  `TranslationFlipBasis`, `basis(...)`
+- Operator construction:
+  `spin`, `operator`, `trans_inv_operator`
+- Basis-to-basis maps:
+  `DoubleBasis`, `symmetrizer`
+- Entanglement:
+  `ent_S`, `ent_spec`, `schmidt`
+- ITensor bridge:
+  `vec2mps`, `mps2vec`, `mat2op`, `op2mat`, `pauli`, `pauli_list`, `tebd4`
+- Open-system and inverse-method tools:
+  `lindblad`, `densitymatrix`, `quadraticlindblad`, `covariancematrix`,
+  `majoranaform`, `fermioncorrelation`, `covmat`, `qimsolve`
+
+### Package conventions that matter
+
+- Product states are represented internally by digit vectors such as
+  `[0, 1, 0, 1]`.
+- Most reduced bases store one canonical representative per symmetry orbit.
+- `index(...)` usually means “interpret the current digit buffer in basis
+  coordinates.”
+- `change!(...)` usually means “load basis state `i` into the mutable digit
+  buffer.”
+- `Operator` stores local terms plus the basis embedding logic, not just one
+  prebuilt matrix.
+- Many helper functions intentionally return zero coefficients instead of
+  throwing when a state lies outside a symmetry sector, because this keeps
+  matrix assembly and projections composable.
+
+### How to navigate the docs
+
+- Source docstrings in `src/` are the most precise semantic reference and are
+  written to be highly useful for code-reading agents.
+- The documentation site at [https://jayren3996.github.io/EDKit.jl/](https://jayren3996.github.io/EDKit.jl/) is more human-oriented and more tutorial/manual in style.
+- The examples under `examples/` are useful for end-to-end workflows, but they
+  are not the best place to learn package architecture.
 
 ## Installation
 
@@ -87,6 +168,11 @@ Hsparse = sparse(H)
 
 vals = eigvals(Hermitian(Hdense))
 ```
+
+The key design idea is that operator definition and representation choice are
+separate. The same `Operator` can remain matrix-free, be turned into a dense
+matrix, or be turned into a sparse matrix depending on what the next algorithm
+needs.
 
 ## Symmetry Sectors
 
@@ -207,6 +293,21 @@ Other topic folders:
 - reuse the same local terms across different bases or symmetry sectors.
 
 That separation is what makes EDKit flexible enough to handle both textbook ED workflows and the symmetry or MPS-based utilities added later.
+
+## Documentation Layers
+
+EDKit now uses three documentation layers on purpose:
+
+- Source docstrings in `src/`
+  These are the most detailed semantic descriptions of functions and types and
+  are intended to help code readers and AI agents reason correctly about
+  arguments, return values, conventions, and invariants.
+- `README.md`
+  This file is the repository-orientation layer: architecture map, entry points,
+  conventions, and where to look next.
+- Documenter manual
+  This is the human-learning layer with more narrative explanations and guided
+  examples.
 
 ## Development
 

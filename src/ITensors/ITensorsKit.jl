@@ -8,10 +8,16 @@ forward. It is basically a reshape and permute indices.
 
 Convert vector `v` to tensor, with row-major convention.
 
-Inputs:
--------
-- dest: Tensor to write
-- v   : Vector
+Arguments:
+- `dest`: destination tensor to overwrite.
+- `v`: flat input vector.
+
+Returns:
+- The mutated tensor `dest`.
+
+Notes:
+- EDKit interprets vectors in row-major physical-site order before converting to
+  Julia's column-major array layout.
 """
 function vec2tensor!(dest::Array, v::AbstractVector)
     T = reshape(v, size(dest))
@@ -22,6 +28,14 @@ end
     vec2tensor(v; base=2)
 
 Convert vector `v` to tensor, with row-major convention.
+
+Arguments:
+- `v`: flat vector of length `base^L`.
+- `base`: local dimension used to infer `L`.
+
+Returns:
+- An `L`-index dense tensor whose entries correspond to `v` in EDKit's ordering
+  convention.
 """
 function vec2tensor(v::AbstractVector; base::Integer=2)
     L = round(Int, log(base, length(v)))
@@ -34,7 +48,10 @@ export mps2vec
 """
     mps2vec(psi::MPS)
 
-Convert MPS to a vector
+Convert an MPS to a dense state vector.
+
+Returns:
+- A vector in EDKit's row-major site-order convention.
 """
 function mps2vec(psi::MPS)
     v = ITensor(1.0)
@@ -91,6 +108,13 @@ end
 export mat2op
 """
 Convert a matrix to an ITensor operator
+
+Arguments:
+- `mat`: dense local operator matrix.
+- `s...`: ITensor site indices describing the target Hilbert spaces.
+
+Returns:
+- An `ITensor` operator with bra/ket site structure compatible with `op`.
 """
 function mat2op(mat::AbstractMatrix, s::Index...)
     L = length(s)
@@ -103,6 +127,10 @@ end
 export op2mat
 """
 Convert a ITensor operator to a matrix
+
+Returns:
+- The dense matrix representation of `o` in the site ordering supplied by
+  `s...`.
 """
 function op2mat(o::ITensor, s::Index...)
     rs = reverse(s)
@@ -120,6 +148,13 @@ export pbcmps
     pbcmps(sites, tensors)
 
 Construct an MPS from a list of tensor. 
+
+Arguments:
+- `sites`: physical site indices.
+- `tensors`: local array data for a periodic-boundary-style construction.
+
+Returns:
+- An MPS normalized after summing over the boundary-sector contributions.
 """
 function pbcmps(
     sites::AbstractVector,
@@ -160,10 +195,12 @@ productstate(s, states)
 
 Return a product MPS 
 
-Inputs:
--------
+Arguments:
 - s     : Vector of indices
 - states: Vector of vector representing local states 
+
+Returns:
+- A product-state `MPS` with bond dimension `1`.
 """
 function productstate(s::AbstractVector{<:Index}, states::AbstractVector{<:AbstractVector})
     L, d = length(s), length(states[1])
@@ -186,10 +223,12 @@ export ent_spec, ent_specs!, ent_S!
 
 Return entanglement spectrum between site `b` and `b+1`.
 
-Inputs:
--------
+Arguments:
 - ψ: MPS
 - b: Link index
+
+Returns:
+- The singular values across the cut at bond `b`.
 """
 function ent_specs(ψ::MPS, b::Integer)
     ψ = orthogonalize(ψ, b)
@@ -197,6 +236,12 @@ function ent_specs(ψ::MPS, b::Integer)
     svd(ψ[b], (linkind(ψ, b-1), siteind(ψ, b))).spec.eigs
 end
 #----------------------------------------------------------------------------------------------------
+"""
+    ent_specs!(ψ::MPS, b::Integer)
+
+In-place version of [`ent_specs`](@ref) that may change the orthogonality center
+of `ψ`.
+"""
 function ent_specs!(ψ::MPS, b::Integer)
     orthogonalize!(ψ, b)
     isone(b) && return svd(ψ[b], siteind(ψ, b)).spec.eigs
@@ -208,16 +253,24 @@ end
 
 Return entanglement entropy between site `b` and `b+1`.
 
-Inputs:
--------
+Arguments:
 - ψ: MPS
 - b: Link index
+
+Returns:
+- The entropy associated with the cut at bond `b`.
 """
 function ent_S(ψ::MPS, b::Integer)
     spec = ent_specs(ψ, b)
     entropy(spec)
 end
 #----------------------------------------------------------------------------------------------------
+"""
+    ent_S!(ψ::MPS, b::Integer)
+
+In-place version of [`ent_S(ψ::MPS, b)`](@ref) that may move the orthogonality
+center of `ψ`.
+"""
 function ent_S!(ψ::MPS, b::Integer)
     spec = ent_specs!(ψ, b)
     entropy(spec)
@@ -226,14 +279,12 @@ end
 """
     ent_specs(ψ::MPS)
 
-Return entanglement entropies.
+Return entanglement entropies along the full chain.
 
-Inputs:
--------
+Arguments:
 - ψ: MPS
 
-Outputs:
---------
+Returns:
 - S: Vector of entropy
 """
 function ent_S(ψ::MPS)

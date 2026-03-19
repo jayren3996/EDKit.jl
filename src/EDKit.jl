@@ -1,3 +1,20 @@
+"""
+    EDKit
+
+Julia package for exact diagonalization, symmetry-resolved basis construction,
+many-body operator assembly, entanglement diagnostics, selected ITensor
+conversions, and open-system or quadratic-fermion workflows.
+
+The package is organized around a small number of central abstractions:
+- basis objects describe state spaces and symmetry sectors,
+- [`Operator`](@ref) stores many-body operators as sums of local terms,
+- conversion helpers move between vectors, matrices, MPS/MPO objects, and
+  symmetry-adapted coordinates.
+
+Most functionality is implemented in subsystem files under `src/Basis`,
+`src/ITensors`, and `src/algorithms`, but all public names are re-exported
+through this top-level module.
+"""
 module EDKit
 
 using LinearAlgebra, SparseArrays, Random, Combinatorics

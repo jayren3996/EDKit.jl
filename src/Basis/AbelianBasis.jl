@@ -4,15 +4,13 @@
 """
     AbelianOperator{Tp <: Number} 
 
-Operator of Abelian group, which can be product of elementary cycling groups.
-The operator keeps tract of the state indices, which gives coefficients.
+Internal representation of a product of commuting cyclic symmetry generators.
 
-Properties:
------------
-- s: State indices
-- g: Group orders
-- c: Coefficients
-- f: Permutation functions
+An `AbelianOperator` stores enough state to iterate through all elements of a
+finite Abelian group action on a digit string while tracking the accumulated
+phase associated with the current group element.
+
+This is the symmetry backend used by [`AbelianBasis`](@ref).
 """
 struct AbelianOperator{Tp <: Number}
     s::Vector{Int}
@@ -24,13 +22,15 @@ end
 """
     AbelianOperator(g::Int, k::Integer, f)
 
-Create elementary cycling group operator.
+Construct one elementary cyclic generator.
 
-Inputs:
--------
-- g: Group order 
-- k: Momentum 
-- f: Permutation function
+Arguments:
+- `g`: order of the cyclic group.
+- `k`: momentum or character label selecting the phase representation.
+- `f`: in-place permutation acting on a digit buffer.
+
+Returns:
+- An [`AbelianOperator`](@ref) initialized at the identity group element.
 """
 function AbelianOperator(g::Int, k::Integer, f)
     c = if iszero(k)
@@ -44,16 +44,29 @@ function AbelianOperator(g::Int, k::Integer, f)
     AbelianOperator([1], [g], [c], [f])
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    +(g1::AbelianOperator, g2::AbelianOperator)
+
+Form the direct-product combination of two commuting Abelian generators.
+"""
 function +(g1::AbelianOperator, g2::AbelianOperator)
     AbelianOperator([g1.s; g2.s], [g1.g; g2.g], [g1.c; g2.c], [g1.f; g2.f])
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    order(g::AbelianOperator)
+
+Return the total number of group elements represented by `g`.
+"""
 function order(g::AbelianOperator) 
     prod(g.g)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Return the phase 
+    phase(g::AbelianOperator)
+
+Return the current character phase associated with the internal group state of
+`g`.
 
 θ(s) = ∏ⱼexp(i*k*sⱼ)
 """
@@ -61,6 +74,11 @@ function phase(g::AbelianOperator)
     prod(g.c[i][g.s[i]] for i in eachindex(g.c))
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    init!(g::AbelianOperator)
+
+Reset the internal group-element counters of `g` to the identity element.
+"""
 function init!(g::AbelianOperator)
     for i in eachindex(g.s)
         g.s[i] = 1 
@@ -69,7 +87,11 @@ function init!(g::AbelianOperator)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Apply Abelian Operator on digits.
+    (ag::AbelianOperator)(dgt)
+
+Apply the next group action to `dgt` and advance the internal group state.
+
+This mutates both `dgt` and the internal counters stored in `ag`.
 """
 function (ag::AbelianOperator)(dgt::Vector)
     for i in eachindex(ag.s)
@@ -79,6 +101,18 @@ function (ag::AbelianOperator)(dgt::Vector)
     dgt
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    check_min(dgt, g::AbelianOperator; base=2)
+
+Check whether `dgt` is the canonical representative of its full Abelian orbit.
+
+Returns:
+- `(true, n)` when `dgt` is canonical and has stabilizer size `n`,
+- `(false, 0)` otherwise.
+
+This helper is used during basis construction to decide whether a product state
+should be stored as a representative.
+"""
 function check_min(dgt, g::AbelianOperator; base=2)
     init!(g)
     I0 = index(dgt; base)
@@ -97,9 +131,17 @@ function check_min(dgt, g::AbelianOperator; base=2)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Find the group element that shift |d⟩ to the representing digit |d̃⟩.
+    shift_canonical!(dgt, g::AbelianOperator; base=2)
+
+Find the canonical representative of the Abelian orbit of `dgt` and record the
+group element that maps the current state to that representative.
 
 |d̃⟩ = ∏ⱼ gⱼ^sⱼ|d⟩ 
+
+Returns:
+- `Im`: the representative index,
+- `g`: the same operator with internal counters set to the canonicalizing group
+  element.
 """
 function shift_canonical!(dgt, g::AbelianOperator; base=2)
     init!(g)
@@ -166,6 +208,15 @@ function AbelianBasis(
     AbelianBasis(zeros(dtype, L), I, R, G, base)
 end
 
+"""
+    _abelian_select(f, G, L, rg, C; base=2, alloc=1000)
+
+Low-level worker that scans a range of product-state indices and selects
+canonical Abelian-orbit representatives.
+
+This helper is used by both the threaded and non-threaded [`AbelianBasis`](@ref)
+constructor paths.
+"""
 function _abelian_select(
     f, 
     G,
@@ -191,6 +242,15 @@ function _abelian_select(
     Is, Rs
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    index(B::AbelianBasis)
+
+Interpret the current digit buffer as coordinates in the Abelian-reduced basis.
+
+The returned coefficient includes both the stored normalization and the phase
+associated with the group element that maps the current digits to the canonical
+representative.
+"""
 function index(B::AbelianBasis)
     Im, g = shift_canonical!(B.dgt, B.G; base=B.B)
     ind = binary_search(B.I, Im)
@@ -201,6 +261,15 @@ function index(B::AbelianBasis)
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    schmidt(v, Ainds, b::AbelianBasis; B1=nothing, B2=nothing)
+
+Construct the Schmidt matrix of a state represented in an [`AbelianBasis`](@ref).
+
+Unlike onsite bases, each basis coefficient must be expanded over the entire
+Abelian orbit with the correct symmetry phase before it contributes to the
+bipartite decomposition.
+"""
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis; B1=nothing, B2=nothing)
     dgt, R, g = b.dgt, b.R, b.G
     S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
@@ -276,6 +345,5 @@ function basis(
         return AbelianBasis(dtype; L, G=sum(gs), base, f=g, threaded)
     end
 end
-
 
 

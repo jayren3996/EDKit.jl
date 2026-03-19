@@ -2,10 +2,14 @@ export ProjectedBasis
 """
     ProjectedBasis{Ti}
 
-Basis of product states selected from the full tensor-product Hilbert space.
+Basis obtained by selecting a subset of product states from the full tensor
+product Hilbert space.
 
 This behaves like [`TensorBasis`](@ref), but only retains basis vectors whose
 digit representation satisfies a user-defined predicate or a fixed charge `N`.
+
+This is the standard choice for constrained Hilbert spaces where states remain
+product-state-labelled, but not every product state is allowed.
 """
 struct ProjectedBasis{T <: Integer} <: AbstractOnsiteBasis
     dgt::Vector{T}
@@ -16,10 +20,32 @@ end
 """
     copy(b::ProjectedBasis)
 
-Deep copy the working digit buffer of a projected basis.
+Return a copy of `b` with an independent mutable digit buffer.
+
+The stored representative list `I` is shared, while `dgt` is duplicated so that
+iterative algorithms can mutate the copy safely.
 """
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    index(b::ProjectedBasis; check=false)
+
+Interpret the current digit buffer `b.dgt` as coordinates in the projected
+basis.
+
+Arguments:
+- `b`: projected basis whose working digit buffer has already been set.
+- `check`: if `true`, throw an error when the current digits are not contained
+  in the basis; otherwise return a zero coefficient.
+
+Returns:
+- `(1, i)` when the state is present as the `i`th projected basis vector.
+- `(0, 1)` when the state is not present and `check == false`.
+
+The zero-coefficient branch is important during operator assembly, where an
+off-sector state should silently contribute nothing instead of aborting the
+matrix construction.
+"""
 function index(b::ProjectedBasis; check::Bool=false)
     i = index(b.dgt, base=b.B)
     ind = binary_search(b.I, i)
@@ -32,9 +58,12 @@ end
 # Select basis vectors
 #-------------------------------------------------------------------------------------------------------------------------
 """
-binary_search(list::AbstractVector{<:Integer}, i<:Integer)
+    binary_search(list::AbstractVector{<:Integer}, i::Integer)
 
-Return the position of i in a sorted list using binary search algorithm.
+Return the position of `i` inside a sorted integer list, or `0` if it is absent.
+
+This helper is used pervasively by reduced bases to locate canonical
+representatives inside their stored index arrays without a linear scan.
 """
 function binary_search(list::AbstractVector{<:Integer}, i::Integer)
     l::Int = 1
@@ -54,18 +83,21 @@ end
 # Construction
 #-------------------------------------------------------------------------------------------------------------------------
 """
-dividerange(maxnum::Integer, nthreads::Integer)
+    dividerange(maxnum::Integer, nthreads::Integer)
 
-Divide the interation range equally according to the number of threads.
+Split the integer range `1:maxnum` into approximately equal chunks for
+multi-threaded iteration.
 
 Inputs:
 -------
 - `maxnum`  : Maximum number of range.
 - `nthreads`: Number of threads.
 
-Outputs:
---------
+Returns:
 - `list`: List of ranges.
+
+This helper centralizes EDKit's convention for static work partitioning across
+threads.
 """
 function dividerange(maxnum::T, nthreads::Integer) where T <: Integer
     list = Vector{UnitRange{T}}(undef, nthreads)
@@ -86,9 +118,9 @@ function dividerange(maxnum::T, nthreads::Integer) where T <: Integer
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-selectindex(f, L, rg; base=2, alloc=1000)
+    selectindex(f, L, rg; base=2, alloc=1000)
 
-Select the legal indices for a basis.
+Enumerate all product-state indices in `rg` whose digit strings satisfy `f`.
 
 Inputs:
 -------
@@ -98,9 +130,11 @@ Inputs:
 - `base` : (Optional) Base, `base=2` by default.
 - `alloc`: (Optional) Pre-allocation memory for the list of indices, `alloc=1000` by default.
 
-Outputs:
---------
-- `I`: List of indices in a basis.
+Returns:
+- A vector of 1-based product-state indices whose decoded digits satisfy `f`.
+
+This helper performs the actual scan used by [`ProjectedBasis`](@ref) and other
+reduced-basis constructors.
 """
 function selectindex(f, L::Integer, rg::UnitRange{T}; base::Integer=2, alloc::Integer=1000) where T <: Integer
     dgt = zeros(T, L)
@@ -116,7 +150,7 @@ end
 """
     selectindex_threaded(f, L, rg; base=2, alloc=1000)
 
-Select the legal indices with multi-threads.
+Threaded version of [`selectindex`](@ref) over the full Hilbert space.
 
 Inputs:
 -------
@@ -125,9 +159,11 @@ Inputs:
 - `base` : (Optional) Base, `base=2` by default.
 - `alloc`: (Optional) Pre-allocation memory for the list of indices, `alloc=1000` by default.
 
-Outputs:
---------
-- `I`: List of indices in a basis.
+Returns:
+- A concatenated vector of accepted product-state indices.
+
+The result ordering matches the natural increasing index order because each
+thread scans a disjoint monotone block and the blocks are concatenated in order.
 """
 function selectindex_threaded(f, L::Integer; base::T=2, alloc::Integer=1000) where T <: Integer
     nt = Threads.nthreads()
@@ -140,6 +176,26 @@ function selectindex_threaded(f, L::Integer; base::T=2, alloc::Integer=1000) whe
     I
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    selectindex_N(f, L, N; base=2, alloc=1000, sorted=true)
+
+Enumerate a fixed-charge subset of product states without scanning the entire
+Hilbert space.
+
+Arguments:
+- `f`: optional predicate applied after the fixed-`N` filter.
+- `L`: system size.
+- `N`: target charge in EDKit's convention.
+- `base`: local base.
+- `alloc`: initial capacity hint.
+- `sorted`: whether to sort the resulting representative indices.
+
+Returns:
+- A vector of basis indices compatible with the requested fixed-charge sector.
+
+This helper is used when direct combinatorial enumeration is cheaper than a full
+Hilbert-space scan.
+"""
 function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000, sorted::Bool=true) where T <: Integer
     I = T[]
     sizehint!(I, alloc)
@@ -170,12 +226,17 @@ Inputs:
 - `threaded`: Whether use the multithreading, default = true.
 - `small_N` : Whether to enumerate fixed-`N` states directly instead of scanning the full space.
 
-Outputs:
---------
+Returns:
 - `b` : `ProjectedBasis`.
 
 This constructor is useful for constrained Hilbert spaces such as PXP/Rydberg
 constraints or fixed-magnetization sectors.
+
+Notes:
+- If both `f` and `N` are provided, the state must satisfy both filters.
+- The charge convention follows EDKit's digit encoding, not necessarily the most
+  obvious particle-count convention, so docstrings elsewhere often state it
+  explicitly as `sum(dgt) == L*(base-1) - N`.
 """
 function ProjectedBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,

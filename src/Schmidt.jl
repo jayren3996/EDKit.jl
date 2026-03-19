@@ -6,12 +6,12 @@ Struct that is used to construct the Schmidt matrix:
 
 `|Ψ⟩ = ∑ᵢⱼ Mᵢᵢ|ψᵢ⟩ ⊗ |ψⱼ⟩`
 
-Properties:
------------
-- `M`   : Schidt matrix.
-- `A`   : View of region A.
-- `B`   : View of region B.
-- `base`: Base.
+Fields:
+- `M`: Schmidt matrix being accumulated.
+- `A`: view onto subsystem-`A` digits inside the working basis buffer.
+- `B`: view onto subsystem-`B` digits inside the working basis buffer.
+- `B1`: basis used for subsystem `A`.
+- `B2`: basis used for subsystem `B`.
 """
 struct SchmidtMatrix{Tm <: Number, Ta <: SubArray, Tb <: SubArray, TB1 <: AbstractBasis, TB2 <: AbstractBasis}
     M::Matrix{Tm}
@@ -24,7 +24,17 @@ end
 """
     schmidtmatrix(T, b::AbstractBasis, Ainds::AbstractVector)
 
-Construction of `SchmidtMatrix`.
+Construct the mutable bookkeeping object used to assemble a Schmidt matrix.
+
+Arguments:
+- `T`: element type of the matrix entries.
+- `b`: full-system basis whose digit buffer will be partitioned.
+- `Ainds`: site indices belonging to subsystem `A`.
+- `B1`, `B2`: optional subsystem bases; when omitted, tensor-product bases are
+  used.
+
+Returns:
+- A [`SchmidtMatrix`](@ref) whose matrix `M` is initialized to zeros.
 """
 function schmidtmatrix(
     T::DataType, b::AbstractBasis, Ainds::AbstractVector{Ta},
@@ -45,6 +55,12 @@ function schmidtmatrix(
     SchmidtMatrix(M, view(b.dgt, Ainds), view(b.dgt, Binds), B1, B2)
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    addto!(S::SchmidtMatrix, val)
+
+Accumulate a contribution `val` into the Schmidt matrix entry selected by the
+current subsystem digits stored in `S.A` and `S.B`.
+"""
 function addto!(S::SchmidtMatrix, val::Number)
     S.B1.dgt .= S.A
     S.B2.dgt .= S.B
@@ -59,7 +75,10 @@ end
 """
 ent_spec(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis)
 
-Conpute the entanglement spectrum.
+Compute the Schmidt singular values of a state across a bipartition.
+
+Returns:
+- The singular values of the Schmidt matrix produced by [`schmidt`](@ref).
 """
 ent_spec(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis) = svdvals(schmidt(v, Aind, b))
 #-------------------------------------------------------------------------------------------------------------------------
@@ -89,7 +108,7 @@ function entropy(s::AbstractVector{<:Real}; α::Real=1, cutoff::Real=1e-20)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Compute Shannon entropy
+Compute the Shannon/von Neumann entropy of a probability vector.
 """
 function shannon_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
     ent = 0.0
@@ -101,7 +120,8 @@ function shannon_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Compute Renyi-0 entropy, which is thenumber of non-zero Schmidt values.
+Compute Renyi-0 entropy, that is, the log-support size before the final `log`
+normalization convention is applied elsewhere.
 """
 function renyi_zero_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
     N = 0
@@ -113,7 +133,7 @@ function renyi_zero_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Compute general Renyi entropy
+Compute the Renyi entropy of order `α` for a probability vector `s`.
 """
 renyi_entropy(s::AbstractVector{<:Real}, α::Real) = log(sum(s.^α)) / (1-α)
 #-------------------------------------------------------------------------------------------------------------------------
@@ -121,13 +141,22 @@ export ent_S
 """
 ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis; α::Real=1, cutoff::Real=1e-20)
 
-Conpute the entanglement entropy of a state.
+Compute the bipartite entanglement entropy of a state represented in basis `b`.
+
+The singular values returned by [`ent_spec`](@ref) are squared into Schmidt
+probabilities before being passed to [`entropy`](@ref).
 """
 function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, b::AbstractBasis; α::Real=1, cutoff::Real=1e-20)
     s = ent_spec(v, Aind, b) .^ 2
     entropy(s, α=α, cutoff=cutoff)
 end
 #-------------------------------------------------------------------------------------------------------------------------
+"""
+    ent_S(v, Aind, L; α=1, cutoff=1e-20)
+
+Convenience overload that infers a `TensorBasis` from the vector length and
+system size `L`.
+"""
 function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, L::Integer; α::Real=1, cutoff::Real=1e-20)
     b = TensorBasis(L=L, base=round(Int, length(v)^(1/L)))
     s = ent_spec(v, Aind, b) .^ 2
@@ -163,7 +192,10 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Abstrac
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Schmidt decomposition for `TranslationalBasis`.
+Schmidt decomposition specialized to [`TranslationalBasis`](@ref).
+
+Each reduced-basis coefficient is expanded across the full translation orbit
+with the appropriate momentum phase before contributing to the bipartite matrix.
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis; B1=nothing, B2=nothing)
     dgt, R, phase = b.dgt, b.R, b.C[2]
@@ -194,6 +226,11 @@ function spinflip(v::AbstractVector{<:Integer}, base::Integer)
     vf
 end
 
+"""
+    spinflip!(v::AbstractVector{<:Integer}, base::Integer)
+
+In-place version of [`spinflip`](@ref).
+"""
 function spinflip!(v::AbstractVector{<:Integer}, base::Integer)
     base -= 1
     for i in eachindex(v)
@@ -203,7 +240,8 @@ function spinflip!(v::AbstractVector{<:Integer}, base::Integer)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Helper function for `schmidt` on parity basis.
+Internal helper for Schmidt decomposition in bases that combine translation with
+an involutive discrete symmetry such as parity or spin flip.
 """
 function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis;B1=nothing, B2=nothing)
     dgt, R, phase = b.dgt, b.R, b.C[2]
@@ -232,7 +270,7 @@ schmidt(v, Ainds, b::TranslationFlipBasis;B1=nothing, B2=nothing) = parity_schmi
 
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Schmidt decomposition for `FlipBasis`.
+Schmidt decomposition specialized to [`FlipBasis`](@ref).
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::FlipBasis; B1=nothing, B2=nothing)
     dgt, R, phase = b.dgt, b.R, b.P
@@ -248,7 +286,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::FlipBas
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Schmidt decomposition for `ParityBasis`.
+Schmidt decomposition specialized to [`ParityBasis`](@ref).
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityBasis; B1=nothing, B2=nothing)
     dgt, R, phase = b.dgt, b.R, b.P
@@ -264,7 +302,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityB
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Schmidt decomposition for `ParityBasis`.
+Schmidt decomposition specialized to [`ParityFlipBasis`](@ref).
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityFlipBasis; B1=nothing, B2=nothing)
     dgt, R, p1, p2 = b.dgt, b.R, b.P, b.Z

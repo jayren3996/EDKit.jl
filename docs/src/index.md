@@ -2,6 +2,11 @@
 
 `EDKit.jl` is a Julia package for exact diagonalization, symmetry-resolved many-body calculations, and selected tensor-network and open-system workflows.
 
+This documentation site is the human-facing manual for the package. It focuses
+on concepts, workflows, and examples. If you are reading the code directly, the
+source-level docstrings in `src/` are intentionally more exhaustive and more
+implementation-oriented.
+
 It is built around a simple pattern:
 
 1. describe local terms once,
@@ -89,8 +94,10 @@ That separation matters in practice:
 
 The docs are organized in three layers:
 
-- the manual explains concepts and workflows,
+- the manual explains concepts and workflows for human readers,
 - the worked examples show compact end-to-end use cases,
-- the API reference lists the core functions and types grouped by subsystem.
+- the API reference lists the core functions and types grouped by subsystem,
+- the source docstrings in `src/` carry the most detailed function-by-function
+  semantic documentation.
 
 The package is a single Julia module, `EDKit`, but it contains several functional layers. The [Architecture](manual/architecture.md) page explains how those layers fit together.
