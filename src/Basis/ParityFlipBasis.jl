@@ -118,15 +118,20 @@ the coefficient/index pair for the corresponding representative.
 """
 function index(b::ParityFlipBasis)
     I0 = index(b.dgt, base=b.B)
-    Ip = rindex(b.dgt, base=b.B)
-    Iz = b.M - I0
-    Ipz = b.M - Ip
+    state = I0 - one(eltype(b.I))
+    TI = eltype(b.I)
+    base = TI(b.B)
+    L = length(b.dgt)
+    maxstate = base^L - one(TI)
+    Ip = _int_reverse(state, L, base) + one(TI)
+    Iz = _int_spinflip(state, maxstate) + one(TI)
+    Ipz = _int_spinflip(Ip - one(TI), maxstate) + one(TI)
     Ir = min(I0, Iz, Ip, Ipz)
     i = binary_search(b.I, Ir)
     iszero(i) && return (0.0, one(b.B))
     N = if isequal(Ir, I0)
         b.R[i]
-    elseif isequal(Ir, Ip) 
+    elseif isequal(Ir, Ip)
         b.P * b.R[i]
     elseif isequal(Ir, Iz)
         b.Z * b.R[i]

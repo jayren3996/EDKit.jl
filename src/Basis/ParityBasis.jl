@@ -106,7 +106,8 @@ digits match the stored representative directly or through reflection.
 """
 function index(b::ParityBasis)
     Ia = index(b.dgt, base=b.B)
-    Ib = rindex(b.dgt, base=b.B)
+    state = Ia - one(eltype(b.I))
+    Ib = _int_reverse(state, length(b.dgt), eltype(b.I)(b.B)) + one(eltype(b.I))
     i, n = if Ib < Ia
         binary_search(b.I, Ib), b.P
     else

@@ -305,59 +305,34 @@ To avoid exception in the matrix constructon of `Operation`, we allow the index 
 When this happend, we return index 1, and normalization 0, so it has no effect on the matrix being filled.
 """
 function index(b::TranslationalBasis)
-    if b.B == 2
-        return _index_bits(b)
-    end
-    I0 = index(b.dgt, base=b.B)
-    Im, M = I0, 0
-
-    # Cycle digits
-    resetQ = true
-    for i in 1:ncycle(b)-1
-        circshift!(b.dgt, b.A)
-        In = index(b.dgt, base=b.B)
-        if isequal(In, I0)
-            resetQ = false
-            break
-        elseif In < Im
-            Im, M = In, i
-        end
-    end
-    resetQ && circshift!(b.dgt, b.A)
-
-    # Search for minimal index
-    i = binary_search(b.I, Im)
-    iszero(i) && return (zero(eltype(b)), one(b.B))
-
-    # Find normalization and return result
-    N = b.C[M+1] * b.R[i]
-    N, i
-end
-
-# Fast path for base=2: use integer bit rotation instead of circshift!+index.
-# Avoids all digit array manipulation during orbit search (~70-140x faster).
-@inline function _index_bits(b::TranslationalBasis)
     I0 = index(b.dgt, base=b.B)
     state = I0 - one(eltype(b.I))
     Im, M = I0, 0
     L = length(b.dgt)
     A = b.A
-    mask = (one(eltype(b.I)) << L) - one(eltype(b.I))
+    TI = eltype(b.I)
 
-    for i in 1:ncycle(b)-1
-        state = ((state >> A) | (state << (L - A))) & mask
-        In = state + one(eltype(b.I))
-        if isequal(In, I0)
-            break
-        elseif In < Im
-            Im, M = In, i
+    if b.B == 2
+        mask = (one(TI) << L) - one(TI)
+        for i in 1:ncycle(b)-1
+            state = ((state >> A) | (state << (L - A))) & mask
+            In = state + one(TI)
+            isequal(In, I0) && break
+            In < Im && ((Im, M) = (In, i))
+        end
+    else
+        pow_shift = TI(b.B)^(L - A)
+        base_shift = TI(b.B)^A
+        for i in 1:ncycle(b)-1
+            state = _int_translate(state, pow_shift, base_shift)
+            In = state + one(TI)
+            isequal(In, I0) && break
+            In < Im && ((Im, M) = (In, i))
         end
     end
-    # b.dgt is untouched -- no restoration needed
 
     i = binary_search(b.I, Im)
     iszero(i) && return (zero(eltype(b)), one(b.B))
-
     @inbounds N = b.C[M+1] * b.R[i]
     N, i
 end

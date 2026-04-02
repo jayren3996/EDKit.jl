@@ -168,62 +168,37 @@ translation-flip basis.
 """
 function index(b::TranslationFlipBasis)
     Ia0 = index(b.dgt, base=b.B)
-    Ib0 = b.M - Ia0
-    Iam, Ibm = Ia0, Ib0
-    R, M = 0, 0
-
-    # Cycling and find monimum
-    resetQ = true
-    for i in 1:ncycle(b)-1
-        circshift!(b.dgt, b.A)
-        Ia1 = index(b.dgt, base=b.B)
-        if isequal(Ia1, Ia0)
-            resetQ = false
-            break
-        elseif Ia1 < Iam
-            Iam, R = Ia1, i
-        end
-        Ib1 = b.M - Ia1
-        if Ib1 < Ibm
-            Ibm, M = Ib1, i
-        end
-    end
-    resetQ && circshift!(b.dgt, b.A)
-
-    # Find index and normalization
-    i, n = if Ibm < Iam
-        binary_search(b.I, Ibm), b.P * b.C[M+1]
-    else
-        binary_search(b.I, Iam), b.C[R+1]
-    end
-    iszero(i) && return (zero(eltype(b)), one(eltype(b.I)))
-    n * b.R[i], i
-end
-
-@inline function _index_bits(b::TranslationFlipBasis)
-    Ia0 = index(b.dgt, base=b.B)
     state = Ia0 - one(eltype(b.I))
     L = length(b.dgt)
     A = b.A
     TI = eltype(b.I)
-    mask = (one(TI) << L) - one(TI)
+    base = TI(b.B)
+    maxstate = base^L - one(TI)
 
-    # Spin-flip for base=2: complement within L bits, then back to 1-based
-    Ib0 = (mask - state) + one(TI)
+    Ib0 = _int_spinflip(state, maxstate) + one(TI)
     Iam, Ibm = Ia0, Ib0
     R, M = 0, 0
 
-    for i in 1:ncycle(b)-1
-        state = ((state >> A) | (state << (L - A))) & mask
-        Ia1 = state + one(TI)
-        if isequal(Ia1, Ia0)
-            break
-        elseif Ia1 < Iam
-            Iam, R = Ia1, i
+    if b.B == 2
+        mask = (one(TI) << L) - one(TI)
+        for i in 1:ncycle(b)-1
+            state = ((state >> A) | (state << (L - A))) & mask
+            Ia1 = state + one(TI)
+            if isequal(Ia1, Ia0); break
+            elseif Ia1 < Iam; Iam, R = Ia1, i; end
+            Ib1 = _int_spinflip(state, maxstate) + one(TI)
+            if Ib1 < Ibm; Ibm, M = Ib1, i; end
         end
-        Ib1 = (mask - state) + one(TI)
-        if Ib1 < Ibm
-            Ibm, M = Ib1, i
+    else
+        pow_shift = base^(L - A)
+        base_shift = base^A
+        for i in 1:ncycle(b)-1
+            state = _int_translate(state, pow_shift, base_shift)
+            Ia1 = state + one(TI)
+            if isequal(Ia1, Ia0); break
+            elseif Ia1 < Iam; Iam, R = Ia1, i; end
+            Ib1 = _int_spinflip(state, maxstate) + one(TI)
+            if Ib1 < Ibm; Ibm, M = Ib1, i; end
         end
     end
 

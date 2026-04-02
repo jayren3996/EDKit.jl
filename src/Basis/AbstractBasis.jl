@@ -376,3 +376,45 @@ inside matrix-free operator application.
         end
     end
 end
+
+#-------------------------------------------------------------------------------------------------------------------------
+# Integer-state helpers for orbit search (avoid circshift!/reverse! on digit arrays)
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    _int_translate(state, pow_shift, base_shift)
+
+Integer equivalent of `circshift!(dgt, A)` followed by `index(dgt)`.
+
+Operates on a 0-based integer state.  `pow_shift = base^(L-A)` and
+`base_shift = base^A` must be precomputed by the caller.
+"""
+@inline function _int_translate(state::T, pow_shift::T, base_shift::T) where T <: Integer
+    tail = state % base_shift
+    tail * pow_shift + state ÷ base_shift
+end
+
+"""
+    _int_reverse(state, L, base)
+
+Integer equivalent of reversing the digit order (parity/reflection).
+
+Operates on a 0-based integer state.
+"""
+@inline function _int_reverse(state::T, L::Int, base::T) where T <: Integer
+    r = zero(T)
+    v = state
+    @inbounds for _ in 1:L
+        r = r * base + v % base
+        v ÷= base
+    end
+    r
+end
+
+"""
+    _int_spinflip(state, maxstate)
+
+Integer equivalent of spin-flip (complement each digit: d → base-1-d).
+
+Operates on a 0-based integer state.  `maxstate = base^L - 1`.
+"""
+@inline _int_spinflip(state::T, maxstate::T) where T <: Integer = maxstate - state

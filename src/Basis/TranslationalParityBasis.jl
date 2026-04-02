@@ -188,71 +188,36 @@ contributions relative to the stored representative.
 """
 function index(b::TranslationParityBasis)
     Ia0 = index(b.dgt, base=b.B)
-    Ib0 = rindex(b.dgt, base=b.B)
-    Iam, Ibm = Ia0, Ib0
-    R, M = 0, 0
-
-    # Cycling and find monimum
-    resetQ = true
-    for i in 1:ncycle(b)-1
-        circshift!(b.dgt, b.A)
-        Ia1 = index(b.dgt, base=b.B)
-        if isequal(Ia1, Ia0)
-            resetQ = false
-            break
-        elseif Ia1 < Iam
-            Iam, R = Ia1, i
-        end
-        Ib1 = rindex(b.dgt, base=b.B)
-        if Ib1 < Ibm
-            Ibm, M = Ib1, i
-        end
-    end
-    resetQ && circshift!(b.dgt, b.A)
-
-    # Find index and normalization
-    i, n = if Ibm < Iam
-        binary_search(b.I, Ibm), b.P * b.C[M+1]
-    else
-        binary_search(b.I, Iam), b.C[R+1]
-    end
-    iszero(i) && return (zero(eltype(b)), one(eltype(b.I)))
-    n * b.R[i], i
-end
-
-@inline function _bitreverse(x::T, L::Int) where T <: Integer
-    r = zero(T)
-    v = x
-    for _ in 1:L
-        r = (r << 1) | (v & one(T))
-        v >>= 1
-    end
-    r
-end
-
-@inline function _index_bits(b::TranslationParityBasis)
-    Ia0 = index(b.dgt, base=b.B)
     state = Ia0 - one(eltype(b.I))
     L = length(b.dgt)
     A = b.A
     TI = eltype(b.I)
-    mask = (one(TI) << L) - one(TI)
+    base = TI(b.B)
 
-    Ib0 = _bitreverse(state, L) + one(TI)
+    Ib0 = _int_reverse(state, L, base) + one(TI)
     Iam, Ibm = Ia0, Ib0
     R, M = 0, 0
 
-    for i in 1:ncycle(b)-1
-        state = ((state >> A) | (state << (L - A))) & mask
-        Ia1 = state + one(TI)
-        if isequal(Ia1, Ia0)
-            break
-        elseif Ia1 < Iam
-            Iam, R = Ia1, i
+    if b.B == 2
+        mask = (one(TI) << L) - one(TI)
+        for i in 1:ncycle(b)-1
+            state = ((state >> A) | (state << (L - A))) & mask
+            Ia1 = state + one(TI)
+            if isequal(Ia1, Ia0); break
+            elseif Ia1 < Iam; Iam, R = Ia1, i; end
+            Ib1 = _int_reverse(state, L, base) + one(TI)
+            if Ib1 < Ibm; Ibm, M = Ib1, i; end
         end
-        Ib1 = _bitreverse(state, L) + one(TI)
-        if Ib1 < Ibm
-            Ibm, M = Ib1, i
+    else
+        pow_shift = base^(L - A)
+        base_shift = base^A
+        for i in 1:ncycle(b)-1
+            state = _int_translate(state, pow_shift, base_shift)
+            Ia1 = state + one(TI)
+            if isequal(Ia1, Ia0); break
+            elseif Ia1 < Iam; Iam, R = Ia1, i; end
+            Ib1 = _int_reverse(state, L, base) + one(TI)
+            if Ib1 < Ibm; Ibm, M = Ib1, i; end
         end
     end
 
