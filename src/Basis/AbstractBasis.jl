@@ -270,9 +270,15 @@ Notes:
 """
 @inline function index(dgt::AbstractVector{<:Integer}; base::T=2) where T <: Integer
     N = zero(T)
-    @inbounds for i = 1:length(dgt)
-        N *= base
-        N += dgt[i]
+    if base == 2
+        @inbounds for i = 1:length(dgt)
+            N = (N << 1) | dgt[i]
+        end
+    else
+        @inbounds for i = 1:length(dgt)
+            N *= base
+            N += dgt[i]
+        end
     end
     N + one(T)
 end
@@ -297,15 +303,21 @@ matrix acts only on a selected subset of sites.
 """
 @inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::T=2) where T <: Integer
     N = zero(T)
-    @inbounds for i in sites
-        N *= base
-        N += dgt[i]
+    if base == 2
+        @inbounds for i in sites
+            N = (N << 1) | dgt[i]
+        end
+    else
+        @inbounds for i in sites
+            N *= base
+            N += dgt[i]
+        end
     end
     N + one(T)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) 
+    change!(dgt::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
 
 Overwrite `dgt` with the product-state digits corresponding to `ind`.
 
@@ -321,13 +333,20 @@ This is the inverse of `index(dgt; base=...)`.
 """
 @inline function change!(dgt::AbstractVector{T}, ind::T; base::T=2) where T
     N = ind - one(T)
-    @inbounds for i = length(dgt):-1:1
-        N, dgt[i] = divrem(N, base)
+    if base == 2
+        @inbounds for i = length(dgt):-1:1
+            dgt[i] = N & one(T)
+            N >>= 1
+        end
+    else
+        @inbounds for i = length(dgt):-1:1
+            N, dgt[i] = divrem(N, base)
+        end
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2) 
+    change!(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}, ind::Integer; base::Integer=2)
 
 Overwrite only the selected entries of `dgt` with the subsystem digits encoded
 by `ind`.
@@ -346,7 +365,14 @@ inside matrix-free operator application.
 """
 @inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::T=2) where T
     N = ind - one(T)
-    @inbounds for i = length(sites):-1:1
-        N, dgt[sites[i]] = divrem(N, base)
+    if base == 2
+        @inbounds for i = length(sites):-1:1
+            dgt[sites[i]] = N & one(T)
+            N >>= 1
+        end
+    else
+        @inbounds for i = length(sites):-1:1
+            N, dgt[sites[i]] = divrem(N, base)
+        end
     end
 end
