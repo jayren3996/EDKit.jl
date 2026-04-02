@@ -9,4 +9,6 @@ trans_inv_operator
 spin
 addto!
 EDKit.mul
+sparse!
+clear_sparse_cache!
 ```

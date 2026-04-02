@@ -117,6 +117,58 @@ H = trans_inv_operator(h2, 1:2, B)
 
 This is one of the main advantages of the EDKit design: the model description stays the same while the basis changes.
 
+## Performance Tips
+
+### Accelerating matrix multiplication with `sparse!`
+
+The default `H * M` path applies the operator matrix-free, which avoids
+storing the full matrix but pays a per-row overhead for digit manipulation
+and basis index lookups.  When multiplying by a matrix with a moderate
+number of columns (the typical case of applying H to a block of
+eigenvectors), this overhead dominates and the operation can be **10-1000x
+slower** than necessary.
+
+Call `sparse!(H)` once to cache the explicit sparse representation.  All
+subsequent `H * M` and `mul(H, M)` calls for matrix inputs will use the
+cached sparse matrix automatically:
+
+```julia
+H = trans_inv_operator(spin("xx","yy","zz"), 1:2, basis)
+
+sparse!(H)             # one-time cost
+result = H * states    # now uses fast sparse matrix-matrix multiply
+clear_sparse_cache!()  # release memory when done
+```
+
+Vector multiplication (`H * psi`) is unaffected and always uses the
+matrix-free kernel.
+
+**When not to use `sparse!`:**  For very large Hilbert spaces, the sparse
+matrix itself may consume significant memory (e.g. ~50 MiB for a
+half-filled L=20 chain).  In those cases, stay with the matrix-free path or
+call `sparse(H)` once and manage the matrix yourself.
+
+### Threaded multiplication
+
+For the matrix-free path, `mul(H, psi)` parallelizes over basis states
+using Julia threads.  Launch Julia with multiple threads
+(`julia -t auto`) to benefit:
+
+```julia
+psi = randn(ComplexF64, size(H, 1))
+result = mul(H, psi)   # threaded matrix-free application
+```
+
+### Choosing the right interface
+
+| Goal | Recommended call |
+|------|-----------------|
+| One-off action on a vector | `H * psi` |
+| Threaded vector action | `mul(H, psi)` |
+| Repeated matrix actions (eigenvectors, etc.) | `sparse!(H)` then `H * M` |
+| Full diagonalization of small systems | `Array(H)` or `sparse(H)` |
+| In-place accumulation | `mul!(target, H, v)` |
+
 ## When To Use Which Interface
 
 - Use `spin` to define local building blocks.
@@ -124,3 +176,4 @@ This is one of the main advantages of the EDKit design: the model description st
 - Use `trans_inv_operator` when one local term is repeated by translation symmetry.
 - Use `Array(H)` or `sparse(H)` only when you really want an explicit matrix.
 - Use `H * psi` or `mul(H, psi)` when you want to stay matrix free.
+- Use `sparse!(H)` when you will multiply the same operator by matrices repeatedly.

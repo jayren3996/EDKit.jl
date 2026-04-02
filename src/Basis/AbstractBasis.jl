@@ -270,7 +270,7 @@ Notes:
 """
 @inline function index(dgt::AbstractVector{<:Integer}; base::T=2) where T <: Integer
     N = zero(T)
-    for i = 1:length(dgt)
+    @inbounds for i = 1:length(dgt)
         N *= base
         N += dgt[i]
     end
@@ -297,7 +297,7 @@ matrix acts only on a selected subset of sites.
 """
 @inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::T=2) where T <: Integer
     N = zero(T)
-    for i in sites
+    @inbounds for i in sites
         N *= base
         N += dgt[i]
     end
@@ -321,7 +321,7 @@ This is the inverse of `index(dgt; base=...)`.
 """
 @inline function change!(dgt::AbstractVector{T}, ind::T; base::T=2) where T
     N = ind - one(T)
-    for i = length(dgt):-1:1
+    @inbounds for i = length(dgt):-1:1
         N, dgt[i] = divrem(N, base)
     end
 end
@@ -346,7 +346,7 @@ inside matrix-free operator application.
 """
 @inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::T=2) where T
     N = ind - one(T)
-    for i = length(sites):-1:1
+    @inbounds for i = length(sites):-1:1
         N, dgt[sites[i]] = divrem(N, base)
     end
 end
