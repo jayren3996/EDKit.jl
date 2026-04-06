@@ -193,6 +193,8 @@ function Array(opt::Operator)
     end
     M
 end
+
+Matrix(opt::Operator) = Array(opt)
 #---------------------------------------------------------------------------------------------------
 """
     sparse(opt::Operator)
