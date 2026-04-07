@@ -312,4 +312,146 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         @test B1.I == B2.I
     end
 
+    @testset "2D Lattice Symmetries" begin
+        # 3x3 square lattice with Heisenberg model
+        Lx, Ly = 3, 3
+        L = Lx * Ly
+        sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+
+        T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+        T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
+
+        # Build 2D Heisenberg Hamiltonian
+        XXZ = spin((1.0, "xx"), (1.0, "yy"), (1.0, "zz"))
+        bonds = Tuple{Int,Int}[]
+        for (x, y) in sites
+            i = x + Lx * y + 1
+            push!(bonds, (i, mod(x + 1, Lx) + Lx * y + 1))
+            push!(bonds, (i, x + Lx * mod(y + 1, Ly) + 1))
+        end
+
+        # Full-space eigenvalues
+        H_full = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], L)
+        full_vals = eigvals(Hermitian(Array(H_full))) |> sort
+
+        # Verify: all (kx, ky) sectors reconstruct full spectrum
+        vals_all_k = Float64[]
+        for kx in 0:Lx-1, ky in 0:Ly-1
+            B = basis(; L, base=2, symmetries=[(Lx, kx, T_x), (Ly, ky, T_y)])
+            iszero(size(B, 1)) && continue
+            H = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], B)
+            append!(vals_all_k, eigvals(Hermitian(Array(H))))
+        end
+        @test sort(vals_all_k) ≈ full_vals
+
+        # Test with particle conservation
+        N = L ÷ 2
+        H_N_ref = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds],
+                            basis(; L, N))
+        ref_vals = eigvals(Hermitian(Array(H_N_ref))) |> sort
+        vals_k_N = Float64[]
+        for kx in 0:Lx-1, ky in 0:Ly-1
+            B = basis(; L, N, base=2, symmetries=[(Lx, kx, T_x), (Ly, ky, T_y)])
+            iszero(size(B, 1)) && continue
+            H = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], B)
+            append!(vals_k_N, eigvals(Hermitian(Array(H))))
+        end
+        @test sort(vals_k_N) ≈ ref_vals
+
+        # Also test a smaller 2x3 lattice for speed
+        Lx2, Ly2 = 2, 3
+        L2 = Lx2 * Ly2
+        sites2 = [(x, y) for y in 0:Ly2-1 for x in 0:Lx2-1]
+        T_x2 = [mod(x + 1, Lx2) + Lx2 * y + 1 for (x, y) in sites2]
+        T_y2 = [x + Lx2 * mod(y + 1, Ly2) + 1 for (x, y) in sites2]
+
+        bonds2 = Tuple{Int,Int}[]
+        for (x, y) in sites2
+            i = x + Lx2 * y + 1
+            push!(bonds2, (i, mod(x + 1, Lx2) + Lx2 * y + 1))
+            push!(bonds2, (i, x + Lx2 * mod(y + 1, Ly2) + 1))
+        end
+
+        H2_full = operator([XXZ for _ in bonds2], [[b[1], b[2]] for b in bonds2], L2)
+        full_vals2 = eigvals(Hermitian(Array(H2_full))) |> sort
+
+        vals2 = Float64[]
+        for kx in 0:Lx2-1, ky in 0:Ly2-1
+            B = basis(; L=L2, base=2, symmetries=[(Lx2, kx, T_x2), (Ly2, ky, T_y2)])
+            iszero(size(B, 1)) && continue
+            H = operator([XXZ for _ in bonds2], [[b[1], b[2]] for b in bonds2], B)
+            append!(vals2, eigvals(Hermitian(Array(H))))
+        end
+        @test sort(vals2) ≈ full_vals2
+    end
+
+    @testset "2D Entanglement" begin
+        Lx, Ly = 3, 2
+        L = Lx * Ly
+        sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+
+        T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+        T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
+
+        XXZ = spin((1.0, "xx"), (1.0, "yy"), (1.0, "zz"))
+        bonds = Tuple{Int,Int}[]
+        for (x, y) in sites
+            i = x + Lx * y + 1
+            push!(bonds, (i, mod(x + 1, Lx) + Lx * y + 1))
+            push!(bonds, (i, x + Lx * mod(y + 1, Ly) + 1))
+        end
+
+        # Full space ground state
+        H_full = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], L)
+        E_full, V_full = eigen(Hermitian(Array(H_full)))
+        gs_full = V_full[:, 1]
+        S_full = ent_S(gs_full, collect(1:L÷2), TensorBasis(; L, base=2))
+
+        # Find the ground state across all momentum sectors
+        best_E = Inf
+        best_S = NaN
+        for kx in 0:Lx-1, ky in 0:Ly-1
+            B_sym = basis(; L, base=2, symmetries=[(Lx, kx, T_x), (Ly, ky, T_y)])
+            iszero(size(B_sym, 1)) && continue
+            H_sym = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], B_sym)
+            E_sym, V_sym = eigen(Hermitian(Array(H_sym)))
+            if E_sym[1] < best_E
+                best_E = E_sym[1]
+                gs_sym = V_sym[:, 1]
+                best_S = ent_S(gs_sym, collect(1:L÷2), B_sym)
+            end
+        end
+        @test best_E ≈ E_full[1] atol=1e-10
+        @test best_S ≈ S_full atol=1e-10
+    end
+
+    @testset "Performance Sanity Check" begin
+        L = 16
+        t = @elapsed begin
+            B = basis(; L, N=L÷2, k=0)
+        end
+        @test size(B, 1) > 0
+        @info "L=$L, N=$(L÷2), k=0 basis construction: $(round(t, digits=3))s, dim=$(size(B, 1))"
+
+        XXZ = spin((1.0, "xx"), (1.0, "yy"), (0.5, "zz"))
+        H = trans_inv_operator(XXZ, 2, B)
+        v = randn(ComplexF64, size(B, 1))
+        v ./= norm(v)
+        t_mul = @elapsed (w = H * v)
+        @test norm(w) > 0
+        @info "Matrix-free multiply: $(round(t_mul, digits=4))s"
+
+        # 2D performance
+        Lx, Ly = 4, 3
+        L2 = Lx * Ly
+        sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+        T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+        T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
+        t2 = @elapsed begin
+            B2 = basis(; L=L2, N=L2÷2, base=2, symmetries=[(Lx, 0, T_x), (Ly, 0, T_y)])
+        end
+        @test size(B2, 1) > 0
+        @info "2D 4x3 basis (N=$(L2÷2), kx=0, ky=0): $(round(t2, digits=3))s, dim=$(size(B2, 1))"
+    end
+
 end
