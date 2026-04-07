@@ -104,6 +104,30 @@ Fallback when Benes network is not available or for verification.
     result
 end
 
+"""
+    _compute_period(perm::Vector{Int}, inv::BitVector)
+
+Compute the period of a combined permutation + inversion operation.
+"""
+function _compute_period(perm::Vector{Int}, inv::BitVector)
+    L = length(perm)
+    pos = collect(1:L)
+    flipped = falses(L)
+    for p in 1:2*L
+        new_pos = similar(pos)
+        new_flipped = similar(flipped)
+        for i in 1:L
+            new_pos[i] = perm[pos[i]]
+            new_flipped[i] = flipped[i] ⊻ inv[pos[i]]
+        end
+        pos .= new_pos
+        flipped .= new_flipped
+        if pos == collect(1:L) && !any(flipped)
+            return p
+        end
+    end
+    error("Period computation failed")
+end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Abelian Operator
@@ -683,8 +707,10 @@ Keywords:
 - `a`: unit-cell length used together with `k`.
 - `p`: reflection-parity eigenvalue +/-1.
 - `z`: spin-flip eigenvalue +/-1.
-- `symmetries`: vector of `(order, k, perm)` or `(order, k, perm, inv)` tuples
-  for arbitrary generators (e.g., 2D/3D lattice symmetries).
+- `symmetries`: vector of `(perm, q)` or `(perm, q, inv)` tuples for arbitrary
+  generators. `perm` is a 1-indexed permutation array, `q` is the quantum number,
+  and `inv` is an optional BitVector for spin inversion. The group order is
+  auto-computed from the permutation period.
 
 Return value:
 - `TensorBasis` if no symmetry or constraint is requested.
@@ -740,15 +766,21 @@ function basis(
         push!(gs, AbelianOperator(2, isone(-z) ? 1 : 0, perm_z; inv=inv_z))
     end
 
-    # Custom symmetries
+    # Custom symmetries: (perm, q) or (perm, q, inv)
     if !isnothing(symmetries)
         for sym in symmetries
-            if length(sym) == 3
-                ord, kk, prm = sym
-                push!(gs, AbelianOperator(ord, kk, prm))
-            elseif length(sym) == 4
-                ord, kk, prm, inv_flag = sym
-                push!(gs, AbelianOperator(ord, kk, prm; inv=inv_flag))
+            if length(sym) == 2
+                prm, kk = sym
+                prm_vec = Vector{Int}(prm)
+                inv_bv = falses(length(prm_vec))
+                ord = _compute_period(prm_vec, inv_bv)
+                push!(gs, AbelianOperator(ord, kk, prm_vec))
+            elseif length(sym) == 3
+                prm, kk, inv_flag = sym
+                prm_vec = Vector{Int}(prm)
+                inv_bv = BitVector(inv_flag)
+                ord = _compute_period(prm_vec, inv_bv)
+                push!(gs, AbelianOperator(ord, kk, prm_vec; inv=inv_bv))
             end
         end
     end

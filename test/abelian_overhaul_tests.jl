@@ -307,7 +307,7 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         for i in 1:L; perm_t[i] = mod1(i - 1, L); end
 
         B1 = basis(L=L, k=0)
-        B2 = basis(L=L, symmetries=[(L, 0, perm_t)])
+        B2 = basis(L=L, symmetries=[(perm_t, 0)])
         @test size(B1) == size(B2)
         @test B1.I == B2.I
     end
@@ -337,7 +337,7 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         # Verify: all (kx, ky) sectors reconstruct full spectrum
         vals_all_k = Float64[]
         for kx in 0:Lx-1, ky in 0:Ly-1
-            B = basis(; L, base=2, symmetries=[(Lx, kx, T_x), (Ly, ky, T_y)])
+            B = basis(; L, base=2, symmetries=[(T_x, kx), (T_y, ky)])
             iszero(size(B, 1)) && continue
             H = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], B)
             append!(vals_all_k, eigvals(Hermitian(Array(H))))
@@ -351,7 +351,7 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         ref_vals = eigvals(Hermitian(Array(H_N_ref))) |> sort
         vals_k_N = Float64[]
         for kx in 0:Lx-1, ky in 0:Ly-1
-            B = basis(; L, N, base=2, symmetries=[(Lx, kx, T_x), (Ly, ky, T_y)])
+            B = basis(; L, N, base=2, symmetries=[(T_x, kx), (T_y, ky)])
             iszero(size(B, 1)) && continue
             H = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], B)
             append!(vals_k_N, eigvals(Hermitian(Array(H))))
@@ -377,7 +377,7 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
 
         vals2 = Float64[]
         for kx in 0:Lx2-1, ky in 0:Ly2-1
-            B = basis(; L=L2, base=2, symmetries=[(Lx2, kx, T_x2), (Ly2, ky, T_y2)])
+            B = basis(; L=L2, base=2, symmetries=[(T_x2, kx), (T_y2, ky)])
             iszero(size(B, 1)) && continue
             H = operator([XXZ for _ in bonds2], [[b[1], b[2]] for b in bonds2], B)
             append!(vals2, eigvals(Hermitian(Array(H))))
@@ -411,7 +411,7 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         best_E = Inf
         best_S = NaN
         for kx in 0:Lx-1, ky in 0:Ly-1
-            B_sym = basis(; L, base=2, symmetries=[(Lx, kx, T_x), (Ly, ky, T_y)])
+            B_sym = basis(; L, base=2, symmetries=[(T_x, kx), (T_y, ky)])
             iszero(size(B_sym, 1)) && continue
             H_sym = operator([XXZ for _ in bonds], [[b[1], b[2]] for b in bonds], B_sym)
             E_sym, V_sym = eigen(Hermitian(Array(H_sym)))
@@ -448,7 +448,7 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
         T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
         t2 = @elapsed begin
-            B2 = basis(; L=L2, N=L2÷2, base=2, symmetries=[(Lx, 0, T_x), (Ly, 0, T_y)])
+            B2 = basis(; L=L2, N=L2÷2, base=2, symmetries=[(T_x, 0), (T_y, 0)])
         end
         @test size(B2, 1) > 0
         @info "2D 4x3 basis (N=$(L2÷2), kx=0, ky=0): $(round(t2, digits=3))s, dim=$(size(B2, 1))"
