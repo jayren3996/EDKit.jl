@@ -1,15 +1,15 @@
 #-------------------------------------------------------------------------------------------------------------------------
-# Benes Network for O(log L) bit permutation (base=2 only)
+# Permutation network compiled from transpositions (base=2 only)
 #-------------------------------------------------------------------------------------------------------------------------
 """
     BenesNetwork
 
-Compiled bit-permutation network for O(log L) application of a site permutation
-to an integer state.  Only used when `base=2`.
+A permutation network compiled from transpositions for applying a site
+permutation to an integer state.  Only used when `base=2`.
 
-Each layer is a pair `(mask, shift)` encoding a set of independent swaps: every
-bit pair whose positions differ by `shift` and whose lower bit is marked in
-`mask` is swapped simultaneously.
+Each layer is a pair `(mask, shift)` encoding a delta-swap: a single
+transposition of two bit positions separated by `shift`, with the lower
+position marked in `mask`.
 """
 struct BenesNetwork
     layers::Vector{Tuple{UInt64, Int}}   # (mask, shift) pairs
@@ -18,14 +18,12 @@ end
 """
     compile_benes(perm::Vector{Int}, L::Int)
 
-Compile a site permutation into a [`BenesNetwork`](@ref).
+Compile a site permutation into a permutation network using transposition
+decomposition.  Each transposition becomes a delta-swap layer.
 
 `perm[i] = j` means site `i` maps to site `j` (1-based).  In integer
 representation site `i` occupies bit `L-i` (big-endian, matching EDKit's
 `index()`), so the bit at position `L-i` moves to position `L-j`.
-
-The implementation decomposes the permutation into transpositions and groups
-compatible swaps (same bit-distance) into shared butterfly layers.
 """
 function compile_benes(perm::Vector{Int}, L::Int)
     # Build bit-level permutation: bit_perm[bit_src+1] = bit_dst (0-indexed bits)
@@ -39,17 +37,15 @@ function compile_benes(perm::Vector{Int}, L::Int)
     current = collect(0:L-1)  # current[pos+1] = which original bit is at position pos
     where_is = collect(0:L-1)  # where_is[bit+1] = current position of original bit
 
+    # Precompute inverse: inv_perm[dst+1] = src such that bit_perm[src+1] = dst
+    inv_perm = Vector{Int}(undef, L)
+    for s in 0:L-1
+        inv_perm[bit_perm[s+1]+1] = s
+    end
+
     # bit_perm[src+1] = dst: the bit originally at position src should end at position dst
     for dst in 0:L-1
-        # Which original bit should end up at position dst?
-        # We need inverse: inv_perm[dst+1] = src such that bit_perm[src+1] = dst
-        src_bit = -1
-        for s in 0:L-1
-            if bit_perm[s+1] == dst
-                src_bit = s
-                break
-            end
-        end
+        src_bit = inv_perm[dst+1]
         cur_pos = where_is[src_bit+1]
         if cur_pos != dst
             push!(swaps, (min(dst, cur_pos), max(dst, cur_pos)))
@@ -75,13 +71,14 @@ end
 """
     apply_benes(bn::BenesNetwork, state::UInt64, L::Int)
 
-Apply a compiled Benes network to an integer state, returning the permuted state.
+Apply a compiled permutation network to an integer state, returning the permuted
+state.
 
-Uses the delta-swap technique: for each layer `(mask, shift)`, all bit pairs at
-distance `shift` whose lower position is marked in `mask` are swapped.
+Uses the delta-swap technique: for each layer `(mask, shift)`, the bit pair at
+distance `shift` whose lower position is marked in `mask` is swapped.
 """
 @inline function apply_benes(bn::BenesNetwork, state::UInt64, L::Int)
-    for (mask, shift) in bn.layers
+    @inbounds for (mask, shift) in bn.layers
         # Delta swap: swap bits at positions marked in mask with those shifted up by shift
         delta = ((state >> shift) ⊻ state) & mask
         state = state ⊻ delta ⊻ (delta << shift)
@@ -113,7 +110,7 @@ function _compute_period(perm::Vector{Int}, inv::BitVector)
     L = length(perm)
     pos = collect(1:L)
     flipped = falses(L)
-    for p in 1:2*L
+    for p in 1:max(2*L*L, 100)
         new_pos = similar(pos)
         new_flipped = similar(flipped)
         for i in 1:L
@@ -255,6 +252,14 @@ function apply_perm!(dgt::Vector, perm::Vector{Int})
     dgt
 end
 
+function apply_perm!(dgt::Vector, perm::Vector{Int}, tmp::Vector)
+    copyto!(tmp, dgt)
+    @inbounds for i in eachindex(perm)
+        dgt[perm[i]] = tmp[i]
+    end
+    dgt
+end
+
 """
     apply_inv!(dgt::Vector, inv::BitVector, base::Integer)
 
@@ -288,6 +293,21 @@ function (ag::AbelianOperator)(dgt::Vector, base::Integer)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
+    _apply_group_action!(dgt, ag, base, tmp)
+
+Apply the next group action to `dgt` using pre-allocated `tmp` buffer,
+advancing the internal odometer.
+"""
+function _apply_group_action!(dgt, ag::AbelianOperator, base, tmp)
+    for i in eachindex(ag.s)
+        apply_perm!(dgt, ag.perm[i], tmp)
+        any(ag.inv[i]) && apply_inv!(dgt, ag.inv[i], base)
+        (ag.s[i] = ag.s[i] + 1) > ag.g[i] ? (ag.s[i] = 1) : break
+    end
+    dgt
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
     check_min(dgt, g::AbelianOperator; base=2)
 
 Check whether `dgt` is the canonical representative of its full Abelian orbit.
@@ -303,8 +323,9 @@ function check_min(dgt, g::AbelianOperator; base=2)
     init!(g)
     I0 = index(dgt; base)
     N = 1
+    tmp = similar(dgt)
     for _ in 2:order(g)
-        g(dgt, base)
+        _apply_group_action!(dgt, g, base, tmp)
         In = index(dgt; base)
         if In < I0
             return false, 0
@@ -333,8 +354,9 @@ function shift_canonical!(dgt, g::AbelianOperator; base=2)
     init!(g)
     Im = index(dgt; base)
     ms = g.s[:]
+    tmp = similar(dgt)
     for _ in 1:order(g)
-        g(dgt, base)
+        _apply_group_action!(dgt, g, base, tmp)
         In = index(dgt; base)
         if In < Im
             Im = In
@@ -381,7 +403,7 @@ function check_min_int(state::UInt64, g::AbelianOperator, L::Int)
     N = 1
     for _ in 2:order(g)
         # Apply next group element (odometer increment)
-        for i in eachindex(g.s)
+        @inbounds for i in eachindex(g.s)
             cur = _apply_generator_int(cur, g, i, L)
             (g.s[i] = g.s[i] + 1) > g.g[i] ? (g.s[i] = 1) : break
         end
@@ -409,7 +431,7 @@ function shift_canonical_int(state::UInt64, g::AbelianOperator, L::Int)
     ms = g.s[:]
     cur = state
     for _ in 1:order(g)
-        for i in eachindex(g.s)
+        @inbounds for i in eachindex(g.s)
             cur = _apply_generator_int(cur, g, i, L)
             (g.s[i] = g.s[i] + 1) > g.g[i] ? (g.s[i] = 1) : break
         end
@@ -737,6 +759,10 @@ function basis(
     symmetries=nothing,
     threaded::Bool=base^L>3000
 )
+    if !isnothing(symmetries) && (!isnothing(k) || !isnothing(p) || !isnothing(z))
+        error("Cannot specify both `symmetries` and `k`/`p`/`z` keywords")
+    end
+
     gs = AbelianOperator[]
 
     # Translation symmetry: cyclic shift by `a` sites

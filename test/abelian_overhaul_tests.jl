@@ -1,5 +1,6 @@
 using EDKit
 using LinearAlgebra
+using Random
 using Test
 
 # Access internal functions for testing
@@ -48,7 +49,6 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         end
 
         @testset "Random permutations L=$L" for L in [4, 8, 12, 16]
-            using Random
             rng = MersenneTwister(42 + L)
             for _ in 1:5
                 perm = randperm(rng, L)
