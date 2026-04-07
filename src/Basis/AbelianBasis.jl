@@ -353,22 +353,6 @@ Returns `(is_canonical::Bool, stabilizer_size::Int)`.
 function check_min_int(state::UInt64, g::AbelianOperator, L::Int)
     init!(g)
     s0 = state
-    N = 1
-    for _ in 2:order(g)
-        # Advance odometer and apply generators
-        s_cur = state
-        for i in eachindex(g.s)
-            s_cur = _apply_generator_int(s_cur, g, i, L)
-            (g.s[i] = g.s[i] + 1) > g.g[i] ? (g.s[i] = 1) : break
-        end
-        state = s_cur
-        # But we need to track cumulative state, not single-step
-        # Actually the odometer approach applies one generator step at a time
-        # Let's rewrite using cumulative application
-    end
-
-    # Rewrite: iterate all group elements by applying generators cumulatively
-    init!(g)
     cur = s0
     N = 1
     for _ in 2:order(g)
