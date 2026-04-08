@@ -117,11 +117,14 @@ Interpret the current digit buffer in the combined parity/flip basis and return
 the coefficient/index pair for the corresponding representative.
 """
 function index(b::ParityFlipBasis)
-    I0 = index(b.dgt, base=b.B)
+    index(b, b.dgt)
+end
+function index(b::ParityFlipBasis, dgt::AbstractVector)
+    I0 = index(dgt, base=b.B)
     state = I0 - one(eltype(b.I))
     TI = eltype(b.I)
     base = TI(b.B)
-    L = length(b.dgt)
+    L = length(dgt)
     maxstate = base^L - one(TI)
     Ip = _int_reverse(state, L, base) + one(TI)
     Iz = _int_spinflip(state, maxstate) + one(TI)

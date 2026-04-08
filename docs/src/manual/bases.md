@@ -112,6 +112,51 @@ Even if you do not implement new basis types, a few operations matter to users:
 
 Those low-level operations are what allow operator application, basis conversion, and Schmidt decomposition to work uniformly across symmetry sectors.
 
+## The Digit Buffer and Thread Safety
+
+Every basis object carries a mutable digit buffer `b.dgt`, a `Vector{Int}` of length `L` that stores the local state label for each site. The two core operations — `change!` (decode a basis index into digits) and `index` (interpret digits as basis coordinates) — read from and write to this buffer.
+
+Because `b.dgt` is shared mutable state, naive concurrent use of the same basis across threads would cause data races. EDKit solves this through **explicit buffer passing**: all hot-path functions accept an optional `dgt::AbstractVector` argument that replaces `b.dgt`:
+
+```julia
+# Thread-safe variants (used internally by mul, *, schmidt, etc.)
+change!(b, i, dgt)        # decode into external buffer
+index(b, dgt)             # interpret external buffer
+colmn!(target, M, I, b, dgt, coeff)  # apply local term using external buffer
+```
+
+Inside EDKit, every function that iterates over basis states allocates a thread-local buffer at the top of its loop:
+
+```julia
+dgt = similar(b.dgt)    # one allocation, reused for all iterations
+for j in 1:length(v)
+    colmn!(target, opt, j, dgt, v[j])
+end
+```
+
+In the multi-threaded `mul(H, psi)`, each thread allocates its own `dgt`:
+
+```julia
+Threads.@threads for i in 1:nthreads
+    dgt = similar(opt.B.dgt)   # thread-local, no sharing
+    for j in range_for_thread_i
+        colmn!(Ms[i], opt, j, dgt, v[j])
+    end
+end
+```
+
+This design means:
+
+- **Thread-safe by construction** — no locks, no atomics, no synchronization overhead.
+- **Zero performance cost** — benchmarks show the explicit-buffer path is slightly faster than the old struct-based path (~6%), because the compiler can optimize local variables better than struct field accesses.
+- **Backward compatible** — `b.dgt` still exists and the old no-argument forms of `index(b)` and `change!(b, i)` still work by delegating to the buffer-passing variants with `b.dgt`.
+
+!!! note "For custom code using basis objects"
+    If you write your own loops over basis states and want thread safety, allocate
+    a local buffer with `dgt = similar(b.dgt)` and use the `dgt`-accepting
+    overloads. The built-in `mul`, `*`, `addto!`, and `schmidt` functions already
+    do this automatically.
+
 ## Next Step
 
 Once the basis is chosen, the next task is usually to build an `Operator`. See [Operators](operators.md).

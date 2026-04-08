@@ -47,7 +47,10 @@ off-sector state should silently contribute nothing instead of aborting the
 matrix construction.
 """
 function index(b::ProjectedBasis; check::Bool=false)
-    i = index(b.dgt, base=b.B)
+    index(b, b.dgt; check)
+end
+function index(b::ProjectedBasis, dgt::AbstractVector; check::Bool=false)
+    i = index(dgt, base=b.B)
     ind = binary_search(b.I, i)
     ind > 0 && return 1, ind
     check ? error("No such symmetry.") : return zero(eltype(b)), one(ind)

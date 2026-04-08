@@ -305,10 +305,13 @@ To avoid exception in the matrix constructon of `Operation`, we allow the index 
 When this happend, we return index 1, and normalization 0, so it has no effect on the matrix being filled.
 """
 function index(b::TranslationalBasis)
-    I0 = index(b.dgt, base=b.B)
+    index(b, b.dgt)
+end
+function index(b::TranslationalBasis, dgt::AbstractVector)
+    I0 = index(dgt, base=b.B)
     state = I0 - one(eltype(b.I))
     Im, M = I0, 0
-    L = length(b.dgt)
+    L = length(dgt)
     A = b.A
     TI = eltype(b.I)
 

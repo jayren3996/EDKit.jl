@@ -187,9 +187,12 @@ The returned coefficient includes both translation phase and reflection parity
 contributions relative to the stored representative.
 """
 function index(b::TranslationParityBasis)
-    Ia0 = index(b.dgt, base=b.B)
+    index(b, b.dgt)
+end
+function index(b::TranslationParityBasis, dgt::AbstractVector)
+    Ia0 = index(dgt, base=b.B)
     state = Ia0 - one(eltype(b.I))
-    L = length(b.dgt)
+    L = length(dgt)
     A = b.A
     TI = eltype(b.I)
     base = TI(b.B)

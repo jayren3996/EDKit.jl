@@ -12,6 +12,8 @@ contribute zero rather than abort the calculation.
 """
 index_nocheck(b::AbstractBasis) = index(b)
 index_nocheck(b::ProjectedBasis) = index(b, check=false)
+index_nocheck(b::AbstractBasis, dgt::AbstractVector) = index(b, dgt)
+index_nocheck(b::ProjectedBasis, dgt::AbstractVector) = index(b, dgt; check=false)
 """
     orbit_order(B::AbstractBasis)
 
@@ -56,11 +58,12 @@ function basis_embedding(B::AbstractBasis)
     full = TensorBasis(L = length(B), base = B.B)
     embed = zeros(ComplexF64, size(full, 1), size(B, 1))
     ord = orbit_order(B)
-    Bc = deepcopy(B)
+    dgt = similar(B.dgt)
+    full_dgt = similar(full.dgt)
     for j in 1:size(full, 1)
-        change!(full, j)
-        Bc.dgt .= full.dgt
-        coeff, pos = index_nocheck(Bc)
+        change!(full, j, full_dgt)
+        dgt .= full_dgt
+        coeff, pos = index_nocheck(B, dgt)
         iszero(coeff) || (embed[j, pos] = coeff / ord)
     end
     embed
@@ -112,7 +115,12 @@ function change!(b::DoubleBasis, i::Integer)
     b.dgt .= b.B2.dgt
     N
 end
+function change!(b::DoubleBasis, i::Integer, dgt::AbstractVector)
+    change!(dgt, content(b.B2, i), base=b.B2.B)
+    norm(b.B2, i)
+end
 index(b::DoubleBasis; check::Bool=false) = check ? index(b.B1) : index_nocheck(b.B1)
+index(b::DoubleBasis, dgt::AbstractVector) = index(b.B1, dgt)
 size(b::DoubleBasis) = size(b.B1, 1), size(b.B2, 2)
 size(b::DoubleBasis, i::Integer) = isone(i) ? size(b.B1, 1) : isequal(i, 2) ? size(b.B2, 2) : 1
 copy(b::DoubleBasis) = DoubleBasis(deepcopy(b.B1), deepcopy(b.B2))
@@ -135,19 +143,20 @@ function (B::DoubleBasis)(v::AbstractVector)
     T = promote_type(ComplexF64, eltype(v), eltype(B.B1), eltype(B.B2))
     out = zeros(T, size(B, 1))
     full = TensorBasis(L = length(B), base = B.B)
-    B1c = deepcopy(B.B1)
-    B2c = deepcopy(B.B2)
     ord1 = orbit_order(B.B1)
     ord2 = orbit_order(B.B2)
+    full_dgt = similar(full.dgt)
+    dgt1 = similar(B.B1.dgt)
+    dgt2 = similar(B.B2.dgt)
 
     for j in 1:size(full, 1)
-        change!(full, j)
-        B2c.dgt .= full.dgt
-        coeff2, pos2 = index_nocheck(B2c)
+        change!(full, j, full_dgt)
+        dgt2 .= full_dgt
+        coeff2, pos2 = index_nocheck(B.B2, dgt2)
         iszero(coeff2) && continue
 
-        B1c.dgt .= full.dgt
-        coeff1, pos1 = index_nocheck(B1c)
+        dgt1 .= full_dgt
+        coeff1, pos1 = index_nocheck(B.B1, dgt1)
         iszero(coeff1) && continue
 
         out[pos1] += conj(coeff1 / ord1) * (coeff2 / ord2) * v[pos2]

@@ -100,7 +100,10 @@ end
 Interpret the current digit buffer as coordinates in the spin-flip basis.
 """
 function index(b::FlipBasis)
-    Ia = index(b.dgt, base=b.B)
+    index(b, b.dgt)
+end
+function index(b::FlipBasis, dgt::AbstractVector)
+    Ia = index(dgt, base=b.B)
     Ib = b.M - Ia
     i, n = if Ib < Ia
         binary_search(b.I, Ib), b.P

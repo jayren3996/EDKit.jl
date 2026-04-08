@@ -663,12 +663,15 @@ associated with the group element that maps the current digits to the canonical
 representative.
 """
 function index(B::AbelianBasis)
+    index(B, B.dgt)
+end
+function index(B::AbelianBasis, dgt::AbstractVector)
     if B.B == 2 && _has_all_benes(B.G)
         # Integer path for base=2
         state = UInt64(0)
-        L = length(B.dgt)
+        L = length(dgt)
         @inbounds for i in 1:L
-            state = (state << 1) | UInt64(B.dgt[i])
+            state = (state << 1) | UInt64(dgt[i])
         end
         Im, g = shift_canonical_int(state, B.G, L)
         ind = binary_search(B.I, Im)
@@ -678,7 +681,7 @@ function index(B::AbelianBasis)
             return phase(g) * B.R[ind], ind
         end
     else
-        Im, g = shift_canonical!(B.dgt, B.G; base=B.B)
+        Im, g = shift_canonical!(dgt, B.G; base=B.B)
         ind = binary_search(B.I, Im)
         if iszero(ind)
             return zero(eltype(B)), one(eltype(B.I))
@@ -698,11 +701,12 @@ Abelian orbit with the correct symmetry phase before it contributes to the
 bipartite decomposition.
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis; B1=nothing, B2=nothing)
-    dgt, R, g = b.dgt, b.R, b.G
-    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    R, g = b.R, b.G
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i in eachindex(v)
         init!(g)
-        change!(b, i)
+        change!(b, i, dgt)
         val = v[i] / R[i]
         addto!(S, val)
         for _ in 2:order(g)

@@ -157,8 +157,21 @@ coordinates.
 
 The method mutates `b.dgt`.
 """
-function change!(b::AbstractBasis, i::Integer) 
+function change!(b::AbstractBasis, i::Integer)
     change!(b.dgt, content(b, i), base=b.B)
+    norm(b, i)
+end
+"""
+    change!(b::AbstractBasis, i::Integer, dgt::AbstractVector)
+
+Thread-safe variant of [`change!`](@ref) that writes into the supplied digit
+buffer `dgt` instead of `b.dgt`.
+
+This allows multiple threads to work with the same basis simultaneously, each
+using its own buffer.
+"""
+function change!(b::AbstractBasis, i::Integer, dgt::AbstractVector)
+    change!(dgt, content(b, i), base=b.B)
     norm(b, i)
 end
 #-------------------------------------------------------------------------------------------------------------------------
@@ -230,6 +243,7 @@ eltype(::TensorBasis) = Int64
 size(b::TensorBasis, i::Integer) = isone(i) || isequal(i, 2) ? b.B^length(b.dgt) : 1
 size(b::TensorBasis) = (l=b.B^length(b.dgt); (l, l))
 index(b::TensorBasis) = 1, index(b.dgt, base=b.B)
+index(b::TensorBasis, dgt::AbstractVector) = 1, index(dgt, base=b.B)
 int_type(::TensorBasis) = Int64
 #-------------------------------------------------------------------------------------------------------------------------
 """

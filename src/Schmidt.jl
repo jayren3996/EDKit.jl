@@ -38,7 +38,8 @@ Returns:
 """
 function schmidtmatrix(
     T::DataType, b::AbstractBasis, Ainds::AbstractVector{Ta},
-    B1=nothing, B2=nothing
+    B1=nothing, B2=nothing;
+    dgt::AbstractVector=b.dgt
 ) where Ta <: Integer
     L = length(b)
     Binds = Vector{Ta}(undef, L-length(Ainds))
@@ -49,10 +50,10 @@ function schmidtmatrix(
             P += 1
         end
     end
-    B1 = isnothing(B1) ? TensorBasis(L=length(Ainds), base=b.B) : B1 
-    B2 = isnothing(B2) ? TensorBasis(L=length(Binds), base=b.B) : B2 
+    B1 = isnothing(B1) ? TensorBasis(L=length(Ainds), base=b.B) : B1
+    B2 = isnothing(B2) ? TensorBasis(L=length(Binds), base=b.B) : B2
     M = zeros(T, size(B1, 1), size(B2, 1))
-    SchmidtMatrix(M, view(b.dgt, Ainds), view(b.dgt, Binds), B1, B2)
+    SchmidtMatrix(M, view(dgt, Ainds), view(dgt, Binds), B1, B2)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -64,8 +65,8 @@ current subsystem digits stored in `S.A` and `S.B`.
 function addto!(S::SchmidtMatrix, val::Number)
     S.B1.dgt .= S.A
     S.B2.dgt .= S.B
-    _, ia = index(S.B1)
-    _, ib = index(S.B2)
+    _, ia = index(S.B1, S.B1.dgt)
+    _, ib = index(S.B2, S.B2.dgt)
     S.M[ia, ib] += val
 end
 
@@ -183,9 +184,10 @@ Outputs:
 - `S`: Matrix S in the decomposition: |v⟩ = Sᵢⱼ |Aᵢ⟩|Bⱼ⟩.
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractOnsiteBasis; B1=nothing, B2=nothing)
-    S = schmidtmatrix(eltype(v), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    S = schmidtmatrix(eltype(v), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
-        change!(b, i)
+        change!(b, i, dgt)
         addto!(S, v[i])
     end
     S.M
@@ -198,10 +200,11 @@ Each reduced-basis coefficient is expanded across the full translation orbit
 with the appropriate momentum phase before contributing to the bipartite matrix.
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TranslationalBasis; B1=nothing, B2=nothing)
-    dgt, R, phase = b.dgt, b.R, b.C[2]
-    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    R, phase = b.R, b.C[2]
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
-        change!(b, i)
+        change!(b, i, dgt)
         val = v[i] / R[i]
         for j in 1:length(dgt)÷b.A
             addto!(S, val)
@@ -244,10 +247,11 @@ Internal helper for Schmidt decomposition in bases that combine translation with
 an involutive discrete symmetry such as parity or spin flip.
 """
 function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis;B1=nothing, B2=nothing)
-    dgt, R, phase = b.dgt, b.R, b.C[2]
-    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    R, phase = b.R, b.C[2]
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
-        change!(b, i)
+        change!(b, i, dgt)
         val = v[i] / R[i]
         for j in 1:length(dgt)÷b.A
             addto!(S, val)
@@ -273,10 +277,11 @@ schmidt(v, Ainds, b::TranslationFlipBasis;B1=nothing, B2=nothing) = parity_schmi
 Schmidt decomposition specialized to [`FlipBasis`](@ref).
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::FlipBasis; B1=nothing, B2=nothing)
-    dgt, R, phase = b.dgt, b.R, b.P
-    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    R, phase = b.R, b.P
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
-        change!(b, i)
+        change!(b, i, dgt)
         val = v[i] / R[i]
         addto!(S, val)
         dgt .= spinflip(dgt, b.B)
@@ -289,10 +294,11 @@ end
 Schmidt decomposition specialized to [`ParityBasis`](@ref).
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityBasis; B1=nothing, B2=nothing)
-    dgt, R, phase = b.dgt, b.R, b.P
-    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    R, phase = b.R, b.P
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
-        change!(b, i)
+        change!(b, i, dgt)
         val = v[i] / R[i]
         addto!(S, val)
         reverse!(dgt)
@@ -305,25 +311,26 @@ end
 Schmidt decomposition specialized to [`ParityFlipBasis`](@ref).
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityFlipBasis; B1=nothing, B2=nothing)
-    dgt, R, p1, p2 = b.dgt, b.R, b.P, b.Z
-    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2)
+    dgt = similar(b.dgt)
+    R, p1, p2 = b.R, b.P, b.Z
+    S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
         # (P,Z) = (0,0)
-        change!(b, i)
+        change!(b, i, dgt)
         val = v[i] / R[i]
         addto!(S, val)
         # (P,Z) = (1,0)
         reverse!(dgt)
         val *= p1
-        addto!(S, val) 
+        addto!(S, val)
         # (P,Z) = (1,1)
         dgt .= spinflip(dgt, b.B)
         val *= p2
-        addto!(S, val) 
+        addto!(S, val)
         # (P,Z) = (0,1)
         reverse!(dgt)
         val *= p1
-        addto!(S, val) 
+        addto!(S, val)
     end
     S.M
 end

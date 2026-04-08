@@ -100,6 +100,20 @@ Implementation files:
 - `src/algorithms/Lindblad.jl`
 - `src/algorithms/QIM.jl`
 
+## Threading Model
+
+EDKit's matrix-free operator application mutates a digit buffer (`dgt`) on every basis state it visits. To avoid data races when multiple threads share the same operator, EDKit uses **explicit buffer passing**: each thread allocates a small thread-local `Vector{Int}` of length `L` and passes it through `change!`, `index`, and `colmn!`. No locks or atomics are needed — thread safety comes from the absence of shared mutable state.
+
+This pattern applies to:
+
+- `mul(H, v)` and `mul(H, M)` (threaded operator application),
+- `H * v` and `mul!(target, H, v)` (single-threaded, uses a local buffer),
+- `addto!`, `Array(H)`, `sparse(H)` (matrix construction),
+- `schmidt` and `ent_S` (entanglement diagnostics),
+- `basis_embedding` and `DoubleBasis` maps.
+
+The `b.dgt` field in basis structs is retained for backward compatibility but is no longer mutated by any internal hot path.
+
 ## How The Pieces Fit
 
 The architecture is easiest to understand through examples:

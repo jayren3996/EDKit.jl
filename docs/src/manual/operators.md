@@ -159,6 +159,14 @@ psi = randn(ComplexF64, size(H, 1))
 result = mul(H, psi)   # threaded matrix-free application
 ```
 
+EDKit achieves thread safety through explicit buffer passing rather than
+locks.  Each thread allocates its own lightweight digit buffer
+(`similar(b.dgt)`, just `L` integers) and passes it through the
+computation chain.  This avoids both the synchronization overhead of
+locks and the memory cost of copying the entire basis object per thread.
+See [The Digit Buffer and Thread Safety](bases.md#The-Digit-Buffer-and-Thread-Safety)
+for details.
+
 ### Choosing the right interface
 
 | Goal | Recommended call |

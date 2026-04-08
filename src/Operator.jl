@@ -169,8 +169,9 @@ This is useful when you want control over the output array type or want to reuse
 existing storage instead of calling `Array(opt)` or `sparse(opt)`.
 """
 function addto!(M::AbstractMatrix, opt::Operator)
+    dgt = similar(opt.B.dgt)
     for j = 1:size(opt.B, 2)
-        colmn!(view(M, :, j), opt, j)
+        colmn!(view(M, :, j), opt, j, dgt)
     end
     M
 end
@@ -306,8 +307,9 @@ Returns:
 This is the single-threaded in-place application path underlying `opt * v`.
 """
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
+    dgt = similar(opt.B.dgt)
     for j = 1:length(v)
-        colmn!(target, opt, j, v[j])
+        colmn!(target, opt, j, dgt, v[j])
     end
     target
 end
@@ -318,8 +320,9 @@ end
 Accumulate `opt * m` into the preallocated matrix `target`.
 """
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
+    dgt = similar(opt.B.dgt)
     for j = 1:size(m, 1)
-        colmn!(target, opt, j, view(m, j, :))
+        colmn!(target, opt, j, dgt, view(m, j, :))
     end
     target
 end
@@ -340,9 +343,9 @@ function mul(opt::Operator, v::AbstractVector)
     ni = dividerange(length(v), nt)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        opt_c = Operator(opt.M, opt.I, copy(opt.B))
+        dgt = similar(opt.B.dgt)
         for j in ni[i]
-            colmn!(Ms[i], opt_c, j, v[j])
+            colmn!(Ms[i], opt, j, dgt, v[j])
         end
     end
     sum(m for m in Ms)
@@ -358,9 +361,9 @@ function mul(opt::Operator, m::AbstractMatrix)
     ni = dividerange(size(m,1), nt)
     Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        opt_c = Operator(opt.M, opt.I, copy(opt.B))
+        dgt = similar(opt.B.dgt)
         for j in ni[i]
-            colmn!(Ms[i], opt_c, j, view(m, j, :))
+            colmn!(Ms[i], opt, j, dgt, view(m, j, :))
         end
     end
     sum(m for m in Ms)
@@ -368,8 +371,12 @@ end
 
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
-    M = zeros(ctype, size(opt, 1))
-    mul!(M, opt, v)
+    target = zeros(ctype, size(opt, 1))
+    dgt = similar(opt.B.dgt)
+    for j = 1:length(v)
+        colmn!(target, opt, j, dgt, v[j])
+    end
+    target
 end
 
 function *(opt::Operator, m::AbstractMatrix)
@@ -378,8 +385,12 @@ function *(opt::Operator, m::AbstractMatrix)
     if S !== nothing
         return convert(Matrix{ctype}, S * m)
     end
-    M = zeros(ctype, size(opt, 1), size(m, 2))
-    mul!(M, opt, m)
+    target = zeros(ctype, size(opt, 1), size(m, 2))
+    dgt = similar(opt.B.dgt)
+    for j = 1:size(m, 1)
+        colmn!(target, opt, j, dgt, view(m, j, :))
+    end
+    target
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -404,17 +415,26 @@ Internal helper used to apply one local term to the current basis state in `b`.
 of acting with the local matrix `M` on sites `I` is accumulated in `target`.
 """
 function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff=1)
+    colmn!(target, M, I, b, b.dgt, coeff)
+end
+"""
+    colmn!(target, M, I, b, dgt, coeff)
+
+Thread-safe variant of the local-term application that uses the supplied digit
+buffer `dgt` instead of `b.dgt`.
+"""
+function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, dgt::AbstractVector, coeff=1)
     rows, vals = rowvals(M), nonzeros(M)
-    j = index(b.dgt, I, base=b.B)
+    j = index(dgt, I, base=b.B)
     change = false
     @inbounds for i in nzrange(M, j)
         row, val = rows[i], vals[i]
-        change!(b.dgt, I, row, base=b.B)
-        C, pos = index(b)
+        change!(dgt, I, row, base=b.B)
+        C, pos = index(b, dgt)
         _accumulate!(target, pos, C, val, coeff)
         change = true
     end
-    change && change!(b.dgt, I, j, base=b.B)
+    change && change!(dgt, I, j, base=b.B)
     nothing
 end
 #---------------------------------------------------------------------------------------------------
@@ -428,11 +448,19 @@ operator matrix-free. It assumes `target` has already been allocated and will
 mutate the basis working buffer stored in `opt.B`.
 """
 function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, coeff=1)
+    colmn!(target, opt, j, opt.B.dgt, coeff)
+end
+"""
+    colmn!(target, opt, j, dgt, coeff)
+
+Thread-safe variant that uses the supplied digit buffer `dgt`.
+"""
+function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, dgt::AbstractVector, coeff=1)
     b, M, I = opt.B, opt.M, opt.I
-    r = change!(b, j)
+    r = change!(b, j, dgt)
     C = isone(r) ? coeff : coeff / r
     for i = 1:length(M)
-        colmn!(target, M[i], I[i], b, C)
+        colmn!(target, M[i], I[i], b, dgt, C)
     end
 end
 

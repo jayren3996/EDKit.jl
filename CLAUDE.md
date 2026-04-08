@@ -42,7 +42,7 @@ The innermost loops in `src/Basis/AbstractBasis.jl` (`index`, `change!`) and `sr
 
 - All basis constructors use keyword arguments: `TensorBasis(L=10, base=2)`, `ProjectedBasis(L=12, base=2, f=...)`, `TranslationalBasis(L=12, base=2, k=0, f=...)`
 - `Operator` is an immutable struct; the sparse cache is stored externally in a module-level LRU
-- Digit buffers (`b.dgt`) are mutable working state inside basis objects -- each thread needs its own copy
+- Digit buffers (`b.dgt`) are mutable working state inside basis objects. All internal hot-path functions (`colmn!`, `mul!`, `mul`, `*`, `addto!`, `schmidt`) use **explicit buffer passing**: they allocate a thread-local `dgt = similar(b.dgt)` and thread it through `index(b, dgt)` / `change!(b, i, dgt)` / `colmn!(target, M, I, b, dgt, coeff)`. This makes them thread-safe by construction without locks. The `b.dgt` field is retained for backward compatibility but is no longer mutated on internal hot paths
 - Tests are in `test/` and run via `Pkg.test()`; no separate test runner needed
 
 ## 2D/3D Lattice Support
