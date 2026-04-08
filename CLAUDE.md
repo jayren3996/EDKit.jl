@@ -44,3 +44,18 @@ The innermost loops in `src/Basis/AbstractBasis.jl` (`index`, `change!`) and `sr
 - `Operator` is an immutable struct; the sparse cache is stored externally in a module-level LRU
 - Digit buffers (`b.dgt`) are mutable working state inside basis objects -- each thread needs its own copy
 - Tests are in `test/` and run via `Pkg.test()`; no separate test runner needed
+
+## 2D/3D Lattice Support
+
+`AbelianBasis` supports arbitrary lattice geometries via the `symmetries` keyword in `basis()`. Each symmetry generator is a `(perm, quantum_number)` tuple where `perm` is a 1-indexed permutation array:
+
+```julia
+# 2D square lattice example
+Lx, Ly = 4, 3; L = Lx * Ly
+sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+T_x = [mod(x+1, Lx) + Lx*y + 1 for (x,y) in sites]
+T_y = [x + Lx*mod(y+1, Ly) + 1 for (x,y) in sites]
+B = basis(; L, N=L÷2, symmetries=[(T_x, 0), (T_y, 0)])
+```
+
+For base=2 systems, permutation networks provide fast integer-state manipulation and Gosper's hack accelerates particle-conserving enumeration. See `docs/src/abelian_basis.md` for full documentation.
