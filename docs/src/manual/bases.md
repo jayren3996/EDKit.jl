@@ -87,6 +87,59 @@ It is a good default choice when:
 - you do not need to manually control the concrete basis type,
 - you want one consistent entry point across many workflows.
 
+For arbitrary commuting symmetries on finite lattices, including 2D and 3D
+translation sectors, reflections, and sublattice spin inversions, use
+`basis(...; symmetries=...)`. That route constructs an `AbelianBasis` under the
+hood. The dedicated page [General Abelian Symmetries](../abelian_basis.md)
+collects the full tuple format and more complete examples.
+
+## AbelianBasis
+
+`AbelianBasis` is EDKit's general basis for commuting discrete lattice
+symmetries. In practice, you usually construct it through
+`basis(...; symmetries=...)` rather than calling a separate 2D-specific basis
+type.
+
+Use it when you want to combine several commuting symmetry generators, especially
+on lattices where the dedicated 1D basis types are no longer the natural
+description.
+
+### 2D Basis Sectors
+
+EDKit's higher-dimensional symmetry support is permutation-based. You specify
+how each symmetry generator permutes the site labels, then attach the quantum
+number for the sector you want.
+
+```julia
+using EDKit
+
+Lx, Ly = 4, 3
+L = Lx * Ly
+sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+
+T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
+
+B = basis(L = L, N = L ÷ 2, symmetries = [(T_x, 0), (T_y, 0)])
+```
+
+There is no separate 2D-only basis type here. A 2D symmetry-reduced basis is
+an `AbelianBasis` described by the site ordering and the symmetry permutations
+you choose for that lattice.
+
+### Symmetry Tuple Format
+
+Each tuple is `(perm, q)` or `(perm, q, inv)`:
+
+- `perm` is a 1-indexed permutation of the site labels,
+- `q` selects the symmetry sector for that generator,
+- `inv` is an optional `BitVector` marking sites whose local state should be
+  complemented after the permutation.
+
+The only strict requirement is consistency: the same site ordering must be used
+for your symmetry generators, your operator site indices, and any lattice bonds
+you construct by hand.
+
 ## Choosing A Basis
 
 Use this rule of thumb:
@@ -99,6 +152,7 @@ Use this rule of thumb:
 | Reflection parity only | `ParityBasis` |
 | Spin-flip only | `FlipBasis` |
 | Multiple commuting symmetries | `basis(...)` |
+| 2D/3D or custom commuting permutation symmetries | `basis(...; symmetries=...)` |
 | Explicit basis-to-basis map construction | a pair of bases plus `DoubleBasis` |
 
 ## Basis Internals You Will See Often

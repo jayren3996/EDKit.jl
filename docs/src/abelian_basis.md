@@ -5,6 +5,43 @@ a basis of states that are simultaneous eigenstates of an arbitrary collection o
 commuting discrete symmetries, each specified as a permutation of lattice sites
 (optionally with spin inversion).
 
+The main user-facing entry point is [`basis`](@ref). For 1D chains, the
+keywords `k`, `p`, and `z` provide shorthand for translation, reflection, and
+spin-flip sectors. For arbitrary finite lattices, including 2D and 3D systems,
+the same constructor accepts explicit symmetry generators through
+`symmetries=...`.
+
+## What AbelianBasis Is For
+
+Use `AbelianBasis` when you want to work in a sector defined by several
+commuting discrete symmetries without having to build a dedicated basis type for
+each geometry.
+
+This is the right tool when:
+
+- you want to combine several symmetry quantum numbers in one construction,
+- your lattice is not covered by the dedicated 1D basis types,
+- or you want to describe symmetries directly as site permutations.
+
+If you only need the full Hilbert space or a simple constrained subspace,
+start with [Bases and Sectors](manual/bases.md) and return here once you need
+explicit symmetry reduction.
+
+## 2D Bases In EDKit
+
+There is no separate "2D basis" type in EDKit. A 2D symmetry-reduced basis is
+normally an `AbelianBasis` built with `basis(...; symmetries=...)`.
+
+The key idea is that you first choose a linear ordering of the lattice sites,
+then express each lattice symmetry as a permutation of `1:L` in that ordering.
+Translations in `x` and `y`, reflections, and sublattice inversions all fit
+into the same representation. Once that ordering is fixed, use it consistently
+for:
+
+- the permutation arrays in `symmetries`,
+- the site indices used when you build operators or bond lists,
+- and any custom geometry-dependent post-processing.
+
 ## Quick Start
 
 ### 1D Chain (via convenience keywords)
@@ -21,7 +58,8 @@ B = basis(; L=12, N=6, k=0, p=1, z=1)
 
 ### 2D Lattice (via `symmetries` keyword)
 
-For arbitrary lattice geometries, pass symmetry generators as permutation arrays:
+For arbitrary lattice geometries, pass symmetry generators as permutation arrays.
+This is the recommended route for 2D and 3D systems:
 
 ```julia
 Lx, Ly = 4, 3
