@@ -570,18 +570,19 @@ function _abelian_select_int(G::AbelianOperator, L::Int, candidates::Vector{Int}
             lo = (ti - 1) * chunk_size + 1
             hi = min(ti * chunk_size, length(candidates))
             lo > hi && (nI[ti] = Int[]; nR[ti] = Float64[]; continue)
-            g_local = deepcopy(G)
-            Is = Int[]
-            Rs = Float64[]
-            for idx in lo:hi
-                state = UInt64(candidates[idx] - 1)
-                Q, n = check_min_int(state, g_local, L)
-                Q || continue
-                push!(Is, candidates[idx])
-                push!(Rs, C[n])
+            let g_local = deepcopy(G), Is = Int[], Rs = Float64[]
+                sizehint!(Is, hi - lo + 1)
+                sizehint!(Rs, hi - lo + 1)
+                for idx in lo:hi
+                    state = UInt64(candidates[idx] - 1)
+                    Q, n = check_min_int(state, g_local, L)
+                    Q || continue
+                    push!(Is, candidates[idx])
+                    push!(Rs, C[n])
+                end
+                nI[ti] = Is
+                nR[ti] = Rs
             end
-            nI[ti] = Is
-            nR[ti] = Rs
         end
         vcat(nI...), vcat(nR...)
     else

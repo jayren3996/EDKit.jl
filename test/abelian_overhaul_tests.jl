@@ -385,6 +385,27 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         @test sort(vals2) ≈ full_vals2
     end
 
+    @testset "Threaded custom symmetries match serial construction" begin
+        Threads.nthreads() > 1 || begin
+            @info "Skipping threaded custom-symmetry regression; nthreads=$(Threads.nthreads())"
+            return
+        end
+
+        Lx, Ly = 4, 4
+        L = Lx * Ly
+        linear(x, y) = (y - 1) * Lx + x
+
+        Tx2 = [linear(mod1(x + 2, Lx), y) for y in 1:Ly for x in 1:Lx]
+        Ty2 = [linear(x, mod1(y + 2, Ly)) for y in 1:Ly for x in 1:Lx]
+
+        B_serial = basis(; L, N=L ÷ 2, base=2, symmetries=[(Tx2, 0), (Ty2, 0)], threaded=false)
+        B_threaded = basis(; L, N=L ÷ 2, base=2, symmetries=[(Tx2, 0), (Ty2, 0)], threaded=true)
+
+        @test size(B_threaded) == size(B_serial)
+        @test B_threaded.I == B_serial.I
+        @test B_threaded.R == B_serial.R
+    end
+
     @testset "2D Entanglement" begin
         Lx, Ly = 3, 2
         L = Lx * Ly
