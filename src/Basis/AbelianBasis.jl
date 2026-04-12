@@ -737,7 +737,8 @@ Keywords:
 - `symmetries`: vector of `(perm, q)` or `(perm, q, inv)` tuples for arbitrary
   generators. `perm` is a 1-indexed permutation array, `q` is the quantum number,
   and `inv` is an optional BitVector for spin inversion. The group order is
-  auto-computed from the permutation period.
+  auto-computed from the permutation period. This is the recommended entry point
+  for 2D/3D lattice symmetries and other custom finite-lattice permutations.
 
 Return value:
 - `TensorBasis` if no symmetry or constraint is requested.
@@ -751,6 +752,21 @@ Notes:
   systems, mirroring the restrictions of the dedicated basis types.
 - This is the most convenient user-facing entry point when you want to combine
   several commuting symmetries without manually choosing a concrete basis type.
+- The generators supplied through `symmetries` should commute pairwise.
+
+Examples:
+```julia
+# 1D chain via convenience keywords
+B1 = basis(; L=12, N=6, k=0, p=1)
+
+# 2D rectangular lattice via explicit site permutations
+Lx, Ly = 4, 3
+sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
+
+B2 = basis(; L=Lx*Ly, N=(Lx*Ly)÷2, symmetries=[(T_x, 0), (T_y, 0)])
+```
 """
 function basis(
     dtype::DataType=Int64;

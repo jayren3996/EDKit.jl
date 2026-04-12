@@ -19,6 +19,7 @@ It is built around a simple pattern:
 EDKit has a few major subsystems:
 
 - basis construction for full Hilbert spaces, projected subspaces, and symmetry sectors,
+- arbitrary commuting lattice symmetries, including 2D and 3D permutation-defined sectors,
 - many-body operator construction from local terms,
 - inter-basis maps and symmetrizers,
 - entanglement and Schmidt-decomposition helpers,
@@ -62,6 +63,7 @@ Start with:
 Start with:
 
 - [Bases and Sectors](manual/bases.md)
+- [General Abelian Symmetries](abelian_basis.md)
 - [Maps and Symmetrizers](manual/maps.md)
 - [Symmetry Workflows](examples/symmetry-workflows.md)
 
