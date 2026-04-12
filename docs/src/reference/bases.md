@@ -21,5 +21,6 @@ ParityFlipBasis
 TranslationParityBasis
 TranslationFlipBasis
 basis
+EDKit.AbelianOperator
 EDKit.AbelianBasis
 ```

@@ -1,86 +1,170 @@
 # AbelianBasis: General Symmetry-Reduced Bases
 
-`AbelianBasis` is EDKit's most general symmetry-reduction mechanism. It constructs
-a basis of states that are simultaneous eigenstates of an arbitrary collection of
-commuting discrete symmetries, each specified as a permutation of lattice sites
-(optionally with spin inversion).
+`AbelianBasis` is EDKit's low-level basis for commuting discrete symmetry
+actions on digit strings. The object that actually generates those actions is
+`EDKit.AbelianOperator`, and `EDKit.AbelianBasis` builds a reduced basis from
+the orbits of that action.
 
-The main user-facing entry point is [`basis`](@ref). For 1D chains, the
-keywords `k`, `p`, and `z` provide shorthand for translation, reflection, and
-spin-flip sectors. For arbitrary finite lattices, including 2D and 3D systems,
-the same constructor accepts explicit symmetry generators through
-`symmetries=...`.
+This page focuses on the direct construction route:
 
-## What AbelianBasis Is For
+- define one or more cyclic generators as actions on a digit buffer,
+- combine them into one commuting Abelian action,
+- build an `EDKit.AbelianBasis` from that action,
+- then use `index`, `change!`, and operator construction exactly as with other
+  basis types.
 
-Use `AbelianBasis` when you want to work in a sector defined by several
-commuting discrete symmetries without having to build a dedicated basis type for
-each geometry.
+If you only want the convenience wrapper, [Bases and Sectors](manual/bases.md)
+covers `basis(...; symmetries=...)`.
 
-This is the right tool when:
+## The Low-Level Objects
 
-- you want to combine several symmetry quantum numbers in one construction,
-- your lattice is not covered by the dedicated 1D basis types,
-- or you want to describe symmetries directly as site permutations.
+The two important objects are:
 
-If you only need the full Hilbert space or a simple constrained subspace,
-start with [Bases and Sectors](manual/bases.md) and return here once you need
-explicit symmetry reduction.
+- `EDKit.AbelianOperator(order, k, perm; inv=falses(length(perm)))`
+- `EDKit.AbelianBasis(; L, G, base=2, f=x->true, N=nothing, threaded=true)`
 
-## 2D Bases In EDKit
+`EDKit.AbelianOperator` is one cyclic generator together with its phase
+representation. `EDKit.AbelianBasis` stores the canonical orbit
+representatives, normalization factors, and the combined group action.
 
-There is no separate "2D basis" type in EDKit. A 2D symmetry-reduced basis is
-normally an `AbelianBasis` built with `basis(...; symmetries=...)`.
+## Designing A Generator On Digits
 
-The key idea is that you first choose a linear ordering of the lattice sites,
-then express each lattice symmetry as a permutation of `1:L` in that ordering.
-Translations in `x` and `y`, reflections, and sublattice inversions all fit
-into the same representation. Once that ordering is fixed, use it consistently
-for:
+Each generator acts on a digit buffer in two steps:
 
-- the permutation arrays in `symmetries`,
-- the site indices used when you build operators or bond lists,
-- and any custom geometry-dependent post-processing.
+1. permute the sites,
+2. optionally complement selected local digits.
 
-## Quick Start
+The permutation convention is:
 
-### 1D Chain (via convenience keywords)
+- `perm[i] = j` means the digit currently at site `i` moves to site `j`.
 
-For 1D periodic chains, the `basis()` constructor provides shorthand keywords:
+For example, on a 4-site buffer:
 
 ```julia
-# Heisenberg chain, L=12, half-filling, zero momentum, even parity
-B = basis(; L=12, N=6, k=0, p=1)
+using EDKit
 
-# With spin-flip symmetry
-B = basis(; L=12, N=6, k=0, p=1, z=1)
+perm = [2, 3, 4, 1]
+g = EDKit.AbelianOperator(4, 0, perm)
+
+dgt = [0, 1, 2, 3]
+dgt2 = copy(dgt)
+EDKit.init!(g)
+g(dgt2, 4)
+
+# dgt2 is now [3, 0, 1, 2]
 ```
 
-### 2D Lattice (via `symmetries` keyword)
+The `order` argument must match the actual period of the action. If applying
+the generator `order` times does not return the digits to themselves, the basis
+construction is not describing the symmetry you think it is.
 
-For arbitrary lattice geometries, pass symmetry generators as permutation arrays.
-This is the recommended route for 2D and 3D systems:
+The `k` argument selects the character of that cyclic generator:
+
+- `k = 0` gives the trivial phase sector,
+- `k = order ÷ 2` gives a sign sector when `order` is even,
+- more generally the phase is `exp(2πimk / order)` after `m` applications.
+
+## Optional Digit Inversion
+
+After the permutation, `EDKit.AbelianOperator` can also complement selected
+digits through the `inv` bit mask:
 
 ```julia
-Lx, Ly = 4, 3
+using EDKit
+
+perm = collect(1:4)
+inv = BitVector([true, false, true, false])
+g = EDKit.AbelianOperator(2, 0, perm; inv=inv)
+```
+
+At a site marked by `inv[i] = true`, the local digit is replaced by
+`base - 1 - dgt[i]`. For spin-1/2 systems this is the usual `0 <-> 1` flip.
+
+## Combining Generators
+
+Multiple commuting cyclic generators are combined with `+`:
+
+```julia
+using EDKit
+
+Lx, Ly = 2, 2
 L = Lx * Ly
 sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
 
-# Define symmetry generators as permutation arrays
-T_x = [mod(x+1, Lx) + Lx*y + 1 for (x,y) in sites]  # translation in x
-T_y = [x + Lx*mod(y+1, Ly) + 1 for (x,y) in sites]   # translation in y
-P_x = [Lx-1-x + Lx*y + 1 for (x,y) in sites]          # reflection in x
+T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
 
-# Build basis with (kx=0, ky=0, px=+1) symmetry sector
-B = basis(; L, N=L÷2, base=2,
-    symmetries=[(T_x, 0), (T_y, 0), (P_x, 0)])
+Gx = EDKit.AbelianOperator(Lx, 0, T_x)
+Gy = EDKit.AbelianOperator(Ly, 0, T_y)
+G = Gx + Gy
 ```
 
-Each symmetry tuple is `(perm, quantum_number)` where:
-- `perm`: 1-indexed permutation array of length L (`perm[i] = j` means site i maps to site j)
-- `quantum_number`: integer labeling the irreducible representation (0 to period-1)
+This direct-product construction assumes the generators commute. In practice,
+that means applying them in different orders should produce the same action on
+every digit string.
 
-The group order (period) is auto-computed from the permutation.
+## Building AbelianBasis Directly
+
+Once the action is defined, build the reduced basis directly:
+
+```julia
+using EDKit
+
+Lx, Ly = 2, 2
+L = Lx * Ly
+sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+
+T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
+T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
+
+G = EDKit.AbelianOperator(Lx, 0, T_x) +
+    EDKit.AbelianOperator(Ly, 0, T_y)
+
+B = EDKit.AbelianBasis(; L, G, base=2, N=L÷2)
+```
+
+This is the low-level route behind the higher-level `basis(...; symmetries=...)`
+wrapper. It is the better choice when you want direct control over the group
+action itself.
+
+## Checking A Custom Action
+
+Two helpers are especially useful when debugging a user-defined generator:
+
+- `EDKit.check_min(dgt, G; base=...)` checks whether `dgt` is already the
+  canonical orbit representative,
+- `EDKit.shift_canonical!(dgt, G; base=...)` finds the representative reached by
+  the symmetry action.
+
+Example:
+
+```julia
+using EDKit
+
+perm = [2, 3, 4, 1]
+G = EDKit.AbelianOperator(4, 0, perm)
+dgt = [0, 1, 1, 0]
+
+EDKit.check_min(copy(dgt), deepcopy(G); base=2)
+EDKit.shift_canonical!(copy(dgt), deepcopy(G); base=2)
+```
+
+When the basis is built, `index(B, dgt)` uses the same canonicalization logic.
+It returns the coefficient induced by the symmetry phase and normalization,
+together with the basis position of the representative.
+
+## 2D And 3D Lattices
+
+There is no separate "2D basis" type in EDKit. A higher-dimensional
+symmetry-reduced basis is still an `EDKit.AbelianBasis`; the only extra work is
+choosing a site ordering and translating lattice symmetries into permutations of
+`1:L`.
+
+Once that ordering is fixed, use it consistently for:
+
+- the permutation arrays that define the generators,
+- the operator site indices and bond lists,
+- and any geometry-dependent post-processing.
 
 ### 3D Lattice
 
@@ -98,9 +182,23 @@ T_z = [x + Lx*y + Lx*Ly*mod(z+1,Lz) + 1 for (x,y,z) in sites]
 B = basis(; L, symmetries=[(T_x, 0), (T_y, 0), (T_z, 0)])
 ```
 
-## Spin Inversion
+The same direct construction can also be written with explicit generators:
 
-Some symmetries also flip spins. Specify with a third element in the tuple:
+```julia
+using EDKit
+
+G = EDKit.AbelianOperator(Lx, 0, T_x) +
+    EDKit.AbelianOperator(Ly, 0, T_y) +
+    EDKit.AbelianOperator(Lz, 0, T_z)
+
+B = EDKit.AbelianBasis(; L, G, base=2)
+```
+
+## Convenience Wrapper
+
+If you do not need direct control over `EDKit.AbelianOperator`, the same ideas
+can be passed through `basis(...; symmetries=...)`. Each tuple is
+`(perm, quantum_number)` or `(perm, quantum_number, inv)`:
 
 ```julia
 # Spin-flip: identity permutation + full inversion
@@ -112,6 +210,11 @@ z_sub = (collect(1:L), 0, even_inv)
 
 B = basis(; L, symmetries=[z_flip])
 ```
+
+Here the period is inferred from the action automatically, which is convenient
+for quick lattice constructions. The direct `EDKit.AbelianOperator` route is
+still the better documentation target when you are designing the symmetry action
+itself.
 
 ## Performance
 

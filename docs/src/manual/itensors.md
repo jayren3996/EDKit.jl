@@ -26,6 +26,11 @@ psi_back = mps2vec(psi_mps)
 
 `mps2vec(psi, B)` also supports extracting amplitudes in a symmetry-aware basis `B` when the MPS already lies in that sector.
 
+That last point matters: `mps2vec(psi, B)` is exact when the MPS already lies
+in the symmetry sector described by `B`. If you need a true projection of a
+general MPS into a sector, use an explicit basis map instead of treating this as
+an orthogonal projector.
+
 ## Operator Conversion
 
 `mat2op` and `op2mat` convert between dense matrices and ITensor operator objects:
@@ -42,6 +47,23 @@ h_back = op2mat(O, s[1], s[2])
 ```
 
 This is useful when you already have a local matrix from the EDKit side and want to feed it into an ITensor workflow.
+
+## MPS State Constructors And Entanglement
+
+EDKit also provides two small MPS-side conveniences:
+
+- `productstate(sites, states)` builds a bond-dimension-1 product MPS from local state vectors,
+- `pbcmps(sites, tensors)` builds an MPS from a periodic-boundary-style tensor list.
+
+For entanglement diagnostics on MPS objects:
+
+- `ent_S(psi, b)` computes the entropy across bond `b`,
+- `ent_S!(psi, b)` is the in-place variant,
+- `ent_specs!(psi, b)` returns the singular values at that cut,
+- `ent_S(psi)` returns the entropy profile along the chain.
+
+These are the tensor-network-side companions to the vector-based entanglement
+tools described in [Entanglement](entanglement.md).
 
 ## Pauli-Space Tools
 

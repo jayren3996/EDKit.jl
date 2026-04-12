@@ -95,12 +95,11 @@ collects the full tuple format and more complete examples.
 
 ## AbelianBasis
 
-`AbelianBasis` is EDKit's general basis for commuting discrete lattice
-symmetries. In practice, you usually construct it through
-`basis(...; symmetries=...)` rather than calling a separate 2D-specific basis
-type.
+`AbelianBasis` is EDKit's low-level basis for commuting discrete actions on
+digit strings. The underlying generator object is `EDKit.AbelianOperator`,
+which permutes sites and can optionally complement selected digits.
 
-Use it when you want to combine several commuting symmetry generators, especially
+Use it when you want direct control over the symmetry action itself, especially
 on lattices where the dedicated 1D basis types are no longer the natural
 description.
 
@@ -120,7 +119,10 @@ sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
 T_x = [mod(x + 1, Lx) + Lx * y + 1 for (x, y) in sites]
 T_y = [x + Lx * mod(y + 1, Ly) + 1 for (x, y) in sites]
 
-B = basis(L = L, N = L ÷ 2, symmetries = [(T_x, 0), (T_y, 0)])
+G = EDKit.AbelianOperator(Lx, 0, T_x) +
+    EDKit.AbelianOperator(Ly, 0, T_y)
+
+B = EDKit.AbelianBasis(; L, G, base=2, N=L ÷ 2)
 ```
 
 There is no separate 2D-only basis type here. A 2D symmetry-reduced basis is
@@ -139,6 +141,10 @@ Each tuple is `(perm, q)` or `(perm, q, inv)`:
 The only strict requirement is consistency: the same site ordering must be used
 for your symmetry generators, your operator site indices, and any lattice bonds
 you construct by hand.
+
+The standalone page [General Abelian Symmetries](../abelian_basis.md) covers the
+low-level `EDKit.AbelianOperator` and `EDKit.AbelianBasis` workflow in more
+detail, including how a custom generator acts on digit buffers.
 
 ## Choosing A Basis
 

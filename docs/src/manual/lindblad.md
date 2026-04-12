@@ -22,7 +22,12 @@ rho0 = densitymatrix(1, 4)
 rho1 = lb(rho0, 0.01)
 ```
 
-This layer is the natural open-system companion to exact diagonalization, but it scales with the full density-matrix dimension.
+`lb(rho0, dt; order=...)` performs one truncated-Taylor time step. If you need
+the generator itself rather than the stepped update, `lb * rho` applies the
+many-body Lindblad right-hand side directly to a dense matrix `rho`.
+
+This layer is the natural open-system companion to exact diagonalization, but
+it scales with the full density-matrix dimension.
 
 ## Density Matrices And Observables
 
@@ -32,7 +37,21 @@ The helper `densitymatrix` constructs density matrices from:
 - a pure-state vector,
 - or a basis-state index.
 
-Use `expectation(O, dm)` to evaluate observables and `entropy(dm)` for density-matrix entropy.
+Example:
+
+```julia
+using EDKit
+
+psi = randn(ComplexF64, 16)
+dm = densitymatrix(psi)
+O = randn(16, 16)
+
+val = expectation(O, dm)
+S = EDKit.entropy(dm)
+```
+
+Use `expectation(O, dm)` to evaluate observables and `EDKit.entropy(dm)` for
+density-matrix entropy.
 
 ## Quadratic Lindblad Evolution
 
@@ -43,6 +62,25 @@ The related helpers are:
 - `covariancematrix` to construct covariance matrices,
 - `majoranaform` to build Majorana quadratic forms from fermionic data,
 - `fermioncorrelation` to recover correlation blocks.
+
+Typical workflow:
+
+```julia
+using EDKit
+
+A = [0.0 1.0; 1.0 0.0]
+B = zeros(2, 2)
+Hmaj = majoranaform(A, B)
+Ljump = zeros(4, 1)
+
+ql = quadraticlindblad(Hmaj, Ljump)
+cm0 = covariancematrix([1, 0])
+cm1 = ql(cm0, 0.05)
+Ablock, Bblock = fermioncorrelation(cm1)
+```
+
+If your quadratic dissipator also contains extra quadratic terms, use the
+three-argument `quadraticlindblad(H, L, M)` form.
 
 This layer is usually far more scalable than the many-body Lindblad path, but only applies when the model structure permits it.
 

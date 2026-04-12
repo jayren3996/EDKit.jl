@@ -16,7 +16,7 @@ the authoritative implementation-facing layer.
 - [Bases](bases.md): basis types, indexing, and high-level sector constructors
 - [Operators](operators.md): operator construction, local spin helpers, matrix conversion
 - [Maps](maps.md): `DoubleBasis` and `symmetrizer`
-- [Entanglement](entanglement.md): entropy and Schmidt-related tools
+- [Entanglement](entanglement.md): Schmidt matrices, spectra, and entropy helpers
 - [ITensors](itensors.md): MPS, MPO, Pauli, and TEBD helpers
 - [Lindblad](lindblad.md): open-system and quadratic workflows
-- [Utilities](utilities.md): spectral statistics and small helper routines
+- [Utilities](utilities.md): spectral statistics, inverse-method, and helper routines

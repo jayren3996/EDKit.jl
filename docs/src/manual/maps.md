@@ -14,7 +14,17 @@ Typical uses:
 - lift sector amplitudes back into a less reduced basis,
 - compare two sector descriptions through their common embedding.
 
-The two bases must have the same chain length and local on-site dimension.
+The two bases must have:
+
+- the same chain length,
+- the same local on-site base.
+
+The convention is:
+
+- `B1` is the target basis,
+- `B2` is the source basis.
+
+So `size(DoubleBasis(B1, B2)) == (dim(B1), dim(B2))`.
 
 ## Symmetrizers
 
@@ -23,6 +33,9 @@ The most direct basis-only map is `symmetrizer(B)`, where `B` is a `DoubleBasis`
 It returns the overlap map between the embeddings of the two bases into the full tensor-product basis.
 
 In the common case where `B2` is less symmetric than `B1`, it behaves like a projection or symmetrization matrix into the target sector.
+
+Use `symmetrizer(T)` when you want the explicit matrix. Use `T(v)` when you
+only need the action of that map on a vector.
 
 ## Example: Full Space To A Symmetry Sector
 
@@ -35,19 +48,45 @@ Bsector = basis(L = L, N = 4, p = 1)
 T = DoubleBasis(Bsector, Bfull)
 
 P = symmetrizer(T)
-```
-
-`P` now maps coordinates from the full basis into the chosen symmetry sector.
-
-## Applying A `DoubleBasis`
-
-`DoubleBasis` itself can also act on a vector:
-
-```julia
+v_full = randn(size(Bfull, 1))
 v_sector = T(v_full)
 ```
 
-This is convenient when you want the basis map as an operation, not just as an explicit matrix.
+`P` now maps coordinates from the full basis into the chosen symmetry sector,
+and `T(v_full)` applies the same overlap map without materializing the matrix.
+
+The reverse construction also makes sense:
+
+```julia
+Tback = DoubleBasis(Bfull, Bsector)
+v_sector = randn(size(Bsector, 1))
+v_full = Tback(v_sector)
+```
+
+That gives the overlap-based embedding of sector amplitudes back into the full
+space.
+
+## Applying A `DoubleBasis`
+
+`DoubleBasis` itself can also act on a vector, as in the example above:
+`v_sector = T(v_full)`.
+
+This is convenient when you want the basis map as an operation, not just as an
+explicit matrix. It also avoids building a potentially large dense matrix when
+you only need one application.
+
+## How The Map Is Defined
+
+The map is defined through the common embedding of both bases into the full
+tensor-product basis. That matters because two reduced bases do not need to
+share the same representative set or orbit normalization conventions.
+
+`DoubleBasis` therefore computes overlaps through the underlying physical
+product states rather than by matching stored representative indices directly.
+
+For `ProjectedBasis`, off-sector states are treated as zero contributions in the
+map construction rather than as hard errors. That behavior is what makes the
+projection and embedding workflows practical.
 
 ## When To Reach For This Layer
 
