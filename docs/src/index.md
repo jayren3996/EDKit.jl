@@ -23,6 +23,7 @@ EDKit has a few major subsystems:
 - many-body operator construction from local terms,
 - inter-basis maps and symmetrizers,
 - entanglement and Schmidt-decomposition helpers,
+- closed-system real-time evolution of state vectors via an adaptive Krylov/Lanczos propagator,
 - ITensor/MPS utilities, including Pauli-space workflows,
 - Lindblad and quadratic-fermion open-system tools.
 
@@ -67,6 +68,15 @@ Start with:
 - [Maps and Symmetrizers](manual/maps.md)
 - [Symmetry Workflows](examples/symmetry-workflows.md)
 
+### I want closed-system real-time dynamics
+
+Start with:
+
+- [Getting Started](getting-started.md)
+- [Time Evolution](manual/time-evolution.md)
+- [Operators](manual/operators.md)
+- [Time Evolution Workflows](examples/time-evolution-workflows.md)
+
 ### I want to work with ITensors, MPS, or Pauli-space representations
 
 Start with:
@@ -90,6 +100,7 @@ That separation matters in practice:
 - you can stay matrix-free when systems are too large for explicit diagonalization,
 - convert to dense arrays when exact eigensolvers are appropriate,
 - convert to sparse matrices for sparse linear algebra or interoperability,
+- feed the same matrix-free `Operator` into [`timeevolve`](manual/time-evolution.md) for closed-system real-time dynamics,
 - and reuse the same local terms across different bases and symmetry sectors.
 
 ## Manual Layout

@@ -100,6 +100,20 @@ Implementation files:
 - `src/algorithms/Lindblad.jl`
 - `src/algorithms/QIM.jl`
 
+### Closed-System Time Evolution
+
+The adaptive Krylov/Lanczos propagator evolves state vectors under Hermitian
+`Operator`s without materializing the Hamiltonian. It anchors a Lanczos basis
+at a state and reuses it as a reduced dynamical model across as many requested
+output times as a defect monitor allows, restarting or extending the basis
+only when needed.
+
+This layer is covered in [Time Evolution](time-evolution.md).
+
+Implementation files:
+
+- `src/algorithms/TimeEvolution.jl`
+
 ## Threading Model
 
 EDKit's matrix-free operator application mutates a digit buffer (`dgt`) on every basis state it visits. To avoid data races when multiple threads share the same operator, EDKit uses **explicit buffer passing**: each thread allocates a small thread-local `Vector{Int}` of length `L` and passes it through `change!`, `index`, and `colmn!`. No locks or atomics are needed — thread safety comes from the absence of shared mutable state.
@@ -121,6 +135,8 @@ The architecture is easiest to understand through examples:
 - use `basis(...)` or a concrete basis type to define the state space,
 - use `operator` or `trans_inv_operator` to construct the model,
 - use `H * psi`, `mul(H, psi)`, `Array(H)`, or `sparse(H)` depending on the calculation,
+- use `timeevolve(H, ψ0, t)` for closed-system real-time dynamics when you
+  want matrix-free propagation,
 - use `DoubleBasis` when you need overlap or projection maps between bases,
 - use `ent_S` or `schmidt` when you need bipartite diagnostics,
 - move into ITensor or Lindblad workflows only when the problem demands them.

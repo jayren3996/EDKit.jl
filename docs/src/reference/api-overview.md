@@ -17,6 +17,7 @@ the authoritative implementation-facing layer.
 - [Operators](operators.md): operator construction, local spin helpers, matrix conversion
 - [Maps](maps.md): `DoubleBasis` and `symmetrizer`
 - [Entanglement](entanglement.md): Schmidt matrices, spectra, and entropy helpers
+- [Time Evolution](time-evolution.md): adaptive Krylov/Lanczos closed-system real-time propagator
 - [ITensors](itensors.md): MPS, MPO, Pauli, and TEBD helpers
 - [Lindblad](lindblad.md): open-system and quadratic workflows
 - [Utilities](utilities.md): spectral statistics, inverse-method, and helper routines

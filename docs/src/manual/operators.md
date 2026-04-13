@@ -103,6 +103,33 @@ Hsparse = sparse(H)
 
 If you need control over the output buffer, `addto!` writes into an existing matrix.
 
+## Operator As A Matrix-Free Hamiltonian
+
+The same `Operator` you build for diagonalization can be fed directly into the
+closed-system real-time propagator. There is no need to call `Array(H)` or
+`sparse(H)` first — [`timeevolve`](@ref) uses the matrix-free `mul!` path
+under the hood.
+
+```julia
+using EDKit, LinearAlgebra
+
+L = 10
+B = TensorBasis(L = L, base = 2)
+H = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy"), (0.7, "zz")), 1:2, B)
+
+ψ0 = productstate([iseven(i) ? 0 : 1 for i in 1:L], B) .+ 0.0im
+ts = collect(range(0.0, 2.0; length = 21))
+ψs = timeevolve(H, ψ0, ts; tol = 1e-10)
+```
+
+This works identically when `H` is built on a symmetry-reduced basis: the
+operator already knows how to act inside the sector, and the Krylov
+propagator inherits that behavior for free.
+
+See [Time Evolution](time-evolution.md) for the full story, including
+accuracy controls, diagnostics, and when to prefer `timeevolve` over the
+older `EDKit.expv` helper.
+
 ## Working In Symmetry Sectors
 
 The same construction functions work with reduced bases:
@@ -176,6 +203,7 @@ for details.
 | Repeated matrix actions (eigenvectors, etc.) | `sparse!(H)` then `H * M` |
 | Full diagonalization of small systems | `Array(H)` or `sparse(H)` |
 | In-place accumulation | `mul!(target, H, v)` |
+| Closed-system real-time evolution | `timeevolve(H, psi0, t)` |
 
 ## When To Use Which Interface
 

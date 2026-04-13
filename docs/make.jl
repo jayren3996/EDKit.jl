@@ -31,6 +31,7 @@ makedocs(
             "Operators" => "manual/operators.md",
             "Maps and Symmetrizers" => "manual/maps.md",
             "Entanglement" => "manual/entanglement.md",
+            "Time Evolution" => "manual/time-evolution.md",
             "ITensor Workflows" => "manual/itensors.md",
             "Lindblad Workflows" => "manual/lindblad.md",
             "Utilities" => "manual/utilities.md",
@@ -38,6 +39,7 @@ makedocs(
         "Worked Examples" => [
             "Basic Workflows" => "examples/basic-workflows.md",
             "Symmetry Workflows" => "examples/symmetry-workflows.md",
+            "Time Evolution Workflows" => "examples/time-evolution-workflows.md",
             "Tensor-Network Workflows" => "examples/tensor-network-workflows.md",
             "Open-System Workflows" => "examples/open-system-workflows.md",
         ],
@@ -47,6 +49,7 @@ makedocs(
             "Operators" => "reference/operators.md",
             "Maps" => "reference/maps.md",
             "Entanglement" => "reference/entanglement.md",
+            "Time Evolution" => "reference/time-evolution.md",
             "ITensors" => "reference/itensors.md",
             "Lindblad" => "reference/lindblad.md",
             "Utilities" => "reference/utilities.md",
