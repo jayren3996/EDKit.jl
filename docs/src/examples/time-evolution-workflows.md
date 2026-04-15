@@ -2,7 +2,8 @@
 
 This page walks through end-to-end closed-system real-time dynamics with
 EDKit. The conceptual overview lives in [Time Evolution](../manual/time-evolution.md);
-the snippets below are meant to be runnable.
+the snippets below are meant to be runnable. For the density-matrix/open-system
+analogue, see [Open-System Workflows](open-system-workflows.md).
 
 All three examples share the same pattern: build an `Operator` in the basis
 you care about, prepare an initial state vector, and call
@@ -127,7 +128,8 @@ right one matters:
 | One-off toy evolution on a small matrix | `EDKit.expv(A, v; λ = -1im * t)` |
 | Full spectrum of a small system | `eigen(Hermitian(Array(H)))` |
 | Explicit sparse linear algebra | `sparse(H)` or `sparse!(H)` |
-| Open-system density-matrix dynamics | `lindblad(...)` — see [Lindblad Workflows](../manual/lindblad.md) |
+| Open-system many-body dynamics at many output times | `lindblad_timeevolve(...)` — see [Lindblad Workflows](../manual/lindblad.md) |
+| Open-system dense step-by-step evolution on a small matrix | `lindblad(...)(ρ, dt; order=...)` |
 | Quadratic free-fermion dynamics | `quadraticlindblad(...)` |
 | MPS-based time evolution | `tebd4` / `tebd_n!` — see [ITensor Workflows](../manual/itensors.md) |
 
@@ -155,3 +157,6 @@ in memory, which is the regime EDKit is designed for in the first place.
   used here.
 - [Lindblad Workflows](../manual/lindblad.md) — open-system counterpart for
   density matrices.
+- [Open-System Workflows](open-system-workflows.md) — examples of
+  `lindblad_timeevolve`, the legacy dense Lindblad stepper, and
+  `quadraticlindblad`.

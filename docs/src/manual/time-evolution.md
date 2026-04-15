@@ -3,7 +3,8 @@
 This page describes EDKit's closed-system real-time evolution layer for state
 vectors. It is the recommended route for unitary dynamics of demanding
 many-body systems, especially when you want to stay matrix-free and keep using
-the same `Operator` object you already built for diagonalization.
+the same `Operator` object you already built for diagonalization. For the
+open-system density-matrix analogue, see [Lindblad Workflows](lindblad.md).
 
 ## What It Solves
 
@@ -316,9 +317,11 @@ earlier time errors by design.
 - [Time Evolution Workflows](../examples/time-evolution-workflows.md) — a
   longer worked example page with full-basis, symmetry-sector, and
   method-choice comparisons.
+- [Lindblad Workflows](lindblad.md) — the open-system analogue based on
+  density matrices and Arnoldi/Lindblad evolution.
+- [Open-System Workflows](../examples/open-system-workflows.md) — worked
+  examples for the many-body and quadratic Lindblad routes.
 - [Utilities](utilities.md) — the older `EDKit.expm` / `EDKit.expv` helpers,
   and when you would still use them.
-- [Lindblad Workflows](lindblad.md) — the open-system counterpart for
-  density-matrix evolution.
 - [Time Evolution API Reference](../reference/time-evolution.md) — the full
   docstring-driven API.

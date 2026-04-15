@@ -39,13 +39,13 @@ include("Schmidt.jl")
 include("Operator.jl")
 include("ToolKit.jl")
 
-for file in readdir("$(@__DIR__)/algorithms/")
+for file in sort(readdir("$(@__DIR__)/algorithms/"))
     if file[end-2:end] == ".jl"
         include("$(@__DIR__)/algorithms/$file")
     end
 end
 
-for file in readdir("$(@__DIR__)/ITensors/")
+for file in sort(readdir("$(@__DIR__)/ITensors/"))
     if file[end-2:end] == ".jl"
         include("$(@__DIR__)/ITensors/$file")
     end

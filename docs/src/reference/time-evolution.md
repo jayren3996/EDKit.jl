@@ -8,6 +8,10 @@ worked walkthroughs live in the manual and example pages:
   users.
 - [Time Evolution Workflows](../examples/time-evolution-workflows.md) —
   end-to-end examples.
+- [Lindblad Workflows](../manual/lindblad.md) — the open-system analogue for
+  density-matrix evolution.
+- [Lindblad Reference](lindblad.md) — the many-body and quadratic
+  open-system APIs.
 - [Operators](../manual/operators.md) — how the matrix-free `Operator`
   objects consumed here are built.
 - [Utilities](../manual/utilities.md) — the older lightweight `EDKit.expv` /

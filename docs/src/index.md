@@ -91,6 +91,16 @@ Start with:
 - [Lindblad Workflows](manual/lindblad.md)
 - [Open-System Workflows](examples/open-system-workflows.md)
 
+That path now covers four cases:
+
+- closed-system Krylov/Lanczos dynamics belongs on [Time Evolution](manual/time-evolution.md),
+- general many-body open-system dynamics at many times belongs on
+  [the adaptive many-body Lindblad path](manual/lindblad.md),
+- small dense many-body step loops belong on
+  [the legacy dense Lindblad path](manual/lindblad.md),
+- quadratic/free-fermion open systems belong on
+  [the quadratic covariance-matrix path](manual/lindblad.md).
+
 ## Design Philosophy
 
 EDKit keeps model construction separate from representation choice.

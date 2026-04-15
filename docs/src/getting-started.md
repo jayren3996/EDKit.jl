@@ -96,6 +96,15 @@ See [Time Evolution](manual/time-evolution.md) for the full manual page and
 [Time Evolution Workflows](examples/time-evolution-workflows.md) for longer
 worked examples.
 
+For open systems, the routing is slightly different:
+
+- use [Lindblad Workflows](manual/lindblad.md) when you need density-matrix
+  evolution,
+- use [`lindblad_timeevolve`](@ref) for the adaptive many-body Arnoldi path,
+- use `lindblad(...)(ρ, dt; order=...)` for small dense explicit stepping,
+- use [`quadraticlindblad`](@ref) when the problem is quadratic and a
+  covariance-matrix description applies.
+
 ## Working In A Symmetry Sector
 
 EDKit becomes especially useful when you do not want the full Hilbert space.
@@ -123,3 +132,5 @@ The construction logic is the same as before, but the basis is now symmetry redu
 - [Maps and Symmetrizers](manual/maps.md) explains how to move between bases.
 - [Time Evolution](manual/time-evolution.md) explains how to propagate state
   vectors with the adaptive Krylov/Lanczos API.
+- [Lindblad Workflows](manual/lindblad.md) explains how to choose between the
+  many-body Arnoldi, legacy dense Lindblad, and quadratic open-system routes.
