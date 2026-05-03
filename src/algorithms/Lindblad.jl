@@ -62,7 +62,7 @@ Array(dm::DensityMatrix) = Hermitian(dm.ρ)
 """
 Normalize the density operator so that tr[ρ]=1.
 """
-function LinearAlgebra.normalize!(dm::DenseMatrix)
+function LinearAlgebra.normalize!(dm::DensityMatrix)
     dm.ρ ./= tr(dm.ρ)
 end
 #---------------------------------------------------------------------------------------------------
