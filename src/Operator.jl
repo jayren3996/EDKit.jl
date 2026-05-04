@@ -293,8 +293,13 @@ LinearAlgebra.svdvals(opt::Operator) = Array(opt) |> svdvals
 #---------------------------------------------------------------------------------------------------
 """
     mul!(target, opt::Operator, v::AbstractVector)
+    mul!(target, opt::Operator, v::AbstractVector, α, β)
 
 Accumulate `opt * v` into the preallocated vector `target`.
+
+The three-argument EDKit method intentionally accumulates into `target` because
+the matrix-free column kernels are additive. The five-argument method follows
+the standard `LinearAlgebra.mul!` convention `target = α * opt * v + β * target`.
 
 Arguments:
 - `target`: output buffer of length `size(opt, 1)`.
@@ -314,15 +319,39 @@ function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     target
 end
 
+function mul!(target::AbstractVector, opt::Operator, v::AbstractVector, α::Number, β::Number)
+    iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
+    iszero(α) && return target
+    dgt = similar(opt.B.dgt)
+    for j = 1:length(v)
+        colmn!(target, opt, j, dgt, α * v[j])
+    end
+    target
+end
+
 """
     mul!(target, opt::Operator, m::AbstractMatrix)
+    mul!(target, opt::Operator, m::AbstractMatrix, α, β)
 
 Accumulate `opt * m` into the preallocated matrix `target`.
+
+As for vectors, the three-argument method accumulates while the five-argument
+method follows `target = α * opt * m + β * target`.
 """
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     dgt = similar(opt.B.dgt)
     for j = 1:size(m, 1)
-        colmn!(target, opt, j, dgt, view(m, j, :))
+        _colmn_row!(target, opt, j, dgt, m, j)
+    end
+    target
+end
+
+function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Number, β::Number)
+    iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
+    iszero(α) && return target
+    dgt = similar(opt.B.dgt)
+    for j = 1:size(m, 1)
+        _colmn_row!(target, opt, j, dgt, m, j, α)
     end
     target
 end
@@ -339,7 +368,7 @@ using `Threads.@threads`.
 """
 function mul(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
-    nt = Threads.nthreads()
+    nt = min(Threads.nthreads(), max(1, length(v)))
     ni = dividerange(length(v), nt)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
@@ -348,7 +377,11 @@ function mul(opt::Operator, v::AbstractVector)
             colmn!(Ms[i], opt, j, dgt, v[j])
         end
     end
-    sum(m for m in Ms)
+    target = Ms[1]
+    @inbounds for i in 2:nt
+        axpy!(one(ctype), Ms[i], target)
+    end
+    target
 end
 
 function mul(opt::Operator, m::AbstractMatrix)
@@ -357,16 +390,20 @@ function mul(opt::Operator, m::AbstractMatrix)
     if S !== nothing
         return convert(Matrix{ctype}, S * m)
     end
-    nt = Threads.nthreads()
+    nt = min(Threads.nthreads(), max(1, size(m, 1)))
     ni = dividerange(size(m,1), nt)
     Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
     Threads.@threads for i in 1:nt
         dgt = similar(opt.B.dgt)
         for j in ni[i]
-            colmn!(Ms[i], opt, j, dgt, view(m, j, :))
+            _colmn_row!(Ms[i], opt, j, dgt, m, j)
         end
     end
-    sum(m for m in Ms)
+    target = Ms[1]
+    @inbounds for i in 2:nt
+        axpy!(one(ctype), Ms[i], target)
+    end
+    target
 end
 
 function *(opt::Operator, v::AbstractVector)
@@ -388,7 +425,7 @@ function *(opt::Operator, m::AbstractMatrix)
     target = zeros(ctype, size(opt, 1), size(m, 2))
     dgt = similar(opt.B.dgt)
     for j = 1:size(m, 1)
-        colmn!(target, opt, j, dgt, view(m, j, :))
+        _colmn_row!(target, opt, j, dgt, m, j)
     end
     target
 end
@@ -397,12 +434,26 @@ end
 # Helper functions
 #---------------------------------------------------------------------------------------------------
 @inline _accumulate!(target::AbstractVector, pos, C, val, coeff) =
-    target[pos] += coeff * C * val
+    _accumulate!(target, pos, C, val, coeff, 1)
+
+@inline _accumulate!(target::AbstractVector, pos, C, val, coeff, scale) =
+    target[pos] += scale * coeff * C * val
 
 @inline function _accumulate!(target::AbstractMatrix, pos, C, val, coeff)
-    cv = C * val
+    _accumulate!(target, pos, C, val, coeff, 1)
+end
+
+@inline function _accumulate!(target::AbstractMatrix, pos, C, val, coeff, scale)
+    cv = scale * C * val
     @inbounds for k in axes(target, 2)
         target[pos, k] += cv * coeff[k]
+    end
+end
+
+@inline function _accumulate_row!(target::AbstractMatrix, pos, C, val, m::AbstractMatrix, row, scale)
+    cv = scale * C * val
+    @inbounds for k in axes(target, 2)
+        target[pos, k] += cv * m[row, k]
     end
 end
 #---------------------------------------------------------------------------------------------------
@@ -423,7 +474,7 @@ end
 Thread-safe variant of the local-term application that uses the supplied digit
 buffer `dgt` instead of `b.dgt`.
 """
-function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, dgt::AbstractVector, coeff=1)
+function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, dgt::AbstractVector, coeff=1, scale=1)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(dgt, I, base=b.B)
     change = false
@@ -431,7 +482,22 @@ function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b:
         row, val = rows[i], vals[i]
         change!(dgt, I, row, base=b.B)
         C, pos = index(b, dgt)
-        _accumulate!(target, pos, C, val, coeff)
+        _accumulate!(target, pos, C, val, coeff, scale)
+        change = true
+    end
+    change && change!(dgt, I, j, base=b.B)
+    nothing
+end
+
+function _colmn_row!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, dgt::AbstractVector, m::AbstractMatrix, row, scale=1)
+    rows, vals = rowvals(M), nonzeros(M)
+    j = index(dgt, I, base=b.B)
+    change = false
+    @inbounds for i in nzrange(M, j)
+        local_row, val = rows[i], vals[i]
+        change!(dgt, I, local_row, base=b.B)
+        C, pos = index(b, dgt)
+        _accumulate_row!(target, pos, C, val, m, row, scale)
         change = true
     end
     change && change!(dgt, I, j, base=b.B)
@@ -455,12 +521,21 @@ end
 
 Thread-safe variant that uses the supplied digit buffer `dgt`.
 """
-function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, dgt::AbstractVector, coeff=1)
+function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, dgt::AbstractVector, coeff=1, scale=1)
     b, M, I = opt.B, opt.M, opt.I
     r = change!(b, j, dgt)
-    C = isone(r) ? coeff : coeff / r
+    scaled = isone(r) ? scale : scale / r
     for i = 1:length(M)
-        colmn!(target, M[i], I[i], b, dgt, C)
+        colmn!(target, M[i], I[i], b, dgt, coeff, scaled)
+    end
+end
+
+function _colmn_row!(target::AbstractMatrix, opt::Operator, j::Integer, dgt::AbstractVector, m::AbstractMatrix, row, scale=1)
+    b, M, I = opt.B, opt.M, opt.I
+    r = change!(b, j, dgt)
+    scaled = isone(r) ? scale : scale / r
+    for i = 1:length(M)
+        _colmn_row!(target, M[i], I[i], b, dgt, m, row, scaled)
     end
 end
 

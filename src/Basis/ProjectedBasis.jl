@@ -80,7 +80,33 @@ function binary_search(list::AbstractVector{<:Integer}, i::Integer)
     c
 end
 
+function _binary_fixed_weight_indices(::Type{T}, L::Integer, n::Integer) where T <: Integer
+    (0 <= n <= L) || return T[]
+    if iszero(n)
+        return T[one(T)]
+    elseif n == L
+        return T[(one(T) << L)]
+    end
+    state = (one(T) << n) - one(T)
+    limit = one(T) << L
+    out = T[]
+    sizehint!(out, binomial(L, n))
+    while state < limit
+        push!(out, state + one(T))
+        c = state & -state
+        r = state + c
+        state = (((r ⊻ state) >> 2) ÷ c) | r
+    end
+    out
+end
 
+function _complement_digits!(dgt::AbstractVector, fdgt::AbstractVector, base)
+    bm1 = base - 1
+    @inbounds for i in eachindex(dgt, fdgt)
+        dgt[i] = bm1 - fdgt[i]
+    end
+    dgt
+end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Construction
@@ -145,7 +171,7 @@ function selectindex(f, L::Integer, rg::UnitRange{T}; base::Integer=2, alloc::In
     sizehint!(I, alloc)
     for i in rg
         change!(dgt, i, base=base)
-        f(dgt) && append!(I, i)
+        f(dgt) && push!(I, i)
     end
     I
 end
@@ -169,8 +195,9 @@ The result ordering matches the natural increasing index order because each
 thread scans a disjoint monotone block and the blocks are concatenated in order.
 """
 function selectindex_threaded(f, L::Integer; base::T=2, alloc::Integer=1000) where T <: Integer
-    nt = Threads.nthreads()
-    ni = dividerange(base^L, nt)
+    maxnum = base^L
+    nt = maxnum < Threads.nthreads() ? Int(maxnum) : Threads.nthreads()
+    ni = dividerange(maxnum, nt)
     nI = Vector{Vector{T}}(undef, nt)
     Threads.@threads for ti in 1:nt
         nI[ti] = selectindex(f, L, ni[ti], base=base, alloc=alloc)
@@ -200,16 +227,29 @@ This helper is used when direct combinatorial enumeration is cheaper than a full
 Hilbert-space scan.
 """
 function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000, sorted::Bool=true) where T <: Integer
+    if base == 2 && sorted
+        candidates = _binary_fixed_weight_indices(T, L, L - N)
+        isnothing(f) && return candidates
+        I = T[]
+        sizehint!(I, length(candidates))
+        dgt = zeros(T, L)
+        for ind in candidates
+            change!(dgt, ind; base=base)
+            f(dgt) && push!(I, ind)
+        end
+        return I
+    end
     I = T[]
     sizehint!(I, alloc)
+    dgt = Vector{T}(undef, L)
     for fdgt in multiexponents(L, N)
         all(b < base for b in fdgt) || continue
-        dgt = (base-1) .- fdgt
+        _complement_digits!(dgt, fdgt, base)
         isnothing(f) || f(dgt) || continue
         ind = index(dgt, base=base)
-        append!(I, ind)
+        push!(I, ind)
     end
-    sorted ? sort(I) : I
+    sorted ? sort!(I) : I
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """

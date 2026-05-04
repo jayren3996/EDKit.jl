@@ -44,7 +44,8 @@ Returns:
 function qimsolve(ol::AbstractVector, v::AbstractVecOrMat{<:Number}; tol::Real=1e-7)
     cm = covmat(ol, v)
     e, v = eigen(cm)
-    i = findfirst(x -> x > tol, e) - 1
+    pos = findfirst(x -> x > tol, e)
+    i = isnothing(pos) ? length(e) : pos - 1
     v[:, 1:i] |> simplify
 end
 

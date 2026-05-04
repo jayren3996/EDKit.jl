@@ -9,6 +9,8 @@
     end
 
     @testset "Product MPS And Operator Conversion" begin
+        @test :ent_specs in names(EDKit; all = false)
+
         s = siteinds(2, 4)
         states = [[1.0, 0.0], [0.0, 1.0], [1 / sqrt(2), 1 / sqrt(2)], [1.0, 0.0]]
         ψp = EDKit.productstate(s, states)
@@ -40,6 +42,10 @@
             coeffs = randn(4^L)
             @test pauli_list(pauli(coeffs)) ≈ coeffs
         end
+
+        nonhermitian = ComplexF64[1 1 + 2im; 0 3im]
+        complex_coeffs = pauli_list(nonhermitian, ComplexF64)
+        @test pauli(complex_coeffs) ≈ nonhermitian
 
         H = randn(ComplexF64, 4, 4) |> Hermitian |> Array
         ρ = randn(ComplexF64, 4, 4)

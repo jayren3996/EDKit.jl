@@ -114,23 +114,22 @@ Compute the Shannon/von Neumann entropy of a probability vector.
 function shannon_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
     ent = 0.0
     for si in s
-        si > cutoff || break
+        si > cutoff || continue
         ent -= si * log(si)
     end
     ent
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-Compute Renyi-0 entropy, that is, the log-support size before the final `log`
-normalization convention is applied elsewhere.
+Compute Renyi-0 entropy, that is, the log-support size.
 """
 function renyi_zero_entropy(s::AbstractVector{<:Real}; cutoff::Real=1e-20)
     N = 0
     for si in s
-        si > cutoff || break
+        si > cutoff || continue
         N += 1
     end
-    N
+    iszero(N) ? 0.0 : log(N)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -246,7 +245,7 @@ end
 Internal helper for Schmidt decomposition in bases that combine translation with
 an involutive discrete symmetry such as parity or spin flip.
 """
-function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis;B1=nothing, B2=nothing)
+function parity_schmidt(parity!, v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractTranslationalParityBasis;B1=nothing, B2=nothing)
     dgt = similar(b.dgt)
     R, phase = b.R, b.C[2]
     S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
@@ -258,7 +257,7 @@ function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integ
             circshift!(dgt, b.A)
             val *= phase
         end
-        dgt .= parity(dgt)
+        parity!(dgt)
         val *= b.P
         for j in 1:length(dgt)÷b.A
             addto!(S, val)
@@ -269,8 +268,8 @@ function parity_schmidt(parity, v::AbstractVector, Ainds::AbstractVector{<:Integ
     S.M
 end
 #-------------------------------------------------------------------------------------------------------------------------
-schmidt(v, Ainds, b::TranslationParityBasis;B1=nothing, B2=nothing) = parity_schmidt(reverse, v, Ainds, b; B1, B2)
-schmidt(v, Ainds, b::TranslationFlipBasis;B1=nothing, B2=nothing) = parity_schmidt(x -> spinflip(x, b.B), v, Ainds, b; B1, B2)
+schmidt(v, Ainds, b::TranslationParityBasis;B1=nothing, B2=nothing) = parity_schmidt(reverse!, v, Ainds, b; B1, B2)
+schmidt(v, Ainds, b::TranslationFlipBasis;B1=nothing, B2=nothing) = parity_schmidt(x -> spinflip!(x, b.B), v, Ainds, b; B1, B2)
 
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -284,7 +283,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::FlipBas
         change!(b, i, dgt)
         val = v[i] / R[i]
         addto!(S, val)
-        dgt .= spinflip(dgt, b.B)
+        spinflip!(dgt, b.B)
         addto!(S, phase * val)
     end
     S.M
@@ -324,7 +323,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::ParityF
         val *= p1
         addto!(S, val)
         # (P,Z) = (1,1)
-        dgt .= spinflip(dgt, b.B)
+        spinflip!(dgt, b.B)
         val *= p2
         addto!(S, val)
         # (P,Z) = (0,1)

@@ -26,8 +26,8 @@ end
 
 Internal selector for the combined parity/flip basis.
 """
-struct ParityFlipJudge{T}
-    F                     # Projective selection
+struct ParityFlipJudge{TF, T}
+    F::TF                 # Projective selection
     P::Int64              # Parity
     Z::Int64              # Spin-flip parity
     B::T                  # Base

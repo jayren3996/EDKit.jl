@@ -1,4 +1,10 @@
 @testset "Entanglement Across Symmetry Sectors" begin
+    @testset "Entropy handles Renyi-0 and unsorted zero weights" begin
+        @test EDKit.entropy([0.5, 0.5]; α = 0) ≈ log(2)
+        @test EDKit.entropy([0.0, 0.5, 0.5]) ≈ log(2)
+        @test EDKit.entropy([0.0, 0.5, 0.5]; α = 0) ≈ log(2)
+    end
+
     function entropy_spectrum(B::AbstractBasis, mat::AbstractMatrix; cut = 1:length(B) ÷ 2)
         vals, vecs = eigen(Hermitian(trans_inv_operator(mat, 2, B)))
         sort([ent_S(vecs[:, i], collect(cut), B) for i in axes(vecs, 2)])

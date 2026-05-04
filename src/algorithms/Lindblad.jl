@@ -99,6 +99,7 @@ Returns:
 function *(lb::Lindblad, ρ::Matrix)
     H, L = lb.H, lb.L
     out = -1im * (H * ρ - ρ * H)
+    isempty(L) && return out
     LdL = zeros(eltype(L[1]), size(L[1]))
     for l in L 
         ld = l'

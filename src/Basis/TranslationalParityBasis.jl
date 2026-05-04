@@ -49,8 +49,8 @@ Internal selector for [`TranslationParityBasis`](@ref).
 It simultaneously checks canonicality under translation and reflection,
 momentum compatibility, and parity-sector compatibility.
 """
-struct TranslationParityJudge{T <: Integer}
-    F                   # Projective selection
+struct TranslationParityJudge{TF, T <: Integer}
+    F::TF               # Projective selection
     K::Int64            # Momentum phase exp(1im * 0/π) = {±1}
     A::Int64            # Length of unit cell
     P::Int64            # Parity eigenvalue {±1}

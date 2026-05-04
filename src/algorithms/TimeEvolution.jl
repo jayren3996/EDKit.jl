@@ -117,6 +117,8 @@ mutable struct KrylovEvolutionCache{TH, T<:Number, R<:Real}
 
     # Scratch
     w::Vector{T}
+    reduced_phase::Vector{Complex{R}}
+    reduced_coeffs::Vector{Complex{R}}
 
     # Diagnostics
     diagnostics::KrylovEvolutionDiagnostics
@@ -198,6 +200,8 @@ function KrylovEvolutionCache(H, ψ0::AbstractVector;
     α = zeros(R, m_max)
     β = zeros(R, m_max)
     w = zeros(T, N)
+    reduced_phase = Vector{Complex{R}}(undef, m_max)
+    reduced_coeffs = Vector{Complex{R}}(undef, m_max)
 
     cache = KrylovEvolutionCache{typeof(H), T, R}(
         H, N, 0.0, 0.0, ψ_anchor, norm_anchor,
@@ -206,7 +210,7 @@ function KrylovEvolutionCache(H, ψ0::AbstractVector;
         R(tol), Int(m_init), Int(m_max), Int(extend_step),
         Int(nsample), Int(bisect_iters),
         reuse_basis, extend_basis, normalize_output,
-        w,
+        w, reduced_phase, reduced_coeffs,
         KrylovEvolutionDiagnostics(),
     )
 
@@ -319,6 +323,8 @@ function _build_reduced!(cache::KrylovEvolutionCache{TH,T,R}) where {TH,T,R}
     cache.Q   = F.vectors
     cache.Qe1 = cache.Q[1, :]
     cache.Qem = cache.Q[m, :]
+    resize!(cache.reduced_phase, m)
+    resize!(cache.reduced_coeffs, m)
     return cache
 end
 
@@ -328,12 +334,12 @@ end
 # c(τ) = e^{-i τ T_m} e_1 = Q diag(e^{-iτλ}) (Q' e_1) = Q (e^{-iτλ} .* Qe1)
 function _reduced_coeffs(cache::KrylovEvolutionCache{TH,T,R}, τ::Real) where {TH,T,R}
     m = cache.m
-    Tc = Complex{R}
-    phase = Vector{Tc}(undef, m)
+    phase = cache.reduced_phase
     @inbounds @simd for k in 1:m
         phase[k] = cis(-R(τ) * cache.λ[k]) * cache.Qe1[k]
     end
-    c = cache.Q * phase                   # length-m complex vector
+    c = cache.reduced_coeffs
+    mul!(c, cache.Q, phase)
     return c
 end
 

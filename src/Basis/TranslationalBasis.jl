@@ -59,8 +59,8 @@ Calling a `TranslationJudge` on a digit string decides whether that state is the
 canonical orbit representative compatible with the requested momentum, and if
 so, what normalization factor should be stored.
 """
-struct TranslationJudge{T}
-    F                   # Projective selection
+struct TranslationJudge{TF, T}
+    F::TF               # Projective selection
     K::Int              # Momentum
     A::Int              # Length of unit cell
     L::Int              # Length of translation
@@ -143,8 +143,8 @@ function selectindexnorm(f, L::Integer, rg::UnitRange{T}; base::Integer=2, alloc
         change!(dgt, i, base=base)
         Q, N = f(dgt, i)
         Q || continue
-        append!(I, i)
-        append!(R, N)
+        push!(I, i)
+        push!(R, N)
     end
     I, R
 end
@@ -158,17 +158,33 @@ This is the momentum-resolved analogue of [`selectindex_N`](@ref), but the
 selector returns both acceptance and normalization data.
 """
 function selectindexnorm_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000, sorted::Bool=true) where T <: Integer
+    if base == 2 && sorted
+        candidates = _binary_fixed_weight_indices(T, L, L - N)
+        I, R = T[], Float64[]
+        sizehint!(I, length(candidates))
+        sizehint!(R, length(candidates))
+        dgt = zeros(T, L)
+        for i in candidates
+            change!(dgt, i; base=base)
+            Q, nrm = f(dgt, i)
+            Q || continue
+            push!(I, i)
+            push!(R, nrm)
+        end
+        return I, R
+    end
     I, R = T[], Float64[]
     sizehint!(I, alloc)
     sizehint!(R, alloc)
+    dgt = Vector{T}(undef, L)
     for fdgt in multiexponents(L, N)
         all(b < base for b in fdgt) || continue
-        dgt = (base-1) .- fdgt
+        _complement_digits!(dgt, fdgt, base)
         i = index(dgt, base=base)
-        Q, N = f(dgt, i)
+        Q, nrm = f(dgt, i)
         Q || continue
-        append!(I, i)
-        append!(R, N)
+        push!(I, i)
+        push!(R, nrm)
     end
     sorted || return I, R
     sperm = sortperm(I)
@@ -192,8 +208,9 @@ Returns:
 - `R`: List of normalization for each states.
 """
 function selectindexnorm_threaded(f, L::Integer; base::T=2, alloc::Integer=1000) where T <: Integer
-    nt = Threads.nthreads()
-    ni = dividerange(base^L, nt)
+    maxnum = base^L
+    nt = maxnum < Threads.nthreads() ? Int(maxnum) : Threads.nthreads()
+    ni = dividerange(maxnum, nt)
     nI = Vector{Vector{T}}(undef, nt)
     nR = Vector{Vector{Float64}}(undef, nt)
     Threads.@threads for ti in 1:nt

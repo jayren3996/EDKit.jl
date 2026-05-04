@@ -85,4 +85,10 @@
     @test size(cmat) == (2, 2)
     sol = qimsolve(ops, vec)
     @test size(sol, 1) == 2
+
+    @testset "qimsolve returns all null directions when all variances are small" begin
+        null_ops = [zeros(2, 2), zeros(2, 2)]
+        null_sol = qimsolve(null_ops, vec; tol = 1e-7)
+        @test size(null_sol) == (2, 2)
+    end
 end

@@ -47,9 +47,13 @@ function pauli(i::Integer, L::Integer=1)
 end
 #---------------------------------------------------------------------------------------------------
 """
-pauli(Is::AbstractVector{<:Real})
+pauli(Is::AbstractVector{<:Number})
 
 Return a matrix from Pauli coefficients
+
+Real coefficients are the default Hermitian/operator-space convention used by
+`pauli_list(A)`. Complex coefficients are also accepted for reconstructing
+general non-Hermitian operators, for example from `pauli_list(A, ComplexF64)`.
 
 Arguments:
 - `Is`: coefficient vector in the Pauli-product basis.
@@ -57,10 +61,10 @@ Arguments:
 Returns:
 - The dense operator reconstructed from those coefficients.
 """
-function pauli(Is::AbstractVector{<:Real})
+function pauli(Is::AbstractVector{<:Number})
     L = round(Integer, log(4, length(Is)))
     @assert 4^L == length(Is)
-    out = zeros(ComplexF64, 2^L, 2^L)
+    out = zeros(promote_type(ComplexF64, eltype(Is)), 2^L, 2^L)
     for i in eachindex(Is)
         out += Is[i] * pauli(i, L)
     end
@@ -461,4 +465,3 @@ function density_expect(ψ::MPS, h::AbstractMatrix)
     end
     out
 end
-

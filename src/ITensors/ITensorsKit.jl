@@ -79,12 +79,13 @@ you need the true projected coefficients.
 function mps2vec(psi::MPS, B::AbstractBasis)
     L = length(psi)
     s = siteinds(psi)
+    local_states = [[psi[j] * state(s[j], n) for n in 1:B.B] for j in 1:L]
     v = Vector{eltype(psi[1])}(undef, size(B, 1))
     for i in eachindex(v)
         R = change!(B, i)
         val = ITensor(1.0)
         for j in 1:L
-            val *= psi[j] * state(s[j], B.dgt[j]+1)
+            val *= local_states[j][B.dgt[j]+1]
         end
         v[i] = scalar(val) * order(B) / R
     end
@@ -217,7 +218,7 @@ end
 #=---------------------------------------------------------------------------------------------------
 MPS properties
 ---------------------------------------------------------------------------------------------------=#
-export ent_spec, ent_specs!, ent_S!
+export ent_spec, ent_specs, ent_specs!, ent_S!
 """
     ent_specs(ψ::MPS, b::Integer)
 

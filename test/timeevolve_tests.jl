@@ -143,6 +143,8 @@
         ψ0 = randn(ComplexF64, size(B, 1)); normalize!(ψ0)
 
         cache = KrylovEvolutionCache(H, ψ0; tol = 1e-12, m_init = 20, m_max = 35)
+        @test length(cache.reduced_phase) == cache.m
+        @test length(cache.reduced_coeffs) == cache.m
 
         # Sequential forward calls share the cache and advance the anchor.
         ψa = timeevolve!(cache, 0.5)

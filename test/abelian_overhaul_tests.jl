@@ -153,6 +153,26 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
             end
         end
 
+        @testset "check_min scratch overload matches allocating path" begin
+            L = 6
+            perm_t = Vector{Int}(undef, L)
+            for i in 1:L; perm_t[i] = mod1(i - 1, L); end
+            ag = AbelianOperator(L, 0, perm_t)
+            dgt = zeros(Int, L)
+            tmp = similar(dgt)
+            for idx in 1:2^L
+                change!(dgt, idx; base=Int64(2))
+                dgt_copy1 = copy(dgt)
+                dgt_copy2 = copy(dgt)
+                ag_copy1 = deepcopy(ag)
+                ag_copy2 = deepcopy(ag)
+                q1, n1 = check_min(dgt_copy1, ag_copy1; base=2)
+                q2, n2 = check_min(dgt_copy2, ag_copy2, tmp; base=2)
+                @test q1 == q2
+                @test n1 == n2
+            end
+        end
+
         @testset "shift_canonical_int matches shift_canonical!" begin
             L = 6
             perm_t = Vector{Int}(undef, L)
@@ -221,6 +241,11 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
             # L=8, N=4: C(8,4) = 70
             result8 = _gosper_enumerate(8, 4)
             @test length(result8) == 70
+        end
+
+        @testset "Fixed-N path respects extra predicate" begin
+            B_empty = basis(; L=4, N=2, k=0, f=_ -> false, threaded=false)
+            @test size(B_empty, 1) == 0
         end
     end
 

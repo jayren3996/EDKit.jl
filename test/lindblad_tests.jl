@@ -1,4 +1,16 @@
 @testset "Lindblad Dynamics" begin
+    @testset "Empty jump list reduces to unitary evolution" begin
+        H = ComplexF64[0 1; 1 0]
+        lb = lindblad(H, Matrix{ComplexF64}[])
+        dm = densitymatrix(ComplexF64[1.0, 0.0])
+
+        dt = 0.05
+        evolved = lb(dm, dt, order = 8)
+        U = exp(-1im * H * dt)
+        expected = U * dm.ρ * U'
+        @test evolved.ρ ≈ expected atol = 1e-12
+    end
+
     @testset "Single-Site Amplitude Damping" begin
         γ = 0.4
         jump = sqrt(γ) * ComplexF64[0 1; 0 0]

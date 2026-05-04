@@ -20,7 +20,7 @@ struct TranslationFlipBasis{Ti, T} <: AbstractTranslationalParityBasis
 end
 #-------------------------------------------------------------------------------------------------------------------------
 eltype(::TranslationFlipBasis{Ti, T}) where {Ti, T} = T
-copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.A, b.B)
+copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, b.C, b.P, b.A, b.M, b.B)
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Functions selecting the basis
@@ -30,8 +30,8 @@ copy(b::TranslationFlipBasis) = TranslationFlipBasis(deepcopy(b.dgt), b.I, b.R, 
 
 Internal selector used while constructing a [`TranslationFlipBasis`](@ref).
 """
-struct TranslationFlipJudge{T <: Integer}
-    F                   # Projective selection
+struct TranslationFlipJudge{TF, T <: Integer}
+    F::TF               # Projective selection
     K::Int64            # Momentum
     A::Int64            # Length of unit cell
     P::Int64            # Parity eigenvalue {±1}
@@ -120,7 +120,7 @@ Notes:
   [`TranslationalBasis`](@ref).
 """
 function TranslationFlipBasis(
-    dtype::DataType=Int64; f=x->true, k::Integer=0, p::Integer=1, L::Integer, N::Union{Nothing, Integer}=nothing,
+    dtype::DataType=Int64; f=nothing, k::Integer=0, p::Integer=1, L::Integer, N::Union{Nothing, Integer}=nothing,
     a::Integer=1, base::Integer=2, alloc::Integer=1000, threaded::Bool=false, small_N::Bool=false
 )
     len, check_a = divrem(L, a)

@@ -223,7 +223,11 @@ Return the current character phase associated with the internal group state of
 theta(s) = prod_j exp(i*k*s_j)
 """
 function phase(g::AbelianOperator)
-    prod(g.c[i][g.s[i]] for i in eachindex(g.c))
+    p = @inbounds g.c[1][g.s[1]]
+    @inbounds for i in 2:length(g.c)
+        p *= g.c[i][g.s[i]]
+    end
+    p
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -320,10 +324,13 @@ This helper is used during basis construction to decide whether a product state
 should be stored as a representative.
 """
 function check_min(dgt, g::AbelianOperator; base=2)
+    check_min(dgt, g, similar(dgt); base)
+end
+
+function check_min(dgt, g::AbelianOperator, tmp; base=2)
     init!(g)
     I0 = index(dgt; base)
     N = 1
-    tmp = similar(dgt)
     for _ in 2:order(g)
         _apply_group_action!(dgt, g, base, tmp)
         In = index(dgt; base)
@@ -527,17 +534,18 @@ function AbelianBasis(
     end
 
     # Dispatch between construction paths
-    use_gosper = (base == 2 && N !== nothing && 0 <= N <= L)
+    Ndigits = isnothing(N) ? nothing : L * (base - 1) - N
+    use_gosper = (base == 2 && Ndigits !== nothing && 0 <= Ndigits <= L)
     use_int_path = (base == 2 && _has_all_benes(G))
 
     I, R = if use_gosper && use_int_path
         # Path 1: Gosper + integer orbit search
-        candidates = _gosper_enumerate(L, N)
-        _abelian_select_int(G, L, candidates, C; threaded)
+        candidates = _gosper_enumerate(L, Ndigits)
+        _abelian_select_int(f, G, L, candidates, C; threaded)
     elseif use_gosper
         # Path 2: Gosper + digit path
-        candidates = _gosper_enumerate(L, N)
-        _abelian_select_gosper(G, L, candidates, C; base, threaded)
+        candidates = _gosper_enumerate(L, Ndigits)
+        _abelian_select_gosper(f, G, L, candidates, C; base, threaded)
     elseif threaded
         # Path 3: Full scan + digit path (threaded)
         nt = Threads.nthreads()
@@ -560,7 +568,7 @@ end
 Integer-path basis selection using Benes networks.
 `candidates` is a sorted vector of 1-based indices.
 """
-function _abelian_select_int(G::AbelianOperator, L::Int, candidates::Vector{Int}, C; threaded::Bool=false)
+function _abelian_select_int(f, G::AbelianOperator, L::Int, candidates::Vector{Int}, C; threaded::Bool=false)
     if threaded && length(candidates) > 1000
         nt = Threads.nthreads()
         chunk_size = cld(length(candidates), nt)
@@ -570,10 +578,12 @@ function _abelian_select_int(G::AbelianOperator, L::Int, candidates::Vector{Int}
             lo = (ti - 1) * chunk_size + 1
             hi = min(ti * chunk_size, length(candidates))
             lo > hi && (nI[ti] = Int[]; nR[ti] = Float64[]; continue)
-            let g_local = deepcopy(G), Is = Int[], Rs = Float64[]
+            let g_local = deepcopy(G), Is = Int[], Rs = Float64[], dgt = zeros(Int, L)
                 sizehint!(Is, hi - lo + 1)
                 sizehint!(Rs, hi - lo + 1)
                 for idx in lo:hi
+                    change!(dgt, candidates[idx]; base=Int(2))
+                    f(dgt) || continue
                     state = UInt64(candidates[idx] - 1)
                     Q, n = check_min_int(state, g_local, L)
                     Q || continue
@@ -588,8 +598,11 @@ function _abelian_select_int(G::AbelianOperator, L::Int, candidates::Vector{Int}
     else
         Is = Int[]
         Rs = Float64[]
+        dgt = zeros(Int, L)
         g_local = deepcopy(G)
         for idx in candidates
+            change!(dgt, idx; base=Int(2))
+            f(dgt) || continue
             state = UInt64(idx - 1)
             Q, n = check_min_int(state, g_local, L)
             Q || continue
@@ -605,14 +618,16 @@ end
 
 Gosper-based candidate list with digit-buffer orbit search.
 """
-function _abelian_select_gosper(G::AbelianOperator, L::Int, candidates::Vector{Int}, C; base::Integer=2, threaded::Bool=false)
+function _abelian_select_gosper(f, G::AbelianOperator, L::Int, candidates::Vector{Int}, C; base::Integer=2, threaded::Bool=false)
     Is = Int[]
     Rs = Float64[]
     dgt = zeros(Int, L)
+    tmp = similar(dgt)
     g_local = deepcopy(G)
     for idx in candidates
         change!(dgt, idx; base=Int(base))
-        Q, n = check_min(dgt, g_local; base=Int(base))
+        f(dgt) || continue
+        Q, n = check_min(dgt, g_local, tmp; base=Int(base))
         Q || continue
         push!(Is, idx)
         push!(Rs, C[n])
@@ -639,6 +654,7 @@ function _abelian_select(
     alloc::Integer=1000
 ) where T <: Integer
     dgt = zeros(T, L)
+    tmp = similar(dgt)
     Is = T[]
     Rs = Float64[]
     sizehint!(Is, alloc)
@@ -646,7 +662,7 @@ function _abelian_select(
     for i in rg
         change!(dgt, i; base)
         f(dgt) || continue
-        Q, n = check_min(dgt, G; base)
+        Q, n = check_min(dgt, G, tmp; base)
         Q || continue
         push!(Is, i)
         push!(Rs, C[n])

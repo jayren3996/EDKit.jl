@@ -25,8 +25,8 @@ end
 
 Internal selector used while constructing a [`FlipBasis`](@ref).
 """
-struct FlipJudge{T}
-    F                   # Projective selection
+struct FlipJudge{TF, T}
+    F::TF               # Projective selection
     P::Int64            # Parity
     B::T                # Base
     MAX::Int            # base^length + 1

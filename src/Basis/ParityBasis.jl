@@ -28,8 +28,8 @@ It decides whether a product state is the canonical representative of its
 reflection orbit and, if so, what normalization factor the reduced basis vector
 should receive.
 """
-struct ParityJudge{T}
-    F                   # Projective selection
+struct ParityJudge{TF, T}
+    F::TF               # Projective selection
     P::Int64            # Parity
     B::T                # Base
     C::Float64          # Value sqrt(2).
