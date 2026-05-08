@@ -45,7 +45,7 @@ pkg> add https://github.com/jayren3996/EDKit.jl
 
 Current package compat:
 
-- Julia `1.9+`
+- Julia `1.10+`
 - `ITensors.jl` `0.7` to `0.9`
 - `ITensorMPS.jl` `0.3`
 
