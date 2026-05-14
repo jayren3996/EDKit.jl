@@ -160,6 +160,34 @@ end
 # Operator to matrices
 #---------------------------------------------------------------------------------------------------
 export addto!
+
+mutable struct SparseTripletAccumulator{Tv, Ti<:Integer}
+    rows::Vector{Ti}
+    cols::Vector{Ti}
+    vals::Vector{Tv}
+    col::Ti
+end
+
+function SparseTripletAccumulator(::Type{Tv}, ::Type{Ti}=Int; sizehint::Integer=0) where {Tv, Ti<:Integer}
+    rows = Vector{Ti}()
+    cols = Vector{Ti}()
+    vals = Vector{Tv}()
+    if sizehint > 0
+        sizehint!(rows, sizehint)
+        sizehint!(cols, sizehint)
+        sizehint!(vals, sizehint)
+    end
+    SparseTripletAccumulator{Tv, Ti}(rows, cols, vals, zero(Ti))
+end
+
+function _sparse_triplet_sizehint(opt::Operator)
+    nterms = 0
+    for M in opt.M
+        nterms = min(nterms + nnz(M), 1_000_000)
+    end
+    min(size(opt, 2) * nterms, 1_000_000)
+end
+
 """
     addto!(M::AbstractMatrix, opt::Operator)
 
@@ -210,11 +238,16 @@ Compared with `Array(opt)`, this preserves sparsity but still constructs the
 full operator explicitly.
 """
 function SparseArrays.sparse(opt::Operator)
-    M = spzeros(eltype(opt), size(opt)...)
-    if size(M, 1) > 0 && size(M, 2) > 0
-        addto!(M, opt)
+    Tv = eltype(opt)
+    rows = SparseTripletAccumulator(Tv; sizehint=_sparse_triplet_sizehint(opt))
+    if size(opt, 1) > 0 && size(opt, 2) > 0
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:size(opt, 2)
+            colmn!(rows, opt, j, dgt, 1, 1, basis_workspace)
+        end
     end
-    M
+    SparseArrays.sparse(rows.rows, rows.cols, rows.vals, size(opt, 1), size(opt, 2))
 end
 #---------------------------------------------------------------------------------------------------
 # Sparse-matrix cache for accelerated matrix multiplication
@@ -459,6 +492,16 @@ end
     end
 end
 
+@inline function _accumulate!(target::SparseTripletAccumulator, pos, C, val, coeff, scale)
+    iszero(C) && return nothing
+    final_val = scale * coeff * C * val
+    iszero(final_val) && return nothing
+    push!(target.rows, pos)
+    push!(target.cols, target.col)
+    push!(target.vals, final_val)
+    nothing
+end
+
 @inline function _accumulate_row!(target::AbstractMatrix, pos, C, val, m::AbstractMatrix, row, scale)
     cv = scale * C * val
     @inbounds for k in axes(target, 2)
@@ -492,6 +535,30 @@ buffer `dgt` instead of `b.dgt`.
 """
 function colmn!(
     target::AbstractVecOrMat,
+    M::SparseMatrixCSC,
+    I::Vector{Int},
+    b::AbstractBasis,
+    dgt::AbstractVector,
+    coeff=1,
+    scale=1,
+    basis_workspace=_basis_index_workspace(b),
+)
+    rows, vals = rowvals(M), nonzeros(M)
+    j = index(dgt, I, base=b.B)
+    change = false
+    @inbounds for i in nzrange(M, j)
+        row, val = rows[i], vals[i]
+        change!(dgt, I, row, base=b.B)
+        C, pos = _index_in_basis(b, dgt, basis_workspace)
+        _accumulate!(target, pos, C, val, coeff, scale)
+        change = true
+    end
+    change && change!(dgt, I, j, base=b.B)
+    nothing
+end
+
+function colmn!(
+    target::SparseTripletAccumulator,
     M::SparseMatrixCSC,
     I::Vector{Int},
     b::AbstractBasis,
@@ -566,6 +633,24 @@ function colmn!(
     basis_workspace=_basis_index_workspace(opt.B),
 )
     b, M, I = opt.B, opt.M, opt.I
+    r = change!(b, j, dgt)
+    scaled = isone(r) ? scale : scale / r
+    for i = 1:length(M)
+        colmn!(target, M[i], I[i], b, dgt, coeff, scaled, basis_workspace)
+    end
+end
+
+function colmn!(
+    target::SparseTripletAccumulator,
+    opt::Operator,
+    j::Integer,
+    dgt::AbstractVector,
+    coeff=1,
+    scale=1,
+    basis_workspace=_basis_index_workspace(opt.B),
+)
+    b, M, I = opt.B, opt.M, opt.I
+    target.col = j
     r = change!(b, j, dgt)
     scaled = isone(r) ? scale : scale / r
     for i = 1:length(M)

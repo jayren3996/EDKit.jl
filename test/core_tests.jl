@@ -68,6 +68,43 @@
         @test Bsym.G.s == initial_state
     end
 
+    @testset "Explicit sparse operator construction matches dense reference" begin
+        Lsmall = 4
+        Nsmall = 2
+        conserving_bond = spin((1.0, "+-"), (1.0, "-+"), (0.2, "zz"))
+        custom_shift = [2, 3, 4, 1]
+        sparse_basis_cases = [
+            TensorBasis(L = Lsmall, base = 2),
+            ProjectedBasis(L = Lsmall, N = Nsmall, threaded = false),
+            TranslationalBasis(L = Lsmall, N = Nsmall, k = 0, threaded = false),
+            basis(L = Lsmall, N = Nsmall, k = 0, p = 1, z = 1, threaded = false),
+            basis(L = Lsmall, N = Nsmall, symmetries = [(custom_shift, 0)], threaded = false),
+        ]
+
+        for (case_id, Bcase) in enumerate(sparse_basis_cases)
+            iszero(size(Bcase, 1)) && continue
+            Hcase = trans_inv_operator(conserving_bond, 2, Bcase)
+            dense = Array(Hcase)
+            Mcase = random_matrix(size(Hcase, 2), 2; rng=stable_rng(400 + case_id))
+            @test sparse(Hcase) ≈ sparse(dense)
+            clear_sparse_cache!()
+            @test sparse!(Hcase) ≈ sparse(dense)
+            @test Hcase * Mcase ≈ dense * Mcase
+            clear_sparse_cache!()
+        end
+
+        Hduplicate = operator([spin("z"), spin("z")], [[1], [2]], TensorBasis(L = 2, base = 2))
+        @test sparse(Hduplicate) ≈ sparse(Array(Hduplicate))
+
+        Hlarge_duplicate = operator(
+            [spin("z"), 2 * spin("z"), -0.5 * spin("z")],
+            [[1], [1], [1]],
+            TensorBasis(L = 4, base = 2),
+        )
+        @test eltype(sparse(Hlarge_duplicate)) == eltype(Hlarge_duplicate)
+        @test sparse(Hlarge_duplicate) ≈ sparse(Array(Hlarge_duplicate))
+    end
+
     B = TensorBasis(L = L, base = 2)
     state = productstate([0, 1, 0, 1], B)
     @test count(!iszero, state) == 1
