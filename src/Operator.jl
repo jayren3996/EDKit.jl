@@ -197,10 +197,16 @@ This is useful when you want control over the output array type or want to reuse
 existing storage instead of calling `Array(opt)` or `sparse(opt)`.
 """
 function addto!(M::AbstractMatrix, opt::Operator)
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:size(opt.B, 2)
-        colmn!(view(M, :, j), opt, j, dgt, 1, 1, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:size(opt.B, 2)
+            colmn!(view(M, :, j), opt, j, 1, 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:size(opt.B, 2)
+            colmn!(view(M, :, j), opt, j, dgt, 1, 1, basis_workspace)
+        end
     end
     M
 end
@@ -241,10 +247,16 @@ function SparseArrays.sparse(opt::Operator)
     Tv = eltype(opt)
     rows = SparseTripletAccumulator(Tv; sizehint=_sparse_triplet_sizehint(opt))
     if size(opt, 1) > 0 && size(opt, 2) > 0
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(opt, 2)
-            colmn!(rows, opt, j, dgt, 1, 1, basis_workspace)
+        if _has_tensor_base2_kernel(opt)
+            for j = 1:size(opt, 2)
+                colmn!(rows, opt, j, 1, 1)
+            end
+        else
+            dgt = similar(opt.B.dgt)
+            basis_workspace = _basis_index_workspace(opt.B)
+            for j = 1:size(opt, 2)
+                colmn!(rows, opt, j, dgt, 1, 1, basis_workspace)
+            end
         end
     end
     SparseArrays.sparse(rows.rows, rows.cols, rows.vals, size(opt, 1), size(opt, 2))
@@ -346,10 +358,16 @@ Returns:
 This is the single-threaded in-place application path underlying `opt * v`.
 """
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:length(v)
-        colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:length(v)
+            colmn!(target, opt, j, v[j], 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:length(v)
+            colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
+        end
     end
     target
 end
@@ -357,10 +375,16 @@ end
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector, α::Number, β::Number)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:length(v)
-        colmn!(target, opt, j, dgt, α * v[j], 1, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:length(v)
+            colmn!(target, opt, j, α * v[j], 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:length(v)
+            colmn!(target, opt, j, dgt, α * v[j], 1, basis_workspace)
+        end
     end
     target
 end
@@ -449,10 +473,16 @@ end
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     target = zeros(ctype, size(opt, 1))
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:length(v)
-        colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:length(v)
+            colmn!(target, opt, j, v[j], 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:length(v)
+            colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
+        end
     end
     target
 end
@@ -515,6 +545,34 @@ end
 @inline _index_in_basis(b::AbstractBasis, dgt::AbstractVector, workspace) = index(b, dgt)
 @inline _index_in_basis(b::AbelianBasis, dgt::AbstractVector, workspace::AbelianOperator) =
     index(b, dgt, workspace)
+
+@inline _has_tensor_base2_kernel(opt::Operator) = _has_tensor_base2_kernel(opt.B)
+@inline _has_tensor_base2_kernel(::AbstractBasis) = false
+@inline _has_tensor_base2_kernel(b::TensorBasis) = b.B == 2
+
+@inline function _tensor_base2_local_index(state::Integer, I::Vector{Int}, L::Integer)
+    local_index = 0
+    @inbounds for site in I
+        local_index = (local_index << 1) | ((state >> (L - site)) & 1)
+    end
+    local_index + 1
+end
+
+@inline function _tensor_base2_replace(state::Integer, I::Vector{Int}, row::Integer, L::Integer)
+    row_state = state
+    local_row = row - 1
+    @inbounds for p = length(I):-1:1
+        site = I[p]
+        mask = 1 << (L - site)
+        if iszero(local_row & 1)
+            row_state &= ~mask
+        else
+            row_state |= mask
+        end
+        local_row >>= 1
+    end
+    row_state + 1
+end
 #---------------------------------------------------------------------------------------------------
 """
     colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff=1)
@@ -605,6 +663,25 @@ function _colmn_row!(
     change && change!(dgt, I, j, base=b.B)
     nothing
 end
+
+function colmn!(
+    target::Union{AbstractVector,SparseTripletAccumulator},
+    M::SparseMatrixCSC,
+    I::Vector{Int},
+    b::TensorBasis,
+    state::Integer,
+    coeff=1,
+    scale=1,
+)
+    rows, vals = rowvals(M), nonzeros(M)
+    L = length(b.dgt)
+    j = _tensor_base2_local_index(state, I, L)
+    @inbounds for i in nzrange(M, j)
+        pos = _tensor_base2_replace(state, I, rows[i], L)
+        _accumulate!(target, pos, 1, vals[i], coeff, scale)
+    end
+    nothing
+end
 #---------------------------------------------------------------------------------------------------
 """
     colmn!(target, opt::Operator, j, coeff=1)
@@ -656,6 +733,26 @@ function colmn!(
     for i = 1:length(M)
         colmn!(target, M[i], I[i], b, dgt, coeff, scaled, basis_workspace)
     end
+end
+
+function colmn!(
+    target::Union{AbstractVector,SparseTripletAccumulator},
+    opt::Operator{Tv,<:TensorBasis},
+    j::Integer,
+    coeff=1,
+    scale=1,
+) where {Tv}
+    b, M, I = opt.B, opt.M, opt.I
+    if b.B != 2
+        dgt = similar(b.dgt)
+        return colmn!(target, opt, j, dgt, coeff, scale, nothing)
+    end
+    target isa SparseTripletAccumulator && (target.col = j)
+    state = j - 1
+    for i = 1:length(M)
+        colmn!(target, M[i], I[i], b, state, coeff, scale)
+    end
+    nothing
 end
 
 function _colmn_row!(

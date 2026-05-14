@@ -105,6 +105,32 @@
         @test sparse(Hlarge_duplicate) ≈ sparse(Array(Hlarge_duplicate))
     end
 
+    @testset "TensorBasis base-2 operator application matches independent dense embedding" begin
+        Lfast = 5
+        Bfast = TensorBasis(L = Lfast, base = 2)
+        mats = [
+            spin((1.0, "xx"), (0.7, "yy"), (0.3, "zz")),
+            spin((0.4, "x"), (0.2im, "y"), (-0.1, "z")),
+            spin((0.6, "+-"), (-0.5, "-+"), (0.25, "zz")),
+        ]
+        inds = [[1, 2], [4], [5, 1]]
+        Hfast = operator(mats, inds, Bfast)
+        dense_ref = sum(dense_local_embedding(mats[i], inds[i], Lfast; base = 2) for i in eachindex(mats))
+        vfast = random_vector(size(Hfast, 2); rng=stable_rng(501))
+
+        @test Hfast * vfast ≈ dense_ref * vfast
+
+        target = similar(vfast, size(Hfast, 1))
+        mul!(target, Hfast, vfast, 1, 0)
+        @test target ≈ dense_ref * vfast
+
+        @test sparse(Hfast) ≈ sparse(dense_ref)
+        @test Array(Hfast) ≈ dense_ref
+
+        mul!(target, Hfast, vfast, 1, 0)
+        @test (@allocated mul!(target, Hfast, vfast, 1, 0)) < sizeof(Int) * length(Bfast)
+    end
+
     B = TensorBasis(L = L, base = 2)
     state = productstate([0, 1, 0, 1], B)
     @test count(!iszero, state) == 1
