@@ -182,7 +182,7 @@ Outputs:
 --------
 - `S`: Matrix S in the decomposition: |v⟩ = Sᵢⱼ |Aᵢ⟩|Bⱼ⟩.
 """
-function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractOnsiteBasis; B1=nothing, B2=nothing)
+function _generic_onsite_schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractOnsiteBasis, B1, B2)
     dgt = similar(b.dgt)
     S = schmidtmatrix(eltype(v), b, Ainds, B1, B2; dgt)
     for i = 1:length(v)
@@ -190,6 +190,53 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Abstrac
         addto!(S, v[i])
     end
     S.M
+end
+
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractOnsiteBasis; B1=nothing, B2=nothing)
+    _generic_onsite_schmidt(v, Ainds, b, B1, B2)
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+Schmidt decomposition specialized to the full [`TensorBasis`](@ref).
+
+When the subsystem bases are the default tensor-product bases, this reshapes the
+state vector into the full product tensor and permutes axes into `(A, B)` order
+instead of iterating over product states. Custom `B1` or `B2` arguments keep the
+generic onsite assembly path.
+"""
+function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::TensorBasis; B1=nothing, B2=nothing)
+    if !isnothing(B1) || !isnothing(B2)
+        return _generic_onsite_schmidt(v, Ainds, b, B1, B2)
+    end
+
+    L = length(b)
+    base = b.B
+    if _is_contiguous_site_block(Ainds)
+        nA = length(Ainds)
+        firstA = isempty(Ainds) ? 1 : first(Ainds)
+        lastA = isempty(Ainds) ? 0 : last(Ainds)
+        nright = L - lastA
+        nleft = firstA - 1
+        iszero(nleft) && return permutedims(reshape(v, base^nright, base^nA))
+        iszero(nright) && return reshape(copy(v), base^nA, base^nleft)
+        tensor = reshape(v, base^nright, base^nA, base^nleft)
+        return reshape(permutedims(tensor, (2, 1, 3)), base^nA, base^(L - nA))
+    end
+
+    Binds = [i for i in 1:L if !in(i, Ainds)]
+    site_to_dim(site) = L - site + 1
+    perm = vcat(site_to_dim.(reverse(Ainds)), site_to_dim.(reverse(Binds)))
+    tensor = reshape(v, ntuple(_ -> base, L))
+    reshape(permutedims(tensor, perm), base^length(Ainds), base^length(Binds))
+end
+
+function _is_contiguous_site_block(Ainds::AbstractVector{<:Integer})
+    isempty(Ainds) && return true
+    start = first(Ainds)
+    for (offset, site) in enumerate(Ainds)
+        site == start + offset - 1 || return false
+    end
+    true
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """

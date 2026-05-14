@@ -5,6 +5,32 @@
         @test EDKit.entropy([0.0, 0.5, 0.5]; α = 0) ≈ log(2)
     end
 
+    function generic_tensor_schmidt_reference(v::AbstractVector, Ainds::AbstractVector{<:Integer}, B::TensorBasis)
+        dgt = similar(B.dgt)
+        S = EDKit.schmidtmatrix(eltype(v), B, Ainds; dgt)
+        for i in eachindex(v)
+            EDKit.change!(B, i, dgt)
+            EDKit.addto!(S, v[i])
+        end
+        S.M
+    end
+
+    @testset "TensorBasis Schmidt reshape path matches generic assembly" begin
+        for L in 2:5, base in 2:3
+            B = TensorBasis(L = L, base = base)
+            v = randn(ComplexF64, size(B, 1)) + im * randn(ComplexF64, size(B, 1))
+            cuts = Any[
+                collect(1:max(1, L ÷ 2)),
+                collect(max(1, L ÷ 2 + 1):L),
+                collect(1:2:L),
+                reverse(collect(1:max(1, L ÷ 2))),
+            ]
+            for Ainds in cuts
+                @test EDKit.schmidt(v, Ainds, B) ≈ generic_tensor_schmidt_reference(v, Ainds, B)
+            end
+        end
+    end
+
     function entropy_spectrum(B::AbstractBasis, mat::AbstractMatrix; cut = 1:length(B) ÷ 2)
         vals, vecs = eigen(Hermitian(trans_inv_operator(mat, 2, B)))
         sort([ent_S(vecs[:, i], collect(cut), B) for i in axes(vecs, 2)])
