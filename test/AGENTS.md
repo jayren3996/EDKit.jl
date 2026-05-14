@@ -7,13 +7,19 @@
 ## Test Map
 
 - `core_tests.jl`: operators, spin helpers, dense/sparse conversion, toolkit
-- `basis_tests.jl`: core basis constructors and symmetry decomposition
-- `AbelianBasisTest.jl`, `abelian_overhaul_tests.jl`: Abelian and
-  permutation-based symmetry coverage
+- `basis_tests.jl`: core basis constructors, threaded constructor parity,
+  empty-sector behavior, and symmetry decomposition
+- `abelian_overhaul_tests.jl`: Abelian internals, permutation-based symmetry
+  coverage, custom symmetries, and two-dimensional lattice sectors
 - `entanglement_tests.jl`: entropy and Schmidt checks across sectors
-- `itensor_tests.jl`, `TensorTest.jl`: ITensor, Pauli-space, and MPS coverage
-- `lindblad_tests.jl`, `advanced_tests.jl`: algorithms and higher-level
-  integration
+- `advanced_tests.jl`: linear maps, symmetrizers, and higher-level integration
+- `lindblad_tests.jl`: Lindblad and quadratic Lindblad dynamics
+- `itensor_tests.jl`: ITensor, Pauli-space, and MPS coverage
+- `timeevolve_tests.jl`: adaptive Krylov time evolution
+- `lindblad_timeevolve_tests.jl`: adaptive Lindblad Arnoldi time evolution
+- `MultiThreadsTest.jl`: standalone threaded PXP check; the default case is
+  small, and the original heavy `L = 28` case is gated by
+  `EDKIT_SLOW_TESTS=1`
 
 ## Preferred Verification
 

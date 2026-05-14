@@ -69,6 +69,8 @@ This helper is used pervasively by reduced bases to locate canonical
 representatives inside their stored index arrays without a linear scan.
 """
 function binary_search(list::AbstractVector{<:Integer}, i::Integer)
+    isempty(list) && return 0
+
     l::Int = 1
     r::Int = length(list)
     c::Int = (l + r) ÷ 2

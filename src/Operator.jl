@@ -170,8 +170,9 @@ existing storage instead of calling `Array(opt)` or `sparse(opt)`.
 """
 function addto!(M::AbstractMatrix, opt::Operator)
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:size(opt.B, 2)
-        colmn!(view(M, :, j), opt, j, dgt)
+        colmn!(view(M, :, j), opt, j, dgt, 1, 1, basis_workspace)
     end
     M
 end
@@ -313,8 +314,9 @@ This is the single-threaded in-place application path underlying `opt * v`.
 """
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:length(v)
-        colmn!(target, opt, j, dgt, v[j])
+        colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
     end
     target
 end
@@ -323,8 +325,9 @@ function mul!(target::AbstractVector, opt::Operator, v::AbstractVector, α::Numb
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:length(v)
-        colmn!(target, opt, j, dgt, α * v[j])
+        colmn!(target, opt, j, dgt, α * v[j], 1, basis_workspace)
     end
     target
 end
@@ -340,8 +343,9 @@ method follows `target = α * opt * m + β * target`.
 """
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:size(m, 1)
-        _colmn_row!(target, opt, j, dgt, m, j)
+        _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
     end
     target
 end
@@ -350,8 +354,9 @@ function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Numb
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:size(m, 1)
-        _colmn_row!(target, opt, j, dgt, m, j, α)
+        _colmn_row!(target, opt, j, dgt, m, j, α, basis_workspace)
     end
     target
 end
@@ -373,8 +378,9 @@ function mul(opt::Operator, v::AbstractVector)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
         dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
         for j in ni[i]
-            colmn!(Ms[i], opt, j, dgt, v[j])
+            colmn!(Ms[i], opt, j, dgt, v[j], 1, basis_workspace)
         end
     end
     target = Ms[1]
@@ -395,8 +401,9 @@ function mul(opt::Operator, m::AbstractMatrix)
     Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
     Threads.@threads for i in 1:nt
         dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
         for j in ni[i]
-            _colmn_row!(Ms[i], opt, j, dgt, m, j)
+            _colmn_row!(Ms[i], opt, j, dgt, m, j, 1, basis_workspace)
         end
     end
     target = Ms[1]
@@ -410,8 +417,9 @@ function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     target = zeros(ctype, size(opt, 1))
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:length(v)
-        colmn!(target, opt, j, dgt, v[j])
+        colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
     end
     target
 end
@@ -424,8 +432,9 @@ function *(opt::Operator, m::AbstractMatrix)
     end
     target = zeros(ctype, size(opt, 1), size(m, 2))
     dgt = similar(opt.B.dgt)
+    basis_workspace = _basis_index_workspace(opt.B)
     for j = 1:size(m, 1)
-        _colmn_row!(target, opt, j, dgt, m, j)
+        _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
     end
     target
 end
@@ -456,6 +465,13 @@ end
         target[pos, k] += cv * m[row, k]
     end
 end
+
+@inline _basis_index_workspace(::AbstractBasis) = nothing
+@inline _basis_index_workspace(b::AbelianBasis) = deepcopy(b.G)
+
+@inline _index_in_basis(b::AbstractBasis, dgt::AbstractVector, workspace) = index(b, dgt)
+@inline _index_in_basis(b::AbelianBasis, dgt::AbstractVector, workspace::AbelianOperator) =
+    index(b, dgt, workspace)
 #---------------------------------------------------------------------------------------------------
 """
     colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, coeff=1)
@@ -474,14 +490,23 @@ end
 Thread-safe variant of the local-term application that uses the supplied digit
 buffer `dgt` instead of `b.dgt`.
 """
-function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, dgt::AbstractVector, coeff=1, scale=1)
+function colmn!(
+    target::AbstractVecOrMat,
+    M::SparseMatrixCSC,
+    I::Vector{Int},
+    b::AbstractBasis,
+    dgt::AbstractVector,
+    coeff=1,
+    scale=1,
+    basis_workspace=_basis_index_workspace(b),
+)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(dgt, I, base=b.B)
     change = false
     @inbounds for i in nzrange(M, j)
         row, val = rows[i], vals[i]
         change!(dgt, I, row, base=b.B)
-        C, pos = index(b, dgt)
+        C, pos = _index_in_basis(b, dgt, basis_workspace)
         _accumulate!(target, pos, C, val, coeff, scale)
         change = true
     end
@@ -489,14 +514,24 @@ function colmn!(target::AbstractVecOrMat, M::SparseMatrixCSC, I::Vector{Int}, b:
     nothing
 end
 
-function _colmn_row!(target::AbstractMatrix, M::SparseMatrixCSC, I::Vector{Int}, b::AbstractBasis, dgt::AbstractVector, m::AbstractMatrix, row, scale=1)
+function _colmn_row!(
+    target::AbstractMatrix,
+    M::SparseMatrixCSC,
+    I::Vector{Int},
+    b::AbstractBasis,
+    dgt::AbstractVector,
+    m::AbstractMatrix,
+    row,
+    scale=1,
+    basis_workspace=_basis_index_workspace(b),
+)
     rows, vals = rowvals(M), nonzeros(M)
     j = index(dgt, I, base=b.B)
     change = false
     @inbounds for i in nzrange(M, j)
         local_row, val = rows[i], vals[i]
         change!(dgt, I, local_row, base=b.B)
-        C, pos = index(b, dgt)
+        C, pos = _index_in_basis(b, dgt, basis_workspace)
         _accumulate_row!(target, pos, C, val, m, row, scale)
         change = true
     end
@@ -521,21 +556,38 @@ end
 
 Thread-safe variant that uses the supplied digit buffer `dgt`.
 """
-function colmn!(target::AbstractVecOrMat, opt::Operator, j::Integer, dgt::AbstractVector, coeff=1, scale=1)
+function colmn!(
+    target::AbstractVecOrMat,
+    opt::Operator,
+    j::Integer,
+    dgt::AbstractVector,
+    coeff=1,
+    scale=1,
+    basis_workspace=_basis_index_workspace(opt.B),
+)
     b, M, I = opt.B, opt.M, opt.I
     r = change!(b, j, dgt)
     scaled = isone(r) ? scale : scale / r
     for i = 1:length(M)
-        colmn!(target, M[i], I[i], b, dgt, coeff, scaled)
+        colmn!(target, M[i], I[i], b, dgt, coeff, scaled, basis_workspace)
     end
 end
 
-function _colmn_row!(target::AbstractMatrix, opt::Operator, j::Integer, dgt::AbstractVector, m::AbstractMatrix, row, scale=1)
+function _colmn_row!(
+    target::AbstractMatrix,
+    opt::Operator,
+    j::Integer,
+    dgt::AbstractVector,
+    m::AbstractMatrix,
+    row,
+    scale=1,
+    basis_workspace=_basis_index_workspace(opt.B),
+)
     b, M, I = opt.B, opt.M, opt.I
     r = change!(b, j, dgt)
     scaled = isone(r) ? scale : scale / r
     for i = 1:length(M)
-        _colmn_row!(target, M[i], I[i], b, dgt, m, row, scaled)
+        _colmn_row!(target, M[i], I[i], b, dgt, m, row, scaled, basis_workspace)
     end
 end
 
