@@ -96,6 +96,18 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
             @test all(ag.inv[1])
         end
 
+        @testset "Mixed permutation-inversion period" begin
+            perm = [2, 1]
+            inv_mask = BitVector([true, false])
+            ag = AbelianOperator(4, 0, perm; inv=inv_mask)
+            dgt = [0, 1]
+            original = copy(dgt)
+            for _ in 1:4
+                ag(dgt, 2)
+            end
+            @test dgt == original
+        end
+
         @testset "Combination (direct product)" begin
             L = 6
             perm_t = Vector{Int}(undef, L)
@@ -131,6 +143,12 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
                 ag(dgt, 2)
             end
             @test dgt == original
+        end
+
+        @testset "Reject invalid generator definitions" begin
+            @test_throws Exception AbelianOperator(4, 0, [1, 2, 2, 4])
+            @test_throws Exception AbelianOperator(3, 0, [2, 3, 4, 1])
+            @test_throws Exception AbelianOperator(4, 0, [2, 3, 4, 1]; inv=trues(3))
         end
     end
 
@@ -241,6 +259,10 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
             # L=8, N=4: C(8,4) = 70
             result8 = _gosper_enumerate(8, 4)
             @test length(result8) == 70
+
+            @test_throws Exception _gosper_enumerate(64, 1)
+            @test_throws Exception basis(; L=64, N=63, k=0, threaded=false)
+            @test_throws Exception compile_benes(collect(1:65), 65)
         end
 
         @testset "Fixed-N path respects extra predicate" begin
@@ -335,6 +357,19 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
         B2 = basis(L=L, symmetries=[(perm_t, 0)])
         @test size(B1) == size(B2)
         @test B1.I == B2.I
+
+        @testset "Reject invalid custom symmetry inputs" begin
+            @test_throws Exception basis(; L=4, symmetries=[([1, 2, 2, 4], 0)])
+            @test_throws Exception basis(; L=4, symmetries=[([1, 2, 3], 0)])
+            @test_throws Exception basis(; L=4, symmetries=[([1, 2, 3, 4, 5], 0)])
+            @test_throws Exception basis(; L=4, symmetries=[([2, 3, 4, 1], 0, trues(3))])
+            @test_throws Exception basis(; L=4, symmetries=[([2, 3, 4, 1], 0, falses(4), :bad)])
+
+            T = [4, 1, 2, 3]
+            P = [4, 3, 2, 1]
+            @test_throws Exception basis(; L=4, symmetries=[(T, 0), (P, 0)])
+            @test size(basis(; L=4, symmetries=[(T, 0), (P, 0)], allow_noncommuting_symmetries=true), 1) > 0
+        end
     end
 
     @testset "2D Lattice Symmetries" begin
@@ -396,6 +431,9 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
             push!(bonds2, (i, mod(x + 1, Lx2) + Lx2 * y + 1))
             push!(bonds2, (i, x + Lx2 * mod(y + 1, Ly2) + 1))
         end
+        unique_bonds2 = Set(minmax(i, j) for (i, j) in bonds2)
+        @test length(bonds2) == 12
+        @test length(unique_bonds2) == 9
 
         H2_full = operator([XXZ for _ in bonds2], [[b[1], b[2]] for b in bonds2], L2)
         full_vals2 = eigvals(Hermitian(Array(H2_full))) |> sort
@@ -408,6 +446,24 @@ import EDKit: compile_benes, apply_benes, apply_perm_int, BenesNetwork,
             append!(vals2, eigvals(Hermitian(Array(H))))
         end
         @test sort(vals2) ≈ full_vals2
+
+        @testset "2D momentum phase convention" begin
+            Bkx = basis(; L=L2, base=2, symmetries=[(T_x2, 1), (T_y2, 0)])
+            embed = symmetrizer(DoubleBasis(TensorBasis(; L=L2, base=2), Bkx))
+            phase_x = exp(2π * im / Lx2)
+
+            permuted = similar(embed)
+            dgt = zeros(Int, L2)
+            tmp = similar(dgt)
+            fill!(permuted, 0)
+            for j in 1:size(embed, 1)
+                change!(dgt, j; base=2)
+                apply_perm!(dgt, T_x2, tmp)
+                jp = index(dgt; base=2)
+                permuted[jp, :] .= embed[j, :]
+            end
+            @test permuted ≈ phase_x .* embed
+        end
     end
 
     @testset "Threaded custom symmetries match serial construction" begin

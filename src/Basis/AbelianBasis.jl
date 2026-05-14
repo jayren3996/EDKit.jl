@@ -26,6 +26,9 @@ representation site `i` occupies bit `L-i` (big-endian, matching EDKit's
 `index()`), so the bit at position `L-i` moves to position `L-j`.
 """
 function compile_benes(perm::Vector{Int}, L::Int)
+    L <= 64 || error("Benes integer permutation path requires L <= 64, got L=$L")
+    _validate_perm(perm, L)
+
     # Build bit-level permutation: bit_perm[bit_src+1] = bit_dst (0-indexed bits)
     bit_perm = Vector{Int}(undef, L)
     for i in 1:L
@@ -108,22 +111,75 @@ Compute the period of a combined permutation + inversion operation.
 """
 function _compute_period(perm::Vector{Int}, inv::BitVector)
     L = length(perm)
-    pos = collect(1:L)
-    flipped = falses(L)
-    for p in 1:max(2*L*L, 100)
-        new_pos = similar(pos)
-        new_flipped = similar(flipped)
-        for i in 1:L
-            new_pos[i] = perm[pos[i]]
-            new_flipped[i] = flipped[i] ⊻ inv[pos[i]]
+    _validate_perm(perm, L)
+    _validate_inv(inv, L)
+
+    period = 1
+    visited = falses(L)
+    for start in 1:L
+        visited[start] && continue
+
+        len = 0
+        flip_parity = false
+        pos = start
+        while !visited[pos]
+            visited[pos] = true
+            len += 1
+            pos = perm[pos]
+            flip_parity ⊻= inv[pos]
         end
-        pos .= new_pos
-        flipped .= new_flipped
-        if pos == collect(1:L) && !any(flipped)
-            return p
-        end
+
+        period = lcm(period, flip_parity ? 2len : len)
     end
-    error("Period computation failed")
+    period
+end
+
+function _validate_perm(perm::AbstractVector{<:Integer}, L::Integer=length(perm))
+    length(perm) == L ||
+        error("Permutation length $(length(perm)) does not match L=$L")
+
+    seen = falses(L)
+    for p in perm
+        1 <= p <= L ||
+            error("Permutation entries must be integers in 1:$L")
+        seen[p] &&
+            error("Permutation entries must be unique")
+        seen[p] = true
+    end
+    nothing
+end
+
+function _validate_inv(inv::AbstractVector, L::Integer)
+    length(inv) == L ||
+        error("Inversion mask length $(length(inv)) does not match L=$L")
+    nothing
+end
+
+function _commute_affine(
+    p::Vector{Int}, invp::BitVector,
+    q::Vector{Int}, invq::BitVector
+)
+    L = length(p)
+    for i in 1:L
+        pos_pq = q[p[i]]
+        pos_qp = p[q[i]]
+        pos_pq == pos_qp || return false
+
+        flip_pq = invp[p[i]] ⊻ invq[pos_pq]
+        flip_qp = invq[q[i]] ⊻ invp[pos_qp]
+        flip_pq == flip_qp || return false
+    end
+    true
+end
+
+function _validate_commuting_generators!(
+    perms::Vector{Vector{Int}}, invs::Vector{BitVector}
+)
+    for i in eachindex(perms), j in i+1:length(perms)
+        _commute_affine(perms[i], invs[i], perms[j], invs[j]) ||
+            error("Custom symmetry generators must commute pairwise; pass allow_noncommuting_symmetries=true only for known compatible sectors")
+    end
+    nothing
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -166,6 +222,14 @@ Returns:
 """
 function AbelianOperator(order::Int, k::Integer, perm::Vector{Int}; inv=falses(length(perm)))
     L = length(perm)
+    order > 0 || error("Generator order must be positive")
+    _validate_perm(perm, L)
+    inv_bv = BitVector(inv)
+    _validate_inv(inv_bv, L)
+    actual_order = _compute_period(perm, inv_bv)
+    actual_order == order ||
+        error("Generator order $order does not match actual action period $actual_order")
+
     c = if iszero(k)
         ones(order)
     elseif 2k == order
@@ -174,18 +238,15 @@ function AbelianOperator(order::Int, k::Integer, perm::Vector{Int}; inv=falses(l
         phase = 1im * 2π * k / order
         [exp(phase * j) for j in 0:order-1]
     end
-    inv_bv = BitVector(inv)
-    # Try to compile a Benes network if no inversion is needed
-    bn = try
-        compile_benes(perm, L)
-    catch
-        nothing
-    end
+    bn = L <= 64 ? compile_benes(perm, L) : nothing
+
     # Precompute inversion mask for base=2: XOR mask with 1s at inverted sites
     inv_mask = UInt64(0)
-    for i in 1:L
-        if inv_bv[i]
-            inv_mask |= UInt64(1) << (L - i)
+    if L <= 64
+        for i in 1:L
+            if inv_bv[i]
+                inv_mask |= UInt64(1) << (L - i)
+            end
         end
     end
     benes_vec = Union{Nothing, BenesNetwork}[bn]
@@ -476,6 +537,7 @@ Return a sorted vector of all 1-based indices whose 0-based representation
 has exactly `N` set bits among `L` bits.
 """
 function _gosper_enumerate(L::Int, N::Int)
+    L <= 62 || error("Gosper UInt64 enumeration stores Int indices and requires L <= 62, got L=$L")
     N == 0 && return [1]  # only state 0 -> 1-based index 1
     N == L && return [Int(UInt64(1) << L)]  # all bits set -> 2^L (1-based: 2^L - 1 + 1)
 
@@ -536,7 +598,7 @@ function AbelianBasis(
     # Dispatch between construction paths
     Ndigits = isnothing(N) ? nothing : L * (base - 1) - N
     use_gosper = (base == 2 && Ndigits !== nothing && 0 <= Ndigits <= L)
-    use_int_path = (base == 2 && _has_all_benes(G))
+    use_int_path = (base == 2 && L <= 62 && _has_all_benes(G))
 
     I, R = if use_gosper && use_int_path
         # Path 1: Gosper + integer orbit search
@@ -687,7 +749,7 @@ function index(B::AbelianBasis, dgt::AbstractVector)
 end
 
 function index(B::AbelianBasis, dgt::AbstractVector, G::AbelianOperator)
-    if B.B == 2 && _has_all_benes(G)
+    if B.B == 2 && length(dgt) <= 62 && _has_all_benes(G)
         # Integer path for base=2
         state = UInt64(0)
         L = length(dgt)
@@ -740,7 +802,7 @@ end
 #-------------------------------------------------------------------------------------------------------------------------
 export basis
 """
-    basis(dtype::DataType=Int64; L, f=nothing, base=2, N=nothing, k=nothing, a=1, p=nothing, z=nothing, symmetries=nothing, threaded=base^L>3000)
+    basis(dtype::DataType=Int64; L, f=nothing, base=2, N=nothing, k=nothing, a=1, p=nothing, z=nothing, symmetries=nothing, allow_noncommuting_symmetries=false, threaded=base^L>3000)
 
 High-level basis constructor for the common symmetry combinations supported by
 EDKit.
@@ -759,6 +821,9 @@ Keywords:
   and `inv` is an optional BitVector for spin inversion. The group order is
   auto-computed from the permutation period. This is the recommended entry point
   for 2D/3D lattice symmetries and other custom finite-lattice permutations.
+- `allow_noncommuting_symmetries`: opt-in escape hatch for known compatible
+  sectors of non-commuting custom generators. The default validates pairwise
+  commutation.
 
 Return value:
 - `TensorBasis` if no symmetry or constraint is requested.
@@ -772,7 +837,9 @@ Notes:
   systems, mirroring the restrictions of the dedicated basis types.
 - This is the most convenient user-facing entry point when you want to combine
   several commuting symmetries without manually choosing a concrete basis type.
-- The generators supplied through `symmetries` should commute pairwise.
+- The generators supplied through `symmetries` must be valid permutations of
+  `1:L`, have matching inversion-mask lengths, and commute pairwise unless
+  `allow_noncommuting_symmetries=true` is passed.
 
 Examples:
 ```julia
@@ -798,6 +865,7 @@ function basis(
     p::Union{Nothing, Integer}=nothing,
     z::Union{Nothing, Integer}=nothing,
     symmetries=nothing,
+    allow_noncommuting_symmetries::Bool=false,
     threaded::Bool=base^L>3000
 )
     if !isnothing(symmetries) && (!isnothing(k) || !isnothing(p) || !isnothing(z))
@@ -835,20 +903,40 @@ function basis(
 
     # Custom symmetries: (perm, q) or (perm, q, inv)
     if !isnothing(symmetries)
+        perms = Vector{Int}[]
+        invs = BitVector[]
+        qs = Int[]
         for sym in symmetries
             if length(sym) == 2
                 prm, kk = sym
                 prm_vec = Vector{Int}(prm)
+                length(prm_vec) == L ||
+                    error("Custom symmetry permutation length $(length(prm_vec)) does not match L=$L")
+                _validate_perm(prm_vec, L)
                 inv_bv = falses(length(prm_vec))
-                ord = _compute_period(prm_vec, inv_bv)
-                push!(gs, AbelianOperator(ord, kk, prm_vec))
+                push!(perms, prm_vec)
+                push!(invs, inv_bv)
+                push!(qs, kk)
             elseif length(sym) == 3
                 prm, kk, inv_flag = sym
                 prm_vec = Vector{Int}(prm)
+                length(prm_vec) == L ||
+                    error("Custom symmetry permutation length $(length(prm_vec)) does not match L=$L")
+                _validate_perm(prm_vec, L)
                 inv_bv = BitVector(inv_flag)
-                ord = _compute_period(prm_vec, inv_bv)
-                push!(gs, AbelianOperator(ord, kk, prm_vec; inv=inv_bv))
+                _validate_inv(inv_bv, L)
+                push!(perms, prm_vec)
+                push!(invs, inv_bv)
+                push!(qs, kk)
+            else
+                error("Custom symmetries must be (perm, q) or (perm, q, inv) tuples")
             end
+        end
+
+        allow_noncommuting_symmetries || _validate_commuting_generators!(perms, invs)
+        for i in eachindex(perms)
+            ord = _compute_period(perms[i], invs[i])
+            push!(gs, AbelianOperator(ord, qs[i], perms[i]; inv=invs[i]))
         end
     end
 

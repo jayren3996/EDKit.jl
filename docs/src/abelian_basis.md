@@ -55,8 +55,9 @@ g(dgt2, 4)
 ```
 
 The `order` argument must match the actual period of the action. If applying
-the generator `order` times does not return the digits to themselves, the basis
-construction is not describing the symmetry you think it is.
+the generator `order` times does not return the digits to themselves,
+`EDKit.AbelianOperator` throws an error instead of constructing a misleading
+generator.
 
 The `k` argument selects the character of that cyclic generator:
 
@@ -212,9 +213,15 @@ B = basis(; L, symmetries=[z_flip])
 ```
 
 Here the period is inferred from the action automatically, which is convenient
-for quick lattice constructions. The direct `EDKit.AbelianOperator` route is
-still the better documentation target when you are designing the symmetry action
-itself.
+for quick lattice constructions. The wrapper validates that every `perm` is a
+permutation of `1:L`, that each `inv` mask has length `L`, and that the custom
+generators commute pairwise. To deliberately use a known compatible sector of a
+non-commuting generator set, pass `allow_noncommuting_symmetries=true` and check
+the resulting sector against a full-space projection.
+
+For `base=2`, the fixed-`N` convention is `sum(dgt) == L - N`; that is, `N`
+counts digit-`0` sites. Keep this explicit when comparing against other
+libraries whose sector labels count the opposite digit or use magnetization.
 
 ## Performance
 
@@ -222,7 +229,7 @@ For `base=2` systems, several optimizations accelerate basis construction:
 
 - **Benes networks**: Permutations are compiled into bit-manipulation circuits for fast integer-state operations, avoiding digit-buffer overhead.
 - **Integer orbit search**: Canonical representatives are found by operating directly on integer states.
-- **Gosper's hack**: When particle number N is fixed, only states with exactly N particles are enumerated, reducing the search space by a factor of `2^L / binomial(L, N)`.
+- **Gosper's hack**: When `N` is fixed and `L <= 62`, only states in the requested fixed-`N` digit sector are enumerated, reducing the search space by a factor of `2^L / binomial(L, N)`.
 - **Multi-threading**: Basis construction is parallelized across available threads.
 
 ## Full Example: 2D Heisenberg Model
@@ -238,14 +245,19 @@ sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
 T_x = [mod(x+1, Lx) + Lx*y + 1 for (x,y) in sites]
 T_y = [x + Lx*mod(y+1, Ly) + 1 for (x,y) in sites]
 
-# Nearest-neighbor bonds
+# Unique undirected nearest-neighbor bonds
 J = spin((1.0, "xx"), (1.0, "yy"), (1.0, "zz"))
-bonds = Tuple{Int,Int}[]
+bonds = Set{Tuple{Int,Int}}()
 for (x, y) in sites
     i = x + Lx * y + 1
-    push!(bonds, (i, mod(x+1, Lx) + Lx*y + 1))
-    push!(bonds, (i, x + Lx*mod(y+1, Ly) + 1))
+    for j in (
+        mod(x+1, Lx) + Lx*y + 1,
+        x + Lx*mod(y+1, Ly) + 1,
+    )
+        push!(bonds, minmax(i, j))
+    end
 end
+bonds = collect(bonds)
 
 # Ground state in (kx=0, ky=0, N=L/2) sector
 B = basis(; L, N=L÷2, base=2, symmetries=[(T_x, 0), (T_y, 0)])

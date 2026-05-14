@@ -9,6 +9,26 @@
     BN = ProjectedBasis(L = L, N = Nhalf)
     @test size(BN, 1) == binomial(L, Nhalf)
 
+    @testset "Fixed-N uses EDKit digit convention" begin
+        dgt = zeros(Int, 4)
+
+        Bproj = ProjectedBasis(L = 4, N = 1, threaded = false)
+        @test size(Bproj, 1) == 4
+        for idx in Bproj.I
+            change!(dgt, idx; base = 2)
+            @test count(==(0), dgt) == 1
+            @test sum(dgt) == 3
+        end
+
+        shift = [4, 1, 2, 3]
+        Bsym = basis(; L = 4, N = 1, symmetries = [(shift, 0)], threaded = false)
+        for idx in Bsym.I
+            change!(dgt, idx; base = 2)
+            @test count(==(0), dgt) == 1
+            @test sum(dgt) == 3
+        end
+    end
+
     XXZ = spin((1.0, "xx"), (1.0, "yy"), (0.4, "zz"))
     full_vals = eigvals(Hermitian(trans_inv_operator(XXZ, 2, L))) |> sort
 

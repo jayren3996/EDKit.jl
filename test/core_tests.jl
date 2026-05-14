@@ -1,7 +1,13 @@
 @testset "Core Operators And Helpers" begin
     @test Array(spin("X")) ≈ [0 1; 1 0]
     @test Array(spin("Y")) ≈ [0 -1im; 1im 0]
+    @test Array(spin("X")) ≈ 2 .* Array(spin("x"))
+    @test Array(spin("Y")) ≈ 2 .* Array(spin("y"))
+    @test Array(spin("Z")) ≈ 2 .* Array(spin("z"))
     @test Array(spin("xx")) ≈ kron(Array(spin("x")), Array(spin("x")))
+    @test Array(spin("XX")) ≈ 4 .* Array(spin("xx"))
+    @test Array(spin("YY")) ≈ 4 .* Array(spin("yy"))
+    @test Array(spin("ZZ")) ≈ 4 .* Array(spin("zz"))
     @test Array(spin((1.0, "xx"), (1.0, "yy"), (0.5, "zz"))) ≈ Array(spin("xx") + spin("yy") + 0.5 * spin("zz"))
 
     L = 4

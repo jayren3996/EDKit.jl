@@ -29,6 +29,11 @@ Typical use cases:
 - constrained Hilbert spaces such as PXP/Rydberg blockade,
 - custom local constraints.
 
+For `base = 2`, EDKit's `N` convention counts digit-`0` sites. Equivalently,
+the selected digit strings satisfy `sum(dgt) == L - N`. This is useful to keep
+explicit when comparing against packages that label fixed sectors by spin-up
+digits or by magnetization.
+
 Examples:
 
 ```julia
@@ -138,9 +143,12 @@ Each tuple is `(perm, q)` or `(perm, q, inv)`:
 - `inv` is an optional `BitVector` marking sites whose local state should be
   complemented after the permutation.
 
-The only strict requirement is consistency: the same site ordering must be used
-for your symmetry generators, your operator site indices, and any lattice bonds
-you construct by hand.
+The custom generators are validated as permutations of `1:L` and must commute
+pairwise by default. If you intentionally work in a known compatible sector of
+a non-commuting symmetry set, pass `allow_noncommuting_symmetries=true` and
+verify the sector against a full-space projection. In all cases, the same site
+ordering must be used for symmetry generators, operator site indices, and any
+lattice bonds you construct by hand.
 
 The standalone page [General Abelian Symmetries](../abelian_basis.md) covers the
 low-level `EDKit.AbelianOperator` and `EDKit.AbelianBasis` workflow in more
