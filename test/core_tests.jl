@@ -112,23 +112,40 @@
             spin((1.0, "xx"), (0.7, "yy"), (0.3, "zz")),
             spin((0.4, "x"), (0.2im, "y"), (-0.1, "z")),
             spin((0.6, "+-"), (-0.5, "-+"), (0.25, "zz")),
+            spin((0.2, "xx"), (-0.4, "yy"), (0.15, "zz")),
         ]
-        inds = [[1, 2], [4], [5, 1]]
+        inds = [[1, 2], [4], [5, 1], [3, 1]]
         Hfast = operator(mats, inds, Bfast)
         dense_ref = sum(dense_local_embedding(mats[i], inds[i], Lfast; base = 2) for i in eachindex(mats))
         vfast = random_vector(size(Hfast, 2); rng=stable_rng(501))
+        Mfast = random_matrix(size(Hfast, 2), 4; rng=stable_rng(502))
 
         @test Hfast * vfast ≈ dense_ref * vfast
+        @test EDKit.mul(Hfast, vfast) ≈ dense_ref * vfast
+
+        clear_sparse_cache!()
+        @test Hfast * Mfast ≈ dense_ref * Mfast
+        @test EDKit.mul(Hfast, Mfast) ≈ dense_ref * Mfast
 
         target = similar(vfast, size(Hfast, 1))
         mul!(target, Hfast, vfast, 1, 0)
         @test target ≈ dense_ref * vfast
 
+        mtarget = similar(Mfast, size(Hfast, 1), size(Mfast, 2))
+        mul!(mtarget, Hfast, Mfast, 1, 0)
+        @test mtarget ≈ dense_ref * Mfast
+
         @test sparse(Hfast) ≈ sparse(dense_ref)
         @test Array(Hfast) ≈ dense_ref
 
+        @test sparse!(Hfast) ≈ sparse(dense_ref)
+        @test Hfast * Mfast ≈ dense_ref * Mfast
+        @test EDKit.mul(Hfast, Mfast) ≈ dense_ref * Mfast
+        clear_sparse_cache!()
+
         mul!(target, Hfast, vfast, 1, 0)
         @test (@allocated mul!(target, Hfast, vfast, 1, 0)) < sizeof(Int) * length(Bfast)
+        @test (@allocated mul!(mtarget, Hfast, Mfast, 1, 0)) < sizeof(Int) * length(Bfast)
     end
 
     B = TensorBasis(L = L, base = 2)

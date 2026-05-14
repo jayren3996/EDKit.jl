@@ -399,10 +399,16 @@ As for vectors, the three-argument method accumulates while the five-argument
 method follows `target = α * opt * m + β * target`.
 """
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:size(m, 1)
-        _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:size(m, 1)
+            _colmn_row!(target, opt, j, m, j, 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:size(m, 1)
+            _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
+        end
     end
     target
 end
@@ -410,10 +416,16 @@ end
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Number, β::Number)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:size(m, 1)
-        _colmn_row!(target, opt, j, dgt, m, j, α, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:size(m, 1)
+            _colmn_row!(target, opt, j, m, j, α)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:size(m, 1)
+            _colmn_row!(target, opt, j, dgt, m, j, α, basis_workspace)
+        end
     end
     target
 end
@@ -434,10 +446,16 @@ function mul(opt::Operator, v::AbstractVector)
     ni = dividerange(length(v), nt)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j in ni[i]
-            colmn!(Ms[i], opt, j, dgt, v[j], 1, basis_workspace)
+        if _has_tensor_base2_kernel(opt)
+            for j in ni[i]
+                colmn!(Ms[i], opt, j, v[j], 1)
+            end
+        else
+            dgt = similar(opt.B.dgt)
+            basis_workspace = _basis_index_workspace(opt.B)
+            for j in ni[i]
+                colmn!(Ms[i], opt, j, dgt, v[j], 1, basis_workspace)
+            end
         end
     end
     target = Ms[1]
@@ -457,10 +475,16 @@ function mul(opt::Operator, m::AbstractMatrix)
     ni = dividerange(size(m,1), nt)
     Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j in ni[i]
-            _colmn_row!(Ms[i], opt, j, dgt, m, j, 1, basis_workspace)
+        if _has_tensor_base2_kernel(opt)
+            for j in ni[i]
+                _colmn_row!(Ms[i], opt, j, m, j, 1)
+            end
+        else
+            dgt = similar(opt.B.dgt)
+            basis_workspace = _basis_index_workspace(opt.B)
+            for j in ni[i]
+                _colmn_row!(Ms[i], opt, j, dgt, m, j, 1, basis_workspace)
+            end
         end
     end
     target = Ms[1]
@@ -494,10 +518,16 @@ function *(opt::Operator, m::AbstractMatrix)
         return convert(Matrix{ctype}, S * m)
     end
     target = zeros(ctype, size(opt, 1), size(m, 2))
-    dgt = similar(opt.B.dgt)
-    basis_workspace = _basis_index_workspace(opt.B)
-    for j = 1:size(m, 1)
-        _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
+    if _has_tensor_base2_kernel(opt)
+        for j = 1:size(m, 1)
+            _colmn_row!(target, opt, j, m, j, 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        basis_workspace = _basis_index_workspace(opt.B)
+        for j = 1:size(m, 1)
+            _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
+        end
     end
     target
 end
@@ -664,6 +694,26 @@ function _colmn_row!(
     nothing
 end
 
+function _colmn_row!(
+    target::AbstractMatrix,
+    M::SparseMatrixCSC,
+    I::Vector{Int},
+    b::TensorBasis,
+    state::Integer,
+    m::AbstractMatrix,
+    row,
+    scale=1,
+)
+    rows, vals = rowvals(M), nonzeros(M)
+    L = length(b.dgt)
+    j = _tensor_base2_local_index(state, I, L)
+    @inbounds for i in nzrange(M, j)
+        pos = _tensor_base2_replace(state, I, rows[i], L)
+        _accumulate_row!(target, pos, 1, vals[i], m, row, scale)
+    end
+    nothing
+end
+
 function colmn!(
     target::Union{AbstractVector,SparseTripletAccumulator},
     M::SparseMatrixCSC,
@@ -771,6 +821,26 @@ function _colmn_row!(
     for i = 1:length(M)
         _colmn_row!(target, M[i], I[i], b, dgt, m, row, scaled, basis_workspace)
     end
+end
+
+function _colmn_row!(
+    target::AbstractMatrix,
+    opt::Operator{Tv,<:TensorBasis},
+    j::Integer,
+    m::AbstractMatrix,
+    row,
+    scale=1,
+) where {Tv}
+    b, M, I = opt.B, opt.M, opt.I
+    if b.B != 2
+        dgt = similar(b.dgt)
+        return _colmn_row!(target, opt, j, dgt, m, row, scale, nothing)
+    end
+    state = j - 1
+    for i = 1:length(M)
+        _colmn_row!(target, M[i], I[i], b, state, m, row, scale)
+    end
+    nothing
 end
 
 #---------------------------------------------------------------------------------------------------
