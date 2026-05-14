@@ -683,14 +683,18 @@ function index(B::AbelianBasis)
     index(B, B.dgt)
 end
 function index(B::AbelianBasis, dgt::AbstractVector)
-    if B.B == 2 && _has_all_benes(B.G)
+    index(B, dgt, B.G)
+end
+
+function index(B::AbelianBasis, dgt::AbstractVector, G::AbelianOperator)
+    if B.B == 2 && _has_all_benes(G)
         # Integer path for base=2
         state = UInt64(0)
         L = length(dgt)
         @inbounds for i in 1:L
             state = (state << 1) | UInt64(dgt[i])
         end
-        Im, g = shift_canonical_int(state, B.G, L)
+        Im, g = shift_canonical_int(state, G, L)
         ind = binary_search(B.I, Im)
         if iszero(ind)
             return zero(eltype(B)), one(eltype(B.I))
@@ -698,7 +702,7 @@ function index(B::AbelianBasis, dgt::AbstractVector)
             return phase(g) * B.R[ind], ind
         end
     else
-        Im, g = shift_canonical!(dgt, B.G; base=B.B)
+        Im, g = shift_canonical!(dgt, G; base=B.B)
         ind = binary_search(B.I, Im)
         if iszero(ind)
             return zero(eltype(B)), one(eltype(B.I))

@@ -1,43 +1,29 @@
-include("../src/EDKit.jl")
+using EDKit
 using LinearAlgebra
-using .EDKit
 using Test
-#-------------------------------------------------------------------------------------------------------------------------
-# Test Translational PXP
-#-------------------------------------------------------------------------------------------------------------------------
-@testset "Multi-threads Translational PXP" begin
-    L, k, p = 28, 0, 1
-    mat = begin
-        P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
-        X = [0 1; 1 0]
-        P * kron(I(2), X, I(2)) * P
-    end
-    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
-    println("--------------------------------------")
-    print("Single-threads:")
-    @time bs = TranslationalBasis(f=pxpf, k=k, L=L, threaded=false)
-    print("Multi-threads :")
-    @time bm = TranslationalBasis(f=pxpf, k=k, L=L, threaded=true)
-    @test bs.I == bm.I
-    @test norm(bs.R-bm.R) ≈ 0.0
+
+const RUN_SLOW_MULTITHREAD_TESTS = get(ENV, "EDKIT_SLOW_TESTS", "0") == "1"
+
+pxp_constraint(v::Vector{<:Integer}) =
+    all(v[i] == 0 || v[mod1(i + 1, length(v))] == 0 for i in eachindex(v))
+
+function assert_threaded_basis_matches_serial(serial, threaded)
+    @test threaded.I == serial.I
+    @test threaded.R ≈ serial.R
 end
 
-#-------------------------------------------------------------------------------------------------------------------------
-# Test Translational Parity PXP
-#-------------------------------------------------------------------------------------------------------------------------
-@testset "Multi-threads Translational Parity PXP" begin
-    L, k, p = 28, 0, 1
-    mat = begin
-        P = Diagonal([1, 1, 1, 0, 1, 1, 0, 0])
-        X = [0 1; 1 0]
-        P * kron(I(2), X, I(2)) * P
+@testset "Multi-threaded PXP basis construction" begin
+    L = RUN_SLOW_MULTITHREAD_TESTS ? 28 : 10
+
+    @testset "TranslationalBasis" begin
+        serial = TranslationalBasis(f = pxp_constraint, k = 0, L = L, threaded = false)
+        threaded = TranslationalBasis(f = pxp_constraint, k = 0, L = L, threaded = true)
+        assert_threaded_basis_matches_serial(serial, threaded)
     end
-    pxpf(v::Vector{<:Integer}) = all(v[i]==0 || v[mod(i, length(v))+1]==0 for i=1:length(v))
-    println("--------------------------------------")
-    print("Single-threads:")
-    @time bs = TranslationParityBasis(f=pxpf, k=k, p=p, L=L, threaded=false)
-    print("Multi-threads :")
-    @time bm = TranslationParityBasis(f=pxpf, k=k, p=p, L=L, threaded=true)
-    @test bs.I == bm.I
-    @test norm(bs.R-bm.R) ≈ 0.0
+
+    @testset "TranslationParityBasis" begin
+        serial = TranslationParityBasis(f = pxp_constraint, k = 0, p = 1, L = L, threaded = false)
+        threaded = TranslationParityBasis(f = pxp_constraint, k = 0, p = 1, L = L, threaded = true)
+        assert_threaded_basis_matches_serial(serial, threaded)
+    end
 end

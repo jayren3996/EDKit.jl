@@ -69,23 +69,20 @@
     end
 
     @testset "Threaded basis constructors match single-thread scans" begin
-        basis_pairs = [
-            (ProjectedBasis(L = 5, N = 2, threaded = true), ProjectedBasis(L = 5, N = 2, threaded = false)),
-            (ProjectedBasis(L = 2, f = _ -> true, threaded = true), ProjectedBasis(L = 2, f = _ -> true, threaded = false)),
-            (ParityBasis(L = 5, N = 2, p = 1, threaded = true), ParityBasis(L = 5, N = 2, p = 1, threaded = false)),
-            (FlipBasis(L = 6, N = 3, p = 1, threaded = true), FlipBasis(L = 6, N = 3, p = 1, threaded = false)),
-            (ParityFlipBasis(L = 6, N = 3, p = 1, z = 1, threaded = true), ParityFlipBasis(L = 6, N = 3, p = 1, z = 1, threaded = false)),
-            (TranslationalBasis(L = 6, N = 3, k = 1, threaded = true), TranslationalBasis(L = 6, N = 3, k = 1, threaded = false)),
-            (TranslationParityBasis(L = 6, N = 3, k = 0, p = 1, threaded = true), TranslationParityBasis(L = 6, N = 3, k = 0, p = 1, threaded = false)),
-            (TranslationFlipBasis(L = 6, N = 3, k = 1, p = 1, threaded = true), TranslationFlipBasis(L = 6, N = 3, k = 1, p = 1, threaded = false)),
-            (basis(L = 6, N = 3, k = 0, p = 1, threaded = true), basis(L = 6, N = 3, k = 0, p = 1, threaded = false)),
+        basis_makers = [
+            threaded -> ProjectedBasis(L = 5, N = 2, threaded = threaded),
+            threaded -> ProjectedBasis(L = 2, f = _ -> true, threaded = threaded),
+            threaded -> ParityBasis(L = 5, N = 2, p = 1, threaded = threaded),
+            threaded -> FlipBasis(L = 6, N = 3, p = 1, threaded = threaded),
+            threaded -> ParityFlipBasis(L = 6, N = 3, p = 1, z = 1, threaded = threaded),
+            threaded -> TranslationalBasis(L = 6, N = 3, k = 1, threaded = threaded),
+            threaded -> TranslationParityBasis(L = 6, N = 3, k = 0, p = 1, threaded = threaded),
+            threaded -> TranslationFlipBasis(L = 6, N = 3, k = 1, p = 1, threaded = threaded),
+            threaded -> basis(L = 6, N = 3, k = 0, p = 1, threaded = threaded),
         ]
 
-        for (threaded_basis, scan_basis) in basis_pairs
-            @test threaded_basis.I == scan_basis.I
-            if hasproperty(threaded_basis, :R)
-                @test threaded_basis.R ≈ scan_basis.R
-            end
+        for make_basis in basis_makers
+            assert_threaded_basis_matches_serial(make_basis)
         end
     end
 
@@ -93,6 +90,8 @@
         Bempty = ProjectedBasis(L = 4, N = 5, threaded = false)
         @test size(Bempty, 1) == 0
         @test isempty(Bempty.I)
+        @test index(Bempty, [0, 0, 0, 0]) == (0, 1)
+        @test_throws ErrorException index(Bempty, [0, 0, 0, 0]; check = true)
 
         Bvac = ProjectedBasis(L = 4, N = 0, threaded = false)
         Bfull = ProjectedBasis(L = 4, N = 4, threaded = false)
@@ -106,6 +105,17 @@
         BT_vac = TranslationalBasis(L = 4, N = 0, k = 0, threaded = false)
         @test BT_vac.I == [16]
         @test BT_vac.R ≈ [4.0]
+    end
+
+    @testset "Sector embeddings are isometries" begin
+        for B in (
+            TensorBasis(L = 4, base = 2),
+            ProjectedBasis(L = 4, N = 2, threaded = false),
+            TranslationalBasis(L = 4, N = 2, k = 0, threaded = false),
+            basis(L = 4, N = 2, k = 0, p = 1, threaded = false),
+        )
+            assert_sector_embedding_isometry(B)
+        end
     end
 
     @testset "TranslationFlipBasis copy preserves fields" begin
