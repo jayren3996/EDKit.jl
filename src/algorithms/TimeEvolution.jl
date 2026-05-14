@@ -264,25 +264,19 @@ function _lanczos_build!(cache::KrylovEvolutionCache{TH,T,R}, m_target::Integer)
 
         if j > 1
             vjm1 = @view V[:, j - 1]
-            @inbounds @simd for i in eachindex(w)
-                w[i] -= β[j - 1] * vjm1[i]
-            end
+            LinearAlgebra.axpy!(-β[j - 1], vjm1, w)
         end
 
         αj = real(dot(vj, w))
         α[j] = αj
-        @inbounds @simd for i in eachindex(w)
-            w[i] -= αj * vj[i]
-        end
+        LinearAlgebra.axpy!(-αj, vj, w)
 
         # Full reorthogonalization against V[:, 1:j] (twice for stability).
         for _sweep in 1:2
             for i in 1:j
                 vi = @view V[:, i]
                 s = dot(vi, w)
-                @inbounds @simd for k in eachindex(w)
-                    w[k] -= s * vi[k]
-                end
+                LinearAlgebra.axpy!(-s, vi, w)
             end
         end
 
