@@ -1,3 +1,9 @@
+```@raw html
+<p align="center">
+  <img src="assets/logo.svg" width="180" alt="EDKit.jl logo">
+</p>
+```
+
 # EDKit.jl
 
 `EDKit.jl` is a Julia package for exact diagonalization, symmetry-resolved many-body calculations, and selected tensor-network and open-system workflows.

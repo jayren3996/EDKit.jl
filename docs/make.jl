@@ -20,6 +20,7 @@ makedocs(
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://jayren3996.github.io/EDKit.jl",
+        assets = ["assets/favicon.ico"],
     ),
     pages = [
         "Home" => "index.md",
