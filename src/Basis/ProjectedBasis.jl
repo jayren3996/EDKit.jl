@@ -255,7 +255,7 @@ function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    ProjectedBasis(dtype::DataType=Int64; L, f=nothing, N=nothing, base=2, alloc=1000, threaded=true, small_N=false)
+    ProjectedBasis(dtype::DataType=Int64; L, f=nothing, N=nothing, base=2, alloc=1000, threaded=true, small_N=true)
 
 Construct a projected basis on `L` sites.
 
@@ -286,7 +286,7 @@ Notes:
 function ProjectedBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, N::Union{Nothing, Integer}=nothing,
     base::Integer=2, alloc::Integer=1000, 
-    threaded::Bool=true, small_N::Bool=false
+    threaded::Bool=true, small_N::Bool=true
 )
     base = convert(dtype, base)
     I = if isnothing(N)

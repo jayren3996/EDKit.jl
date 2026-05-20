@@ -304,6 +304,21 @@ function init!(g::AbelianOperator)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
+    _shallow_workspace(g::AbelianOperator)
+
+Return a per-thread / per-call workspace that shares all of `g`'s read-only
+data and only allocates a fresh odometer state `s`.
+
+All fields of [`AbelianOperator`](@ref) except `s` are read-only on the hot
+operator-application path. Sharing them avoids the expensive `deepcopy`
+that would otherwise duplicate the `perm` / `c` / `benes` vectors-of-vectors
+on every `mul!`/`mul`/`*` call for symmetry-reduced bases.
+"""
+@inline function _shallow_workspace(g::AbelianOperator)
+    AbelianOperator(copy(g.s), g.g, g.c, g.perm, g.inv, g.benes, g.inv_masks)
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
     apply_perm!(dgt::Vector, perm::Vector{Int})
 
 Apply a site permutation to a digit buffer in-place.
@@ -785,7 +800,9 @@ bipartite decomposition.
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis; B1=nothing, B2=nothing)
     dgt = similar(b.dgt)
-    R, g = b.R, b.G
+    tmp = similar(b.dgt)
+    g = _shallow_workspace(b.G)
+    R = b.R
     S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i in eachindex(v)
         init!(g)
@@ -793,7 +810,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Abelian
         val = v[i] / R[i]
         addto!(S, val)
         for _ in 2:order(g)
-            g(dgt, b.B)
+            _apply_group_action!(dgt, g, b.B, tmp)
             addto!(S, phase(g) * val)
         end
     end

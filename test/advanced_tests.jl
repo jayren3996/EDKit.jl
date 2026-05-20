@@ -58,6 +58,31 @@
     @test size(Splus_rect) == (size(Bnp, 1), size(Bn, 1))
     @test Splus_rect ≈ Ptgt * Splus_full * Psrc'
 
+    @testset "DoubleBasis between momentum sectors respects conservation" begin
+        Bk0 = TranslationalBasis(L = L, k = 0, base = 2, threaded = false)
+        Bk1 = TranslationalBasis(L = L, k = 1, base = 2, threaded = false)
+        Tk01 = DoubleBasis(Bk1, Bk0)
+
+        # Sizes for the rectangular inter-sector operator.
+        @test size(Tk01) == (size(Bk1, 1), size(Bk0, 1))
+
+        # A translation-invariant operator built on the DoubleBasis must
+        # produce a zero matrix between distinct momentum sectors — this
+        # is the defining physical property of momentum conservation.
+        H_xx = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy")), 2, Tk01) |> Array
+        @test size(H_xx) == (size(Bk1, 1), size(Bk0, 1))
+        @test norm(H_xx) < 1e-12
+
+        # The diagonal-sector check guards against a degenerate "always zero"
+        # DoubleBasis implementation: same operator on Tk00 = DoubleBasis(Bk0, Bk0)
+        # must reproduce the within-sector operator and be non-zero.
+        Tk00 = DoubleBasis(Bk0, Bk0)
+        H_xx_00 = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy")), 2, Tk00) |> Array
+        H_xx_within = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy")), 2, Bk0) |> Array
+        @test H_xx_00 ≈ H_xx_within atol = 1e-12
+        @test norm(H_xx_00) > 1e-6
+    end
+
     σz = Array(spin("Z"))
     dm = densitymatrix([1.0, 0.0])
     @test expectation(σz, dm) ≈ 1.0
@@ -90,5 +115,19 @@
         null_ops = [zeros(2, 2), zeros(2, 2)]
         null_sol = qimsolve(null_ops, vec; tol = 1e-7)
         @test size(null_sol) == (2, 2)
+    end
+
+    @testset "simplify handles columns that eliminate to zero" begin
+        # Two linearly dependent columns: elimination zeroes the second one.
+        h = Float64[1.0 1.0;
+                    0.0 0.0]
+        result = EDKit.simplify(copy(h))
+        @test result[:, 1] ≈ [1.0, 0.0]
+        @test all(iszero, result[:, 2])
+
+        # qimsolve with linearly dependent ops should not crash.
+        dep_ops = [Float64[1 0; 0 0], Float64[1 0; 0 0]]
+        dep_sol = qimsolve(dep_ops, [1.0, 0.0])
+        @test size(dep_sol, 1) == 2
     end
 end

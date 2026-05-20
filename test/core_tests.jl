@@ -166,4 +166,32 @@
     E = [0.0, 1.0, 3.0, 6.0]
     @test gapratio(E) ≈ [0.5, 2 / 3]
     @test meangapratio(E) ≈ 7 / 12
+
+    @test isnan(meangapratio(Float64[]))
+    @test isnan(meangapratio([0.0]))
+    @test isnan(meangapratio([0.0, 1.0]))
+    @test meangapratio([0.0, 1.0, 3.0]) ≈ 0.5
+
+    # SPIN_CACHE is concretely typed so cache hits are type-stable.
+    @test valtype(EDKit.SPIN_CACHE) === SparseMatrixCSC{ComplexF64, Int}
+    @test spin("X") isa SparseMatrixCSC{ComplexF64, Int}
+    @test spin("xx") isa SparseMatrixCSC{ComplexF64, Int}
+    @test Matrix(spin("X")) ≈ ComplexF64[0 1; 1 0]
+    @test Matrix(spin("Y")) ≈ ComplexF64[0 -im; im 0]
+    @test Matrix(spin("Z")) ≈ ComplexF64[1 0; 0 -1]
+
+    @testset "_SPARSE_CACHE evicts oldest entries past the 8-operator cap" begin
+        clear_sparse_cache!()
+        # 9 distinct operators (different bases means distinct objectid).
+        ops = [trans_inv_operator(spin("zz"), 2, TensorBasis(L = L, base = 2)) for L in 2:10]
+        for opt in ops
+            sparse!(opt)
+            @test EDKit._cached_sparse(opt) !== nothing
+        end
+        # First operator should now have been evicted by the LRU.
+        @test EDKit._cached_sparse(ops[1]) === nothing
+        @test EDKit._cached_sparse(ops[end]) !== nothing
+        clear_sparse_cache!()
+        @test EDKit._cached_sparse(ops[end]) === nothing
+    end
 end

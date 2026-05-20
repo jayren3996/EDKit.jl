@@ -221,7 +221,7 @@ function selectindexnorm_threaded(f, L::Integer; base::T=2, alloc::Integer=1000)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    TranslationalBasis(dtype::DataType=Int64; L, f=nothing, k=0, N=nothing, a=1, base=2, alloc=1000, threaded=true, small_N=false)
+    TranslationalBasis(dtype::DataType=Int64; L, f=nothing, k=0, N=nothing, a=1, base=2, alloc=1000, threaded=true, small_N=true)
 
 Construct a momentum-resolved basis.
 
@@ -251,7 +251,7 @@ Notes:
 """
 function TranslationalBasis(dtype::DataType=Int64;
     L::Integer, f=nothing, k::Integer=0, N::Union{Nothing, Integer}=nothing, a::Integer=1,
-    base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=false
+    base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 )
     len, check_a = divrem(L, a)
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"

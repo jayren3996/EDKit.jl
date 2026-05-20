@@ -14,6 +14,7 @@ The input should already be sorted in ascending order.
 """
 function gapratio(E::AbstractVector{<:Real})
     dE = diff(E)
+    length(dE) < 2 && return Float64[]
     r = zeros(length(dE)-1)
     for i = 1:length(r)
         if dE[i] < dE[i+1]
@@ -34,7 +35,10 @@ Return the mean adjacent-gap ratio of a sorted spectrum `E`.
 
 This is a convenience wrapper around [`gapratio`](@ref).
 """
-meangapratio(E::AbstractVector{<:Real}) = sum(gapratio(E)) / (length(E) - 2)
+function meangapratio(E::AbstractVector{<:Real})
+    r = gapratio(E)
+    isempty(r) ? NaN : sum(r) / length(r)
+end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # LinearAlgebra

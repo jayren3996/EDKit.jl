@@ -155,4 +155,15 @@
         @test B_default.R ≈ B_true.R
         @test B_default.R ≈ B_nothing.R
     end
+
+    @testset "TranslationFlipBasis requires even L" begin
+        # Even L is supported.
+        @test_nowarn TranslationFlipBasis(L = 4, k = 0, p = 1)
+        @test_nowarn TranslationFlipBasis(L = 6, k = 0, p = 1)
+
+        # Odd L must error — flip-parity check uses L÷2 integer division
+        # and is not correct for odd L.
+        @test_throws AssertionError TranslationFlipBasis(L = 5, k = 0, p = 1)
+        @test_throws AssertionError TranslationFlipBasis(L = 7, k = 0, p = 1)
+    end
 end

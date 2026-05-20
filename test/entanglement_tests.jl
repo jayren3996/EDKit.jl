@@ -143,3 +143,46 @@
         end
     end
 end
+
+@testset "Schmidt thread safety" begin
+    L = 8
+    B = TensorBasis(L = L, base = 2)
+    Ainds = collect(1:L ÷ 2)
+
+    rng = Random.MersenneTwister(42)
+    nstates = 32
+    states = [normalize!(randn(rng, ComplexF64, size(B, 1))) for _ in 1:nstates]
+
+    # Use the generic onsite path (not the TensorBasis reshape fast path) so we
+    # actually exercise schmidtmatrix/addto! — the code where the buffer race lived.
+    sub = TensorBasis(L = length(Ainds), base = 2)
+    other = TensorBasis(L = L - length(Ainds), base = 2)
+    serial_spectra = [svdvals(EDKit.schmidt(v, Ainds, B; B1 = sub, B2 = other)) for v in states]
+
+    threaded_spectra = Vector{Vector{Float64}}(undef, nstates)
+    Threads.@threads for i in 1:nstates
+        threaded_spectra[i] = svdvals(EDKit.schmidt(states[i], Ainds, B; B1 = sub, B2 = other))
+    end
+
+    for i in 1:nstates
+        @test threaded_spectra[i] ≈ serial_spectra[i]
+    end
+
+    # AbelianBasis Schmidt also mutates the group iterator g; verify it is
+    # equally safe under concurrent schmidt() calls. Use L=10 so the orbit
+    # iteration is long enough that races manifest reliably.
+    L_ab = 10
+    Ba = basis(L = L_ab, N = L_ab ÷ 2, k = 1)
+    Ainds_ab = collect(1:L_ab ÷ 2)
+    H = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy"), (0.5, "zz")), 2, Ba)
+    eigvecs = eigen(Hermitian(Array(H))).vectors
+    nev = size(eigvecs, 2)
+    serial_abel = [svdvals(EDKit.schmidt(eigvecs[:, i], Ainds_ab, Ba)) for i in 1:nev]
+    threaded_abel = Vector{Vector{Float64}}(undef, nev)
+    Threads.@threads for i in 1:nev
+        threaded_abel[i] = svdvals(EDKit.schmidt(eigvecs[:, i], Ainds_ab, Ba))
+    end
+    for i in 1:nev
+        @test threaded_abel[i] ≈ serial_abel[i]
+    end
+end

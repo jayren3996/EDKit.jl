@@ -245,21 +245,60 @@ full operator explicitly.
 """
 function SparseArrays.sparse(opt::Operator)
     Tv = eltype(opt)
-    rows = SparseTripletAccumulator(Tv; sizehint=_sparse_triplet_sizehint(opt))
-    if size(opt, 1) > 0 && size(opt, 2) > 0
-        if _has_tensor_base2_kernel(opt)
-            for j = 1:size(opt, 2)
-                colmn!(rows, opt, j, 1, 1)
-            end
-        else
-            dgt = similar(opt.B.dgt)
-            basis_workspace = _basis_index_workspace(opt.B)
-            for j = 1:size(opt, 2)
-                colmn!(rows, opt, j, dgt, 1, 1, basis_workspace)
-            end
+    Ti = Int
+    m, n = size(opt)
+    (m == 0 || n == 0) && return SparseArrays.sparse(Ti[], Ti[], Tv[], m, n)
+
+    # Per-column work is much cheaper on the TensorBasis base-2 fast kernel
+    # than on reduced bases, so the parallelization break-even is much higher
+    # there. The min-cols-per-thread thresholds below were measured on a
+    # Julia 1.12 / 8-thread workstation.
+    min_cols_per_thread = _has_tensor_base2_kernel(opt) ? 2048 : 256
+    nt = min(Threads.nthreads(), max(1, n ÷ min_cols_per_thread))
+    if nt == 1
+        acc = SparseTripletAccumulator(Tv, Ti; sizehint=_sparse_triplet_sizehint(opt))
+        _accumulate_columns!(acc, opt, 1:n)
+        return SparseArrays.sparse(acc.rows, acc.cols, acc.vals, m, n)
+    end
+
+    ni = dividerange(n, nt)
+    per_thread_hint = max(1, _sparse_triplet_sizehint(opt) ÷ nt)
+    accs = [SparseTripletAccumulator(Tv, Ti; sizehint=per_thread_hint) for _ in 1:nt]
+    Threads.@threads for i in 1:nt
+        _accumulate_columns!(accs[i], opt, ni[i])
+    end
+    rows, cols, vals = _merge_accumulators(accs)
+    SparseArrays.sparse(rows, cols, vals, m, n)
+end
+
+function _accumulate_columns!(acc::SparseTripletAccumulator, opt::Operator, range)
+    if _has_tensor_base2_kernel(opt)
+        for j in range
+            colmn!(acc, opt, j, 1, 1)
+        end
+    else
+        dgt = similar(opt.B.dgt)
+        ws = _basis_index_workspace(opt.B)
+        for j in range
+            colmn!(acc, opt, j, dgt, 1, 1, ws)
         end
     end
-    SparseArrays.sparse(rows.rows, rows.cols, rows.vals, size(opt, 1), size(opt, 2))
+end
+
+function _merge_accumulators(accs::Vector{SparseTripletAccumulator{Tv, Ti}}) where {Tv, Ti}
+    total = sum(length(a.rows) for a in accs)
+    rows = Vector{Ti}(undef, total)
+    cols = Vector{Ti}(undef, total)
+    vals = Vector{Tv}(undef, total)
+    offset = 0
+    @inbounds for a in accs
+        k = length(a.rows)
+        copyto!(rows, offset + 1, a.rows, 1, k)
+        copyto!(cols, offset + 1, a.cols, 1, k)
+        copyto!(vals, offset + 1, a.vals, 1, k)
+        offset += k
+    end
+    rows, cols, vals
 end
 #---------------------------------------------------------------------------------------------------
 # Sparse-matrix cache for accelerated matrix multiplication
@@ -357,36 +396,40 @@ Returns:
 
 This is the single-threaded in-place application path underlying `opt * v`.
 """
-function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
+@inline _apply_column_base2!(target, opt::Operator, j, rhs::AbstractVector, α) =
+    colmn!(target, opt, j, α * rhs[j], 1)
+
+@inline _apply_column_generic!(target, opt::Operator, j, rhs::AbstractVector, α, dgt, ws) =
+    colmn!(target, opt, j, dgt, α * rhs[j], 1, ws)
+
+@inline _apply_column_base2!(target, opt::Operator, j, rhs::AbstractMatrix, α) =
+    _colmn_row!(target, opt, j, rhs, j, α)
+
+@inline _apply_column_generic!(target, opt::Operator, j, rhs::AbstractMatrix, α, dgt, ws) =
+    _colmn_row!(target, opt, j, dgt, rhs, j, α, ws)
+
+function _apply_columns!(target, opt::Operator, range, rhs, α::Number=1)
     if _has_tensor_base2_kernel(opt)
-        for j = 1:length(v)
-            colmn!(target, opt, j, v[j], 1)
+        for j in range
+            _apply_column_base2!(target, opt, j, rhs, α)
         end
     else
         dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:length(v)
-            colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
+        ws = _basis_index_workspace(opt.B)
+        for j in range
+            _apply_column_generic!(target, opt, j, rhs, α, dgt, ws)
         end
     end
     target
 end
 
+mul!(target::AbstractVector, opt::Operator, v::AbstractVector) =
+    _apply_columns!(target, opt, eachindex(v), v)
+
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector, α::Number, β::Number)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:length(v)
-            colmn!(target, opt, j, α * v[j], 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:length(v)
-            colmn!(target, opt, j, dgt, α * v[j], 1, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, eachindex(v), v, α)
 end
 
 """
@@ -398,36 +441,13 @@ Accumulate `opt * m` into the preallocated matrix `target`.
 As for vectors, the three-argument method accumulates while the five-argument
 method follows `target = α * opt * m + β * target`.
 """
-function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, m, j, 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
-        end
-    end
-    target
-end
+mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix) =
+    _apply_columns!(target, opt, axes(m, 1), m)
 
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Number, β::Number)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, m, j, α)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, dgt, m, j, α, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, axes(m, 1), m, α)
 end
 
 export mul
@@ -446,17 +466,7 @@ function mul(opt::Operator, v::AbstractVector)
     ni = dividerange(length(v), nt)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        if _has_tensor_base2_kernel(opt)
-            for j in ni[i]
-                colmn!(Ms[i], opt, j, v[j], 1)
-            end
-        else
-            dgt = similar(opt.B.dgt)
-            basis_workspace = _basis_index_workspace(opt.B)
-            for j in ni[i]
-                colmn!(Ms[i], opt, j, dgt, v[j], 1, basis_workspace)
-            end
-        end
+        _apply_columns!(Ms[i], opt, ni[i], v)
     end
     target = Ms[1]
     @inbounds for i in 2:nt
@@ -475,17 +485,7 @@ function mul(opt::Operator, m::AbstractMatrix)
     ni = dividerange(size(m,1), nt)
     Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        if _has_tensor_base2_kernel(opt)
-            for j in ni[i]
-                _colmn_row!(Ms[i], opt, j, m, j, 1)
-            end
-        else
-            dgt = similar(opt.B.dgt)
-            basis_workspace = _basis_index_workspace(opt.B)
-            for j in ni[i]
-                _colmn_row!(Ms[i], opt, j, dgt, m, j, 1, basis_workspace)
-            end
-        end
+        _apply_columns!(Ms[i], opt, ni[i], m)
     end
     target = Ms[1]
     @inbounds for i in 2:nt
@@ -497,18 +497,7 @@ end
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     target = zeros(ctype, size(opt, 1))
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:length(v)
-            colmn!(target, opt, j, v[j], 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:length(v)
-            colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, eachindex(v), v)
 end
 
 function *(opt::Operator, m::AbstractMatrix)
@@ -518,18 +507,7 @@ function *(opt::Operator, m::AbstractMatrix)
         return convert(Matrix{ctype}, S * m)
     end
     target = zeros(ctype, size(opt, 1), size(m, 2))
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, m, j, 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, axes(m, 1), m)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -570,7 +548,7 @@ end
 end
 
 @inline _basis_index_workspace(::AbstractBasis) = nothing
-@inline _basis_index_workspace(b::AbelianBasis) = deepcopy(b.G)
+@inline _basis_index_workspace(b::AbelianBasis) = _shallow_workspace(b.G)
 
 @inline _index_in_basis(b::AbstractBasis, dgt::AbstractVector, workspace) = index(b, dgt)
 @inline _index_in_basis(b::AbelianBasis, dgt::AbstractVector, workspace::AbelianOperator) =
@@ -1052,7 +1030,7 @@ function spin_product(s::AbstractString, D::Integer)
     mat
 end
 
-const SPIN_CACHE = LRU{Tuple{Int, String}, Any}(maxsize=256)
+const SPIN_CACHE = LRU{Tuple{Int, String}, SparseMatrixCSC{ComplexF64, Int}}(maxsize=256)
 #---------------------------------------------------------------------------------------------------
 """
     spin(s::String; D::Integer=2)
@@ -1064,8 +1042,16 @@ supported, as well as lowercase spin-operator labels such as `"x"`, `"y"`,
 `"z"`, `"+"`, `"-"`, and `"1"`. Multi-site strings like `"xx"` or `"x1z"`
 build Kronecker products in the given order.
 
+**Case convention** (D = 2):
+- Uppercase `"X"`, `"Y"`, `"Z"` are the Pauli matrices, e.g. `spin("X") = [0 1; 1 0]`.
+- Lowercase `"x"`, `"y"`, `"z"` are the spin-1/2 operators, e.g. `spin("x") = [0 1/2; 1/2 0]`.
+  Equivalently, `spin("X") == 2 * spin("x")`.
+
+For higher local dimension `D > 2` only the lowercase spin-operator labels are
+meaningful (uppercase Pauli-style labels are rejected with an error).
+
 Returns:
-- A sparse local operator matrix acting on `length(s)` sites.
+- A sparse `SparseMatrixCSC{ComplexF64, Int}` acting on `length(s)` sites.
 """
 function spin(s::String; D::Integer=2)
     key = (Int(D), s)
@@ -1073,7 +1059,7 @@ function spin(s::String; D::Integer=2)
         ny = spin_ny(s, D)
         raw = spin_product(s, D)
         sign = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (-1im)^ny
-        sign * raw
+        convert(SparseMatrixCSC{ComplexF64, Int}, sign * raw)
     end
     copy(mat)
 end

@@ -13,12 +13,14 @@ Fields:
 - `B1`: basis used for subsystem `A`.
 - `B2`: basis used for subsystem `B`.
 """
-struct SchmidtMatrix{Tm <: Number, Ta <: SubArray, Tb <: SubArray, TB1 <: AbstractBasis, TB2 <: AbstractBasis}
+struct SchmidtMatrix{Tm <: Number, Ta <: SubArray, Tb <: SubArray, TB1 <: AbstractBasis, TB2 <: AbstractBasis, Td1 <: AbstractVector, Td2 <: AbstractVector}
     M::Matrix{Tm}
     A::Ta
     B::Tb
     B1::TB1
     B2::TB2
+    dgt1::Td1
+    dgt2::Td2
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -53,7 +55,9 @@ function schmidtmatrix(
     B1 = isnothing(B1) ? TensorBasis(L=length(Ainds), base=b.B) : B1
     B2 = isnothing(B2) ? TensorBasis(L=length(Binds), base=b.B) : B2
     M = zeros(T, size(B1, 1), size(B2, 1))
-    SchmidtMatrix(M, view(dgt, Ainds), view(dgt, Binds), B1, B2)
+    dgt1 = similar(B1.dgt)
+    dgt2 = similar(B2.dgt)
+    SchmidtMatrix(M, view(dgt, Ainds), view(dgt, Binds), B1, B2, dgt1, dgt2)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -63,10 +67,10 @@ Accumulate a contribution `val` into the Schmidt matrix entry selected by the
 current subsystem digits stored in `S.A` and `S.B`.
 """
 function addto!(S::SchmidtMatrix, val::Number)
-    S.B1.dgt .= S.A
-    S.B2.dgt .= S.B
-    _, ia = index(S.B1, S.B1.dgt)
-    _, ib = index(S.B2, S.B2.dgt)
+    S.dgt1 .= S.A
+    S.dgt2 .= S.B
+    _, ia = index(S.B1, S.dgt1)
+    _, ib = index(S.B2, S.dgt2)
     S.M[ia, ib] += val
 end
 
