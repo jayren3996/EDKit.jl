@@ -81,14 +81,34 @@ export DoubleBasis
 """
     DoubleBasis{Tb1<:AbstractBasis, Tb2<:AbstractBasis}
 
-Basis for constructing transition matrix from one symmetry sector to another.
-Note that DoubleBasis can be used as the projector, meaning that it will ignore the symmetry violation.
-Therefore, extra care is needed when working with this basis.
+Basis for constructing transition matrices from one symmetry sector to another.
 
 Interpretation:
 - `B1` is the target basis,
 - `B2` is the source basis,
 - `dgt` follows the current source-side representative as iteration proceeds.
+
+# Caveat for symmetry-violating operators
+
+`operator(M, inds, b::DoubleBasis)` constructs its column `j` by applying `M`
+to the **single** representative state of `B2` at index `j` and projecting the
+result into `B1`. This gives the correct inter-sector matrix element only when
+`M` is compatible with the symmetry of `B2` — for example, when built via
+[`trans_inv_operator`](@ref) with a momentum-resolved `B2`, where each
+translation copy of the local term is summed explicitly.
+
+For a genuinely symmetry-violating operator (e.g. a single-site term on a
+momentum-resolved basis), the direct construction omits the source-side orbit
+sum and **does not** equal `⟨B1, p | M | B2, j⟩`. The matrix element for the
+general case is given by:
+
+    M_inter = symmetrizer(DoubleBasis(B1, Bfull)) *
+              operator(M, inds, Bfull) *
+              symmetrizer(DoubleBasis(B2, Bfull))'
+
+where `Bfull = TensorBasis(L=length(B1), base=B1.B)`. The relation
+`T(v) ≈ symmetrizer(T) * v` always holds; it is the underlying operator that
+needs the full-space embedding for arbitrary `M`.
 """
 struct DoubleBasis{Tb1<:AbstractBasis, Tb2<:AbstractBasis} <: AbstractBasis
     dgt::Vector{Int64}
