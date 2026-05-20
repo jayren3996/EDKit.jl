@@ -357,36 +357,40 @@ Returns:
 
 This is the single-threaded in-place application path underlying `opt * v`.
 """
-function mul!(target::AbstractVector, opt::Operator, v::AbstractVector)
+@inline _apply_column_base2!(target, opt::Operator, j, rhs::AbstractVector, α) =
+    colmn!(target, opt, j, α * rhs[j], 1)
+
+@inline _apply_column_generic!(target, opt::Operator, j, rhs::AbstractVector, α, dgt, ws) =
+    colmn!(target, opt, j, dgt, α * rhs[j], 1, ws)
+
+@inline _apply_column_base2!(target, opt::Operator, j, rhs::AbstractMatrix, α) =
+    _colmn_row!(target, opt, j, rhs, j, α)
+
+@inline _apply_column_generic!(target, opt::Operator, j, rhs::AbstractMatrix, α, dgt, ws) =
+    _colmn_row!(target, opt, j, dgt, rhs, j, α, ws)
+
+function _apply_columns!(target, opt::Operator, range, rhs, α::Number=1)
     if _has_tensor_base2_kernel(opt)
-        for j = 1:length(v)
-            colmn!(target, opt, j, v[j], 1)
+        for j in range
+            _apply_column_base2!(target, opt, j, rhs, α)
         end
     else
         dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:length(v)
-            colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
+        ws = _basis_index_workspace(opt.B)
+        for j in range
+            _apply_column_generic!(target, opt, j, rhs, α, dgt, ws)
         end
     end
     target
 end
 
+mul!(target::AbstractVector, opt::Operator, v::AbstractVector) =
+    _apply_columns!(target, opt, eachindex(v), v)
+
 function mul!(target::AbstractVector, opt::Operator, v::AbstractVector, α::Number, β::Number)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:length(v)
-            colmn!(target, opt, j, α * v[j], 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:length(v)
-            colmn!(target, opt, j, dgt, α * v[j], 1, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, eachindex(v), v, α)
 end
 
 """
@@ -398,36 +402,13 @@ Accumulate `opt * m` into the preallocated matrix `target`.
 As for vectors, the three-argument method accumulates while the five-argument
 method follows `target = α * opt * m + β * target`.
 """
-function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, m, j, 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
-        end
-    end
-    target
-end
+mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix) =
+    _apply_columns!(target, opt, axes(m, 1), m)
 
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Number, β::Number)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, m, j, α)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, dgt, m, j, α, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, axes(m, 1), m, α)
 end
 
 export mul
@@ -446,17 +427,7 @@ function mul(opt::Operator, v::AbstractVector)
     ni = dividerange(length(v), nt)
     Ms = [zeros(ctype, size(opt, 1)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        if _has_tensor_base2_kernel(opt)
-            for j in ni[i]
-                colmn!(Ms[i], opt, j, v[j], 1)
-            end
-        else
-            dgt = similar(opt.B.dgt)
-            basis_workspace = _basis_index_workspace(opt.B)
-            for j in ni[i]
-                colmn!(Ms[i], opt, j, dgt, v[j], 1, basis_workspace)
-            end
-        end
+        _apply_columns!(Ms[i], opt, ni[i], v)
     end
     target = Ms[1]
     @inbounds for i in 2:nt
@@ -475,17 +446,7 @@ function mul(opt::Operator, m::AbstractMatrix)
     ni = dividerange(size(m,1), nt)
     Ms = [zeros(ctype, size(opt, 1), size(m, 2)) for i in 1:nt]
     Threads.@threads for i in 1:nt
-        if _has_tensor_base2_kernel(opt)
-            for j in ni[i]
-                _colmn_row!(Ms[i], opt, j, m, j, 1)
-            end
-        else
-            dgt = similar(opt.B.dgt)
-            basis_workspace = _basis_index_workspace(opt.B)
-            for j in ni[i]
-                _colmn_row!(Ms[i], opt, j, dgt, m, j, 1, basis_workspace)
-            end
-        end
+        _apply_columns!(Ms[i], opt, ni[i], m)
     end
     target = Ms[1]
     @inbounds for i in 2:nt
@@ -497,18 +458,7 @@ end
 function *(opt::Operator, v::AbstractVector)
     ctype = promote_type(eltype(opt), eltype(v))
     target = zeros(ctype, size(opt, 1))
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:length(v)
-            colmn!(target, opt, j, v[j], 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:length(v)
-            colmn!(target, opt, j, dgt, v[j], 1, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, eachindex(v), v)
 end
 
 function *(opt::Operator, m::AbstractMatrix)
@@ -518,18 +468,7 @@ function *(opt::Operator, m::AbstractMatrix)
         return convert(Matrix{ctype}, S * m)
     end
     target = zeros(ctype, size(opt, 1), size(m, 2))
-    if _has_tensor_base2_kernel(opt)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, m, j, 1)
-        end
-    else
-        dgt = similar(opt.B.dgt)
-        basis_workspace = _basis_index_workspace(opt.B)
-        for j = 1:size(m, 1)
-            _colmn_row!(target, opt, j, dgt, m, j, 1, basis_workspace)
-        end
-    end
-    target
+    _apply_columns!(target, opt, axes(m, 1), m)
 end
 
 #---------------------------------------------------------------------------------------------------
