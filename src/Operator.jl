@@ -1042,8 +1042,16 @@ supported, as well as lowercase spin-operator labels such as `"x"`, `"y"`,
 `"z"`, `"+"`, `"-"`, and `"1"`. Multi-site strings like `"xx"` or `"x1z"`
 build Kronecker products in the given order.
 
+**Case convention** (D = 2):
+- Uppercase `"X"`, `"Y"`, `"Z"` are the Pauli matrices, e.g. `spin("X") = [0 1; 1 0]`.
+- Lowercase `"x"`, `"y"`, `"z"` are the spin-1/2 operators, e.g. `spin("x") = [0 1/2; 1/2 0]`.
+  Equivalently, `spin("X") == 2 * spin("x")`.
+
+For higher local dimension `D > 2` only the lowercase spin-operator labels are
+meaningful (uppercase Pauli-style labels are rejected with an error).
+
 Returns:
-- A sparse local operator matrix acting on `length(s)` sites.
+- A sparse `SparseMatrixCSC{ComplexF64, Int}` acting on `length(s)` sites.
 """
 function spin(s::String; D::Integer=2)
     key = (Int(D), s)
