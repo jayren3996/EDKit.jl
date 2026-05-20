@@ -548,7 +548,7 @@ end
 end
 
 @inline _basis_index_workspace(::AbstractBasis) = nothing
-@inline _basis_index_workspace(b::AbelianBasis) = deepcopy(b.G)
+@inline _basis_index_workspace(b::AbelianBasis) = _shallow_workspace(b.G)
 
 @inline _index_in_basis(b::AbstractBasis, dgt::AbstractVector, workspace) = index(b, dgt)
 @inline _index_in_basis(b::AbelianBasis, dgt::AbstractVector, workspace::AbelianOperator) =
