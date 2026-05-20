@@ -121,6 +121,52 @@
         @test recon ≈ ground atol = 1e-12
     end
 
+    @testset "DoubleBasis symmetrizer is physically correct on momentum sectors" begin
+        # The earlier test `T(v) ≈ symmetrizer(T) * v` only validates that the
+        # two derivations agree — it does not pin down the convention. The
+        # three checks below pin physical correctness directly, so a
+        # regression that conjugates basis_embedding (and T(v) in tandem)
+        # would be caught here even though it passes the consistency test.
+        L_orth = 6
+        for k in 0:L_orth÷2
+            Bk = TranslationalBasis(L = L_orth, k = k, base = 2, threaded = false)
+            iszero(size(Bk, 1)) && continue
+            S = symmetrizer(DoubleBasis(Bk, Bk))
+            @test S ≈ I atol = 1e-10  # orthonormality within a sector
+        end
+        for k1 in 0:L_orth-1, k2 in (k1+1):L_orth-1
+            B1 = TranslationalBasis(L = L_orth, k = k1, base = 2, threaded = false)
+            B2 = TranslationalBasis(L = L_orth, k = k2, base = 2, threaded = false)
+            (iszero(size(B1, 1)) || iszero(size(B2, 1))) && continue
+            S = symmetrizer(DoubleBasis(B1, B2))
+            @test norm(S) < 1e-10  # distinct momentum sectors are orthogonal
+        end
+        # Projection identity: a momentum eigenstate built in Bfull projects
+        # exactly to the corresponding unit vector in Bk-coordinates.
+        Bfull_orth = TensorBasis(L = L_orth, base = 2)
+        for k in 0:L_orth-1
+            Bk = TranslationalBasis(L = L_orth, k = k, base = 2, threaded = false)
+            iszero(size(Bk, 1)) && continue
+            for j in 1:min(3, size(Bk, 1))
+                v = zeros(ComplexF64, 2^L_orth)
+                rep = Bk.I[j] - 1
+                mask = (1 << L_orth) - 1
+                cur, n = rep, 1
+                while true
+                    v[cur + 1] += Bk.C[n]
+                    cur = ((cur >> 1) | (cur << (L_orth - 1))) & mask
+                    cur == rep && break
+                    n += 1
+                end
+                v ./= norm(v)
+                c = DoubleBasis(Bk, Bfull_orth)(v)
+                expected = zeros(ComplexF64, size(Bk, 1))
+                expected[j] = 1
+                @test c ≈ expected atol = 1e-10
+            end
+        end
+    end
+
     σz = Array(spin("Z"))
     dm = densitymatrix([1.0, 0.0])
     @test expectation(σz, dm) ≈ 1.0
