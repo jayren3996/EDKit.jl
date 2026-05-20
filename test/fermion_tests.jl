@@ -102,6 +102,21 @@
         c13 = Array(fermion_operator("++", [1, 3], Bf3))
         c31 = Array(fermion_operator("++", [3, 1], Bf3))
         @test c13 + c31 ≈ zeros(2^L, 2^L) atol = 1e-12
+
+        # "-+" operator: c_1 c_span†. Leading − sign from σ⁺ σ_z = -σ⁺ at site 1.
+        @test fermion("-+", 2) ≈ -kron(σ⁺, σ⁻)
+        @test fermion("-+", 3) ≈ -kron(kron(σ⁺, σ_z), σ⁻)
+        # Many-body matrix check across a non-trivial span.
+        Lpm = 5
+        Bpm = SpinlessFermionBasis(L = Lpm)
+        Btpm = TensorBasis(L = Lpm, base = 2)
+        @test Array(fermion_operator("-+", [1, 4], Bpm)) ≈
+              Array(operator(-kron(kron(kron(σ⁺, σ_z), σ_z), σ⁻), [1, 2, 3, 4], Btpm))
+        # Swap branch for "-+": (c_lo c†_hi)† = c†_hi c_lo... but for "-+" the swap
+        # rule is the Hermitian conjugate (same as "+-"), so [3,1] gives the
+        # conjugate of [1,3].
+        @test Array(fermion_operator("-+", [3, 1], Bpm)) ≈
+              Array(fermion_operator("-+", [1, 3], Bpm))'
     end
 
     @testset "Hermiticity and free-fermion spectrum" begin

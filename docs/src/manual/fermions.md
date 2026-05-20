@@ -40,6 +40,13 @@ The default Jordan-Wigner convention is left-string:
 `c_j = (σ_z^1 σ_z^2 ⋯ σ_z^{j-1}) σ⁺_j`. EDKit identifies `dgt=0` with empty
 and `dgt=1` with occupied, so `c†` maps to `σ⁻` and `c` maps to `σ⁺`.
 
+**Sign convention reminder.** The left Jordan-Wigner string puts `σ_z`
+operators to the left of each fermion. For two-fermion products the
+on-site `σ⁺ σ_z = -σ⁺` versus `σ⁻ σ_z = +σ⁻` asymmetry causes the
+overall sign of `"--"` and `"-+"` to carry a `-1` even at nearest-neighbor
+sites, while `"++"` and `"+-"` do not. This is required for the canonical
+fermion anticommutation `{c_i, c_j} = 0`.
+
 ## Full operators
 
 `fermion_operator(op, sites, B)` embeds the local matrix into the many-body

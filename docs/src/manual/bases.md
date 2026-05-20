@@ -167,6 +167,7 @@ Use this rule of thumb:
 | Spin-flip only | `FlipBasis` |
 | Multiple commuting symmetries | `basis(...)` |
 | 2D/3D or custom commuting permutation symmetries | `basis(...; symmetries=...)` |
+| Spinless fermions with Jordan-Wigner string | `SpinlessFermionBasis` |
 | Explicit basis-to-basis map construction | a pair of bases plus `DoubleBasis` |
 
 ## Basis Internals You Will See Often
