@@ -166,4 +166,9 @@
     E = [0.0, 1.0, 3.0, 6.0]
     @test gapratio(E) ≈ [0.5, 2 / 3]
     @test meangapratio(E) ≈ 7 / 12
+
+    @test isnan(meangapratio(Float64[]))
+    @test isnan(meangapratio([0.0]))
+    @test isnan(meangapratio([0.0, 1.0]))
+    @test meangapratio([0.0, 1.0, 3.0]) ≈ 0.5
 end
