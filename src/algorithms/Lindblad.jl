@@ -98,17 +98,23 @@ Returns:
 """
 function *(lb::Lindblad, ρ::Matrix)
     H, L = lb.H, lb.L
-    out = -1im * (H * ρ - ρ * H)
+    T = complex(promote_type(eltype(lb), eltype(ρ)))
+    out = Matrix{T}(undef, size(ρ))
+    mul!(out, H, ρ, -1im, false)
+    mul!(out, ρ, H, 1im, true)
     isempty(L) && return out
-    LdL = zeros(eltype(L[1]), size(L[1]))
-    for l in L 
+
+    LdL = zeros(T, size(L[1]))
+    tmp = Matrix{T}(undef, size(ρ))
+    for l in L
         ld = l'
-        out += l * ρ * ld
-        LdL += ld * l
+        mul!(tmp, l, ρ)
+        mul!(out, tmp, ld, true, true)
+        mul!(LdL, ld, l, true, true)
     end
     LdL ./= -2
-    out += LdL * ρ
-    out += ρ * LdL 
+    mul!(out, LdL, ρ, true, true)
+    mul!(out, ρ, LdL, true, true)
     out
 end
 #---------------------------------------------------------------------------------------------------
@@ -256,8 +262,18 @@ Apply the homogeneous part of the quadratic Lindblad evolution equation to a
 covariance matrix `Γ`.
 """
 function *(ql::QuardraticLindblad, Γ::AbstractMatrix{<:Real})
-    dissipative = isempty(ql.Z) ? zeros(eltype(Γ), size(Γ)) : sum(transpose(Zs) * Γ * Zs for Zs in ql.Z)
-    transpose(ql.X) * Γ + Γ * ql.X + dissipative
+    T = promote_type(eltype(ql.X), eltype(Γ))
+    out = Matrix{T}(undef, size(Γ))
+    mul!(out, transpose(ql.X), Γ, true, false)
+    mul!(out, Γ, ql.X, true, true)
+    if !isempty(ql.Z)
+        tmp = Matrix{T}(undef, size(Γ))
+        for Zs in ql.Z
+            mul!(tmp, transpose(Zs), Γ)
+            mul!(out, tmp, Zs, true, true)
+        end
+    end
+    out
 end
 #---------------------------------------------------------------------------------------------------
 """
