@@ -45,10 +45,9 @@
         n_op_spin = Array(operator(diagm([0.0, 1.0]), [2], Bt))
         @test n_op_fermion ≈ n_op_spin
 
-        # Reject bare "+" / "-" in fermion_operator (would silently miss the JW string).
-        @test_throws ErrorException fermion_operator("+", [2], B)
-        @test_throws ErrorException fermion_operator("-", [3], B)
-        # The bare matrices are still accessible via fermion() itself.
+        # The bare local matrices are accessible via fermion() (no JW prefix);
+        # fermion_operator now embeds them with the proper JW string — see
+        # the "JW-embedded single-site c† and c" testset below for that path.
         @test fermion("+") ≈ Array(EDKit.spin_Sm(2))
         @test fermion("-") ≈ Array(EDKit.spin_Sp(2))
     end
@@ -139,5 +138,83 @@
         eigvals_h = eigvals(Hermitian(Hm))
         analytic = sort([-2 * t * cos(2π * k / L) for k in 0:L-1])
         @test eigvals_h ≈ analytic atol = 1e-10
+    end
+
+    @testset "Single-site z and I operators" begin
+        @test fermion("z") ≈ [-0.5 0.0; 0.0 0.5]
+        @test fermion("I") ≈ [1.0 0.0; 0.0 1.0]
+
+        L = 5
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+        @test Array(fermion_operator("z", [3], Bf)) ≈
+              Array(operator([-0.5 0.0; 0.0 0.5], [3], Bt))
+        @test Array(fermion_operator("I", [3], Bf)) ≈
+              Array(operator(Matrix{Float64}(I, 2, 2), [3], Bt))
+    end
+
+    @testset "JW-embedded single-site c† and c" begin
+        σ⁺ = Array(EDKit.spin_Sp(2))
+        σ⁻ = Array(EDKit.spin_Sm(2))
+        σ_z = [1.0 0.0; 0.0 -1.0]
+        L = 5
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+
+        # c†_1 has no JW prefix
+        @test Array(fermion_operator("+", [1], Bf)) ≈ Array(operator(σ⁻, [1], Bt))
+        # c†_3 = σ_z^1 σ_z^2 σ⁻_3
+        @test Array(fermion_operator("+", [3], Bf)) ≈
+              Array(operator(kron(σ_z, σ_z, σ⁻), [1, 2, 3], Bt))
+        # c_4 = σ_z^1 σ_z^2 σ_z^3 σ⁺_4
+        @test Array(fermion_operator("-", [4], Bf)) ≈
+              Array(operator(kron(σ_z, σ_z, σ_z, σ⁺), [1, 2, 3, 4], Bt))
+
+        # Canonical anticommutation {c_i, c†_j} = δ_ij × I
+        for i in 1:L, j in 1:L
+            a = Array(fermion_operator("+", [i], Bf))
+            b = Array(fermion_operator("-", [j], Bf))
+            expected = i == j ? Matrix{Float64}(I, 2^L, 2^L) : zeros(2^L, 2^L)
+            @test a * b + b * a ≈ expected atol = 1e-12
+        end
+    end
+
+    @testset "Density-density operator nn" begin
+        n_mat = [0.0 0.0; 0.0 1.0]
+        Id2 = Matrix{Float64}(I, 2, 2)
+        @test fermion("nn", 2) ≈ kron(n_mat, n_mat)
+        @test fermion("nn", 4) ≈ kron(kron(kron(n_mat, Id2), Id2), n_mat)
+
+        L = 5
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+        @test Array(fermion_operator("nn", [2, 5], Bf)) ≈
+              Array(operator(kron(kron(kron(n_mat, Id2), Id2), n_mat), [2, 3, 4, 5], Bt))
+        # nn is symmetric in its arguments
+        @test Array(fermion_operator("nn", [2, 5], Bf)) ≈
+              Array(fermion_operator("nn", [5, 2], Bf))
+        # nn equals product of two single-site n operators
+        n2 = Array(fermion_operator("n", [2], Bf))
+        n5 = Array(fermion_operator("n", [5], Bf))
+        @test Array(fermion_operator("nn", [2, 5], Bf)) ≈ n2 * n5
+    end
+
+    @testset "Density-fraction nf and multi-sector N" begin
+        # nf shorthand: nf = N / L
+        @test SpinlessFermionBasis(L = 6, nf = 1 / 2).I == SpinlessFermionBasis(L = 6, N = 3).I
+        @test SpinlessFermionBasis(L = 8, nf = 1 / 4).I == SpinlessFermionBasis(L = 8, N = 2).I
+
+        # Multi-sector N as a vector: union of fixed-N sectors, sorted reps
+        B12 = SpinlessFermionBasis(L = 6, N = [1, 2])
+        @test size(B12, 1) == binomial(6, 1) + binomial(6, 2)
+        @test issorted(B12.I)
+        for i in 1:size(B12, 1)
+            change!(B12, i)
+            @test sum(B12.dgt) in (1, 2)
+        end
+
+        # Error on conflicting or invalid spec
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, N = 3, nf = 0.5)
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, nf = 0.3)
     end
 end

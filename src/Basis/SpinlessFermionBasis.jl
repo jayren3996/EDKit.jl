@@ -17,7 +17,7 @@ struct SpinlessFermionBasis{T <: Integer} <: AbstractOnsiteBasis
 end
 
 """
-    SpinlessFermionBasis(dtype::DataType=Int64; L, N=nothing,
+    SpinlessFermionBasis(dtype::DataType=Int64; L, N=nothing, nf=nothing,
                         f=nothing, alloc=1000, threaded=true, small_N=true)
 
 Construct a spinless-fermion occupation basis on `L` sites.
@@ -25,35 +25,58 @@ Construct a spinless-fermion occupation basis on `L` sites.
 Arguments:
 - `dtype` : Integer type for stored representatives.
 - `L`     : Number of sites.
-- `N`     : (Optional) fixed particle-number sector.
+- `N`     : (Optional) particle-number sector. Either a single `Integer`
+            (one sector) or an `AbstractVector{<:Integer}` (the union of
+            several fixed-N sectors, with sorted representatives).
+- `nf`    : (Optional) filling fraction. Equivalent to `N = nf * L`; errors
+            if `nf * L` is not an integer or if combined with `N`.
 - `f`     : (Optional) predicate `f(dgt) -> Bool` further restricting which
             occupation strings are kept.
 - `alloc`, `threaded`, `small_N` : delegated to the same options as
   [`ProjectedBasis`](@ref).
 """
 function SpinlessFermionBasis(dtype::DataType=Int64;
-    L::Integer, N::Union{Nothing, Integer}=nothing, f=nothing,
+    L::Integer, N=nothing, nf::Union{Nothing, Real}=nothing, f=nothing,
     alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true,
 )
     base = convert(dtype, 2)
+    if !isnothing(nf)
+        isnothing(N) || error("Specify either N or nf, not both.")
+        scaled = nf * L
+        Nint = round(Int, scaled)
+        isapprox(scaled, Nint) || error("nf=$nf does not yield an integer particle number for L=$L (nf*L=$scaled).")
+        N = Nint
+    end
+
+    I = if isnothing(N)
+        _fermion_select(dtype, L, nothing, f, base, alloc, threaded, small_N)
+    elseif N isa AbstractVector
+        sectors = sort!(unique(N))
+        parts = [_fermion_select(dtype, L, n, f, base, alloc, threaded, small_N) for n in sectors]
+        sort!(vcat(parts...))
+    else
+        _fermion_select(dtype, L, N, f, base, alloc, threaded, small_N)
+    end
+    SpinlessFermionBasis(zeros(dtype, L), I, base)
+end
+
+function _fermion_select(dtype, L, N, f, base, alloc, threaded, small_N)
     # `selectindex`/`selectindex_threaded` call `f(dgt)` unconditionally, so when
     # no extra predicate is supplied we substitute a trivial true filter.
     f_full = isnothing(f) ? (_ -> true) : f
-    I = if isnothing(N)
+    if isnothing(N)
         threaded ? selectindex_threaded(f_full, L, base=base, alloc=alloc) :
                    selectindex(f_full, L, 1:base^L, base=base, alloc=alloc)
     elseif small_N
         # selectindex_N(_, L, M) returns indices with Hamming weight L - M
-        # (that matches ProjectedBasis's spin convention where N counts
-        # dgt=0 entries). For fermions we want N occupations, i.e. Hamming
-        # weight N, so call it with L - N.
+        # (matches ProjectedBasis's spin convention where N counts dgt=0
+        # entries). For fermions N counts dgt=1 entries, so pass L - N.
         selectindex_N(f, L, L - N, base=base)
     else
         g = isnothing(f) ? x -> sum(x) == N : x -> (sum(x) == N && f(x))
         threaded ? selectindex_threaded(g, L, base=base, alloc=alloc) :
                    selectindex(g, L, 1:base^L, base=base, alloc=alloc)
     end
-    SpinlessFermionBasis(zeros(dtype, L), I, base)
 end
 
 copy(b::SpinlessFermionBasis) = SpinlessFermionBasis(deepcopy(b.dgt), b.I, b.B)
