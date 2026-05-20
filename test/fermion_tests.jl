@@ -18,5 +18,18 @@
             change!(Bone, i)
             @test sum(Bone.dgt) == 1
         end
+
+        # copy gives an independent digit buffer
+        B = SpinlessFermionBasis(L = 4)
+        Bc = copy(B)
+        @test Bc isa SpinlessFermionBasis
+        @test Bc.I === B.I    # share the representative list
+        @test Bc.dgt !== B.dgt # but own dgt
+
+        # index round-trip
+        change!(B, 5)
+        coeff, pos = index(B)
+        @test coeff == 1
+        @test pos == 5
     end
 end

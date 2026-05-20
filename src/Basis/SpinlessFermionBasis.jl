@@ -55,3 +55,16 @@ function SpinlessFermionBasis(dtype::DataType=Int64;
     end
     SpinlessFermionBasis(zeros(dtype, L), I, base)
 end
+
+copy(b::SpinlessFermionBasis) = SpinlessFermionBasis(deepcopy(b.dgt), b.I, b.B)
+
+function index(b::SpinlessFermionBasis; check::Bool=false)
+    index(b, b.dgt; check)
+end
+
+function index(b::SpinlessFermionBasis, dgt::AbstractVector; check::Bool=false)
+    i = index(dgt, base=b.B)
+    ind = binary_search(b.I, i)
+    ind > 0 && return 1, ind
+    check ? error("No such basis state.") : return zero(eltype(b)), one(ind)
+end

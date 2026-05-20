@@ -14,6 +14,8 @@ index_nocheck(b::AbstractBasis) = index(b)
 index_nocheck(b::ProjectedBasis) = index(b, check=false)
 index_nocheck(b::AbstractBasis, dgt::AbstractVector) = index(b, dgt)
 index_nocheck(b::ProjectedBasis, dgt::AbstractVector) = index(b, dgt; check=false)
+index_nocheck(b::SpinlessFermionBasis) = index(b, check=false)
+index_nocheck(b::SpinlessFermionBasis, dgt::AbstractVector) = index(b, dgt; check=false)
 """
     orbit_order(B::AbstractBasis)
 
