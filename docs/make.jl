@@ -29,6 +29,7 @@ makedocs(
             "Architecture" => "manual/architecture.md",
             "Bases and Sectors" => "manual/bases.md",
             "General Abelian Symmetries" => "abelian_basis.md",
+            "Spinless Fermions" => "manual/fermions.md",
             "Operators" => "manual/operators.md",
             "Maps and Symmetrizers" => "manual/maps.md",
             "Entanglement" => "manual/entanglement.md",
