@@ -785,7 +785,9 @@ bipartite decomposition.
 """
 function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbelianBasis; B1=nothing, B2=nothing)
     dgt = similar(b.dgt)
-    R, g = b.R, b.G
+    tmp = similar(b.dgt)
+    g = deepcopy(b.G)
+    R = b.R
     S = schmidtmatrix(promote_type(eltype(v), eltype(b)), b, Ainds, B1, B2; dgt)
     for i in eachindex(v)
         init!(g)
@@ -793,7 +795,7 @@ function schmidt(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::Abelian
         val = v[i] / R[i]
         addto!(S, val)
         for _ in 2:order(g)
-            g(dgt, b.B)
+            _apply_group_action!(dgt, g, b.B, tmp)
             addto!(S, phase(g) * val)
         end
     end

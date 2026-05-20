@@ -167,4 +167,22 @@ end
     for i in 1:nstates
         @test threaded_spectra[i] ≈ serial_spectra[i]
     end
+
+    # AbelianBasis Schmidt also mutates the group iterator g; verify it is
+    # equally safe under concurrent schmidt() calls. Use L=10 so the orbit
+    # iteration is long enough that races manifest reliably.
+    L_ab = 10
+    Ba = basis(L = L_ab, N = L_ab ÷ 2, k = 1)
+    Ainds_ab = collect(1:L_ab ÷ 2)
+    H = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy"), (0.5, "zz")), 2, Ba)
+    eigvecs = eigen(Hermitian(Array(H))).vectors
+    nev = size(eigvecs, 2)
+    serial_abel = [svdvals(EDKit.schmidt(eigvecs[:, i], Ainds_ab, Ba)) for i in 1:nev]
+    threaded_abel = Vector{Vector{Float64}}(undef, nev)
+    Threads.@threads for i in 1:nev
+        threaded_abel[i] = svdvals(EDKit.schmidt(eigvecs[:, i], Ainds_ab, Ba))
+    end
+    for i in 1:nev
+        @test threaded_abel[i] ≈ serial_abel[i]
+    end
 end
