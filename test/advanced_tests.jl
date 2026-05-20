@@ -83,6 +83,44 @@
         @test norm(H_xx_00) > 1e-6
     end
 
+    @testset "Momentum-sector inter-block reconstruction matches ⟨k₁|H|k₀⟩" begin
+        # Build the canonical momentum eigenstates |k, j⟩ in the full Hilbert
+        # space, then verify that the symmetrizer-based reconstruction
+        # Pk₁ * H * Pk₀' reproduces the exact ⟨k₁,p|H|k₀,j⟩ matrix element
+        # for a single-site σ_x operator that violates translation symmetry.
+        L_mom = 4
+        Bfull_mom = TensorBasis(L = L_mom, base = 2)
+        Bk0 = TranslationalBasis(L = L_mom, k = 0, base = 2, threaded = false)
+        Bk1 = TranslationalBasis(L = L_mom, k = 1, base = 2, threaded = false)
+
+        function momentum_state(Bk, j, Lloc)
+            v = zeros(ComplexF64, 2^Lloc)
+            rep = Bk.I[j] - 1
+            mask = (1 << Lloc) - 1
+            cur, n = rep, 1
+            while true
+                v[cur + 1] += Bk.C[n]
+                cur = ((cur >> 1) | (cur << (Lloc - 1))) & mask
+                cur == rep && break
+                n += 1
+            end
+            v ./ norm(v)
+        end
+
+        σx_full = Array(operator(ComplexF64[0 1; 1 0], [1], Bfull_mom))
+        ground = zeros(ComplexF64, size(Bk1, 1), size(Bk0, 1))
+        for j in 1:size(Bk0, 1), p in 1:size(Bk1, 1)
+            ψj = momentum_state(Bk0, j, L_mom)
+            ψp = momentum_state(Bk1, p, L_mom)
+            ground[p, j] = ψp' * σx_full * ψj
+        end
+
+        Pk0 = symmetrizer(DoubleBasis(Bk0, Bfull_mom))
+        Pk1 = symmetrizer(DoubleBasis(Bk1, Bfull_mom))
+        recon = Pk1 * σx_full * Pk0'
+        @test recon ≈ ground atol = 1e-12
+    end
+
     σz = Array(spin("Z"))
     dm = densitymatrix([1.0, 0.0])
     @test expectation(σz, dm) ≈ 1.0

@@ -32,7 +32,9 @@ function sector_embedding(B::EDKit.AbstractBasis)
         change!(full, j, full_dgt)
         sector_dgt .= full_dgt
         C, pos = index(B, sector_dgt)
-        iszero(C) || (P[j, pos] = C / orbit_order(B))
+        # Match the conjugation convention in src/LinearMap.jl::basis_embedding:
+        # store ⟨q|k,j⟩, not its conjugate.
+        iszero(C) || (P[j, pos] = conj(C) / orbit_order(B))
     end
     P
 end

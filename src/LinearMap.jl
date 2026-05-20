@@ -64,7 +64,12 @@ function basis_embedding(B::AbstractBasis)
         change!(full, j, full_dgt)
         dgt .= full_dgt
         coeff, pos = index_nocheck(B, dgt)
-        iszero(coeff) || (embed[j, pos] = coeff / ord)
+        # index(B, q) returns the phase needed to shift q INTO the canonical
+        # representative s_pos; the matrix element ⟨q|k,j⟩ uses the opposite
+        # shift, hence the conjugation. For real-phase bases (Projected,
+        # Parity, Flip) the conjugation is a no-op and this branch is
+        # equivalent to the historical convention.
+        iszero(coeff) || (embed[j, pos] = conj(coeff) / ord)
     end
     embed
 end
@@ -159,7 +164,7 @@ function (B::DoubleBasis)(v::AbstractVector)
         coeff1, pos1 = index_nocheck(B.B1, dgt1)
         iszero(coeff1) && continue
 
-        out[pos1] += conj(coeff1 / ord1) * (coeff2 / ord2) * v[pos2]
+        out[pos1] += (coeff1 / ord1) * conj(coeff2 / ord2) * v[pos2]
     end
 
     out
