@@ -32,6 +32,7 @@ include("Basis/ParityBasis.jl")
 include("Basis/FlipBasis.jl")
 include("Basis/ParityFlipBasis.jl")
 include("Basis/AbelianBasis.jl")
+include("Basis/SpinlessFermionBasis.jl")
 
 
 include("LinearMap.jl")
