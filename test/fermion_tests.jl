@@ -32,4 +32,24 @@
         @test coeff == 1
         @test pos == 5
     end
+
+    @testset "Number and nearest-neighbor hop" begin
+        @test fermion("n") ≈ [0.0 0.0; 0.0 1.0]
+
+        expected = kron(Array(EDKit.spin_Sm(2)), Array(EDKit.spin_Sp(2)))
+        @test fermion("+-", 2) ≈ expected
+
+        B = SpinlessFermionBasis(L = 4)
+        Bt = TensorBasis(L = 4, base = 2)
+        n_op_fermion = Array(fermion_operator("n", [2], B))
+        n_op_spin = Array(operator(diagm([0.0, 1.0]), [2], Bt))
+        @test n_op_fermion ≈ n_op_spin
+
+        # Reject bare "+" / "-" in fermion_operator (would silently miss the JW string).
+        @test_throws ErrorException fermion_operator("+", [2], B)
+        @test_throws ErrorException fermion_operator("-", [3], B)
+        # The bare matrices are still accessible via fermion() itself.
+        @test fermion("+") ≈ Array(EDKit.spin_Sm(2))
+        @test fermion("-") ≈ Array(EDKit.spin_Sp(2))
+    end
 end

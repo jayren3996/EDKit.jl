@@ -38,6 +38,7 @@ include("Basis/SpinlessFermionBasis.jl")
 include("LinearMap.jl")
 include("Schmidt.jl")
 include("Operator.jl")
+include("FermionOperator.jl")
 include("ToolKit.jl")
 
 for file in sort(readdir("$(@__DIR__)/algorithms/"))
