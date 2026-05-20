@@ -91,4 +91,18 @@
         null_sol = qimsolve(null_ops, vec; tol = 1e-7)
         @test size(null_sol) == (2, 2)
     end
+
+    @testset "simplify handles columns that eliminate to zero" begin
+        # Two linearly dependent columns: elimination zeroes the second one.
+        h = Float64[1.0 1.0;
+                    0.0 0.0]
+        result = EDKit.simplify(copy(h))
+        @test result[:, 1] ≈ [1.0, 0.0]
+        @test all(iszero, result[:, 2])
+
+        # qimsolve with linearly dependent ops should not crash.
+        dep_ops = [Float64[1 0; 0 0], Float64[1 0; 0 0]]
+        dep_sol = qimsolve(dep_ops, [1.0, 0.0])
+        @test size(dep_sol, 1) == 2
+    end
 end

@@ -66,6 +66,7 @@ function simplify(h)
     n = size(h, 2)
     for i in 1:n
         j = findfirst(x -> abs(x) > 1e-7, h[:,i])
+        isnothing(j) && continue
         for k in 1:n
             isequal(k, i) && continue
             h[:,k] .-= h[j,k] / h[j,i] * h[:,i]
@@ -73,6 +74,7 @@ function simplify(h)
     end
     for i in 1:n
         j = findfirst(x -> abs(x) > 1e-7, h[:,i])
+        isnothing(j) && continue
         h[:,i] ./= h[j,i]
     end
     for i in eachindex(h)
