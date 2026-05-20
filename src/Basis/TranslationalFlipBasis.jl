@@ -105,7 +105,7 @@ Arguments:
 - `f`       : Selection function for the basis contents.
 - `k`       : Momentum number from 0 to L-1.
 - `p`       : Eigenvalue under spin flip, `+1` or `-1`.
-- `L`       : Length of the system.
+- `L`       : Length of the system. Must be even.
 - `base`    : Base, default = 2.
 - `alloc`   : Size of the prealloc memory for the basis content, used only in multithreading, default = 1000.
 - `threaded`: Whether use the multithreading, default = true.
@@ -116,6 +116,8 @@ Outputs:
 
 Notes:
 - If `N` is provided, it must be compatible with spin flip.
+- `L` must be even — the flip-parity selector uses `L÷2` integer
+  division and is not correct for odd `L`.
 - The internal momentum convention follows the same sign choice as
   [`TranslationalBasis`](@ref).
 """
@@ -127,6 +129,7 @@ function TranslationFlipBasis(
     @assert iszero(check_a) "Length of unit-cell $a incompatible with L=$L"
     @assert isone(p) || isone(-p) "Invalid parity"
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
+    @assert iseven(L) "TranslationFlipBasis requires even L (got L=$L); the flip-parity check uses L÷2 integer division and is not correct for odd L."
     #=
     Change of definition: 
         old: T|k⟩ = exp(+ik)|k⟩,
