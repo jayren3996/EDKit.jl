@@ -103,4 +103,26 @@
         c31 = Array(fermion_operator("++", [3, 1], Bf3))
         @test c13 + c31 ≈ zeros(2^L, 2^L) atol = 1e-12
     end
+
+    @testset "Hermiticity and free-fermion spectrum" begin
+        L = 6
+        Bf = SpinlessFermionBasis(L = L, N = 1)  # single-particle sector
+
+        # H = -Σ_i (c†_i c_{i+1} + h.c.) with PBC
+        t = 1.0
+        H = sum(
+            -t * (
+                fermion_operator("+-", [i, mod1(i + 1, L)], Bf) +
+                fermion_operator("+-", [mod1(i + 1, L), i], Bf)
+            )
+            for i in 1:L
+        )
+        Hm = Array(H)
+        @test Hm ≈ Hm'  # Hermitian
+
+        # Single-particle spectrum: -2t cos(2π k / L) for k = 0, 1, …, L-1
+        eigvals_h = eigvals(Hermitian(Hm))
+        analytic = sort([-2 * t * cos(2π * k / L) for k in 0:L-1])
+        @test eigvals_h ≈ analytic atol = 1e-10
+    end
 end
