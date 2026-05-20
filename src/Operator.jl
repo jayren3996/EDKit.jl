@@ -1052,7 +1052,7 @@ function spin_product(s::AbstractString, D::Integer)
     mat
 end
 
-const SPIN_CACHE = LRU{Tuple{Int, String}, Any}(maxsize=256)
+const SPIN_CACHE = LRU{Tuple{Int, String}, SparseMatrixCSC{ComplexF64, Int}}(maxsize=256)
 #---------------------------------------------------------------------------------------------------
 """
     spin(s::String; D::Integer=2)
@@ -1073,7 +1073,7 @@ function spin(s::String; D::Integer=2)
         ny = spin_ny(s, D)
         raw = spin_product(s, D)
         sign = iszero(mod(ny, 2)) ? (-1)^(ny÷2) : (-1im)^ny
-        sign * raw
+        convert(SparseMatrixCSC{ComplexF64, Int}, sign * raw)
     end
     copy(mat)
 end

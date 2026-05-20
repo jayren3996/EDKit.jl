@@ -171,4 +171,12 @@
     @test isnan(meangapratio([0.0]))
     @test isnan(meangapratio([0.0, 1.0]))
     @test meangapratio([0.0, 1.0, 3.0]) ≈ 0.5
+
+    # SPIN_CACHE is concretely typed so cache hits are type-stable.
+    @test valtype(EDKit.SPIN_CACHE) === SparseMatrixCSC{ComplexF64, Int}
+    @test spin("X") isa SparseMatrixCSC{ComplexF64, Int}
+    @test spin("xx") isa SparseMatrixCSC{ComplexF64, Int}
+    @test Matrix(spin("X")) ≈ ComplexF64[0 1; 1 0]
+    @test Matrix(spin("Y")) ≈ ComplexF64[0 -im; im 0]
+    @test Matrix(spin("Z")) ≈ ComplexF64[1 0; 0 -1]
 end
