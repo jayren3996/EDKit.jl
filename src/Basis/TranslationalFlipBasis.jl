@@ -139,23 +139,11 @@ function TranslationFlipBasis(
     k = mod(-k, len)
     base = convert(dtype, base)
     MAX = base ^ L + 1
-
-    I, R = begin
-        N2 = [2len/ sqrt(i) for i = 1:len]
-        N1 = N2 ./ sqrt(2)
-        judge = if small_N || isnothing(N)
-            TranslationFlipJudge(f, k, a, p, len, base, vcat(N1, N2), MAX)
-        else
-            num = L*(base-1)÷2
-            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            TranslationFlipJudge(g, k, a, p, len, base, vcat(N1, N2), MAX)
-        end
-        if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base)
-        else
-            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
-        end
-    end
+    N2 = [2len/ sqrt(i) for i = 1:len]
+    N1 = N2 ./ sqrt(2)
+    g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1)÷2)
+    judge = TranslationFlipJudge(g, k, a, p, len, base, vcat(N1, N2), MAX)
+    I, R = _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
     C = phase_factor(k, len)
     TranslationFlipBasis(zeros(dtype, L), I, R, C, p, a, MAX, base)
 end
@@ -169,9 +157,6 @@ end
 Return the coefficient/index pair for the current digit buffer in the
 translation-flip basis.
 """
-function index(b::TranslationFlipBasis)
-    index(b, b.dgt)
-end
 function index(b::TranslationFlipBasis, dgt::AbstractVector)
     Ia0 = index(dgt, base=b.B)
     state = Ia0 - one(eltype(b.I))

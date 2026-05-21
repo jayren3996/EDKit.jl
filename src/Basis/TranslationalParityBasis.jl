@@ -154,22 +154,11 @@ function TranslationParityBasis(
     @assert isone(p) || isone(-p) "Invalid parity"
 
     base = convert(dtype, base)
-    I, R = begin
-        N2 = [2len/ sqrt(i) for i = 1:len]
-        N1 = N2 ./ sqrt(2)
-        judge = if small_N || isnothing(N)
-            TranslationParityJudge(f, k, a, p, len, base, vcat(N1, N2))
-        else
-            num = L*(base-1)-N
-            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            TranslationParityJudge(g, k, a, p, len, base, vcat(N1, N2))
-        end
-        if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base)
-        else
-            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
-        end
-    end
+    N2 = [2len/ sqrt(i) for i = 1:len]
+    N1 = N2 ./ sqrt(2)
+    g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
+    judge = TranslationParityJudge(g, k, a, p, len, base, vcat(N1, N2))
+    I, R = _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
     C = isone(k) ? fill(1, len) : [iseven(i) ? 1 : -1 for i=0:len-1]
     TranslationParityBasis(zeros(dtype, L), I, R, C, p, a, base)
 end
@@ -186,9 +175,6 @@ translation-parity basis.
 The returned coefficient includes both translation phase and reflection parity
 contributions relative to the stored representative.
 """
-function index(b::TranslationParityBasis)
-    index(b, b.dgt)
-end
 function index(b::TranslationParityBasis, dgt::AbstractVector)
     Ia0 = index(dgt, base=b.B)
     state = Ia0 - one(eltype(b.I))

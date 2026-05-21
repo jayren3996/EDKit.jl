@@ -81,12 +81,12 @@ function _fermion_select(dtype, L, N, f, base, alloc, threaded, small_N)
         threaded ? selectindex_threaded(f_full, L, base=base, alloc=alloc) :
                    selectindex(f_full, L, 1:base^L, base=base, alloc=alloc)
     elseif small_N
-        # selectindex_N(_, L, M) returns indices with Hamming weight L - M
-        # (matches ProjectedBasis's spin convention where N counts dgt=0
-        # entries). For fermions N counts dgt=1 entries, so pass L - N.
+        # `selectindex_N(_, L, M)` returns indices with Hamming weight `L - M`
+        # (matches ProjectedBasis's spin convention where `N` counts `dgt=0`
+        # entries). For fermions `N` counts `dgt=1` entries, so pass `L - N`.
         selectindex_N(f, L, L - N, base=base)
     else
-        g = isnothing(f) ? x -> sum(x) == N : x -> (sum(x) == N && f(x))
+        g = _charge_predicate(f, N)
         threaded ? selectindex_threaded(g, L, base=base, alloc=alloc) :
                    selectindex(g, L, 1:base^L, base=base, alloc=alloc)
     end
@@ -94,13 +94,6 @@ end
 
 copy(b::SpinlessFermionBasis) = SpinlessFermionBasis(deepcopy(b.dgt), b.I, b.B)
 
-function index(b::SpinlessFermionBasis; check::Bool=false)
-    index(b, b.dgt; check)
-end
-
-function index(b::SpinlessFermionBasis, dgt::AbstractVector; check::Bool=false)
-    i = index(dgt, base=b.B)
-    ind = binary_search(b.I, i)
-    ind > 0 && return 1, ind
-    check ? error("No such basis state.") : return zero(eltype(b)), one(ind)
-end
+# `index(b::SpinlessFermionBasis, dgt; check)` and the 1-arg variant are
+# inherited from the generic `index(b::AbstractOnsiteBasis, ...)` methods in
+# AbstractBasis.jl.

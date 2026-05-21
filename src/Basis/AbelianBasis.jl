@@ -756,9 +756,6 @@ The returned coefficient includes both the stored normalization and the phase
 associated with the group element that maps the current digits to the canonical
 representative.
 """
-function index(B::AbelianBasis)
-    index(B, B.dgt)
-end
 function index(B::AbelianBasis, dgt::AbstractVector)
     index(B, dgt, B.G)
 end

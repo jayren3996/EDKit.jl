@@ -27,61 +27,12 @@ iterative algorithms can mutate the copy safely.
 """
 copy(b::ProjectedBasis) = ProjectedBasis(deepcopy(b.dgt), b.I, b.B)
 #-------------------------------------------------------------------------------------------------------------------------
-"""
-    index(b::ProjectedBasis; check=false)
-
-Interpret the current digit buffer `b.dgt` as coordinates in the projected
-basis.
-
-Arguments:
-- `b`: projected basis whose working digit buffer has already been set.
-- `check`: if `true`, throw an error when the current digits are not contained
-  in the basis; otherwise return a zero coefficient.
-
-Returns:
-- `(1, i)` when the state is present as the `i`th projected basis vector.
-- `(0, 1)` when the state is not present and `check == false`.
-
-The zero-coefficient branch is important during operator assembly, where an
-off-sector state should silently contribute nothing instead of aborting the
-matrix construction.
-"""
-function index(b::ProjectedBasis; check::Bool=false)
-    index(b, b.dgt; check)
-end
-function index(b::ProjectedBasis, dgt::AbstractVector; check::Bool=false)
-    i = index(dgt, base=b.B)
-    ind = binary_search(b.I, i)
-    ind > 0 && return 1, ind
-    check ? error("No such symmetry.") : return zero(eltype(b)), one(ind)
-end
-
+# `index(b::ProjectedBasis, dgt; check)` and the 1-arg variant are provided by
+# the generic `index(b::AbstractOnsiteBasis, ...)` methods in AbstractBasis.jl.
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Select basis vectors
 #-------------------------------------------------------------------------------------------------------------------------
-"""
-    binary_search(list::AbstractVector{<:Integer}, i::Integer)
-
-Return the position of `i` inside a sorted integer list, or `0` if it is absent.
-
-This helper is used pervasively by reduced bases to locate canonical
-representatives inside their stored index arrays without a linear scan.
-"""
-function binary_search(list::AbstractVector{<:Integer}, i::Integer)
-    isempty(list) && return 0
-
-    l::Int = 1
-    r::Int = length(list)
-    c::Int = (l + r) ÷ 2
-    while true
-        t = list[c]
-        (i < t) ? (r = c - 1) : (i > t) ? (l = c + 1) : break
-        (l > r) ? (c = 0; break) : (c = (l + r) ÷ 2)
-    end
-    c
-end
-
 function _binary_fixed_weight_indices(::Type{T}, L::Integer, n::Integer) where T <: Integer
     (0 <= n <= L) || return T[]
     if iszero(n)
@@ -294,8 +245,7 @@ function ProjectedBasis(dtype::DataType=Int64;
     elseif small_N
         selectindex_N(f, L, N, base=base)
     else
-        num = L * (base-1) - N
-        g = isnothing(f) ? x -> sum(x) == num : x -> (sum(x) == num && f(x))
+        g = _charge_predicate(f, L*(base-1) - N)
         threaded ? selectindex_threaded(g, L, base=base, alloc=alloc) : selectindex(g, L, 1:base^L, base=base, alloc=alloc)
     end
     ProjectedBasis(zeros(dtype, L), I, base)

@@ -79,34 +79,20 @@ function ParityBasis(
 )
     @assert isone(p) || isone(-p) "Invalid parity"
     base = convert(dtype, base)
-    I, R = begin
-        judge = if small_N || isnothing(N)
-            ParityJudge(f, p, base, sqrt(2))
-        else
-            num = L*(base-1)-N
-            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            ParityJudge(g, p, base, sqrt(2))
-        end
-        if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base)
-        else
-            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
-        end
-    end
+    g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
+    judge = ParityJudge(g, p, base, sqrt(2))
+    I, R = _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
     ParityBasis(zeros(dtype, L), I, R, p, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    index(b::ParityBasis)
+    index(b::ParityBasis, dgt)
 
-Interpret the current digit buffer as coordinates in the parity-reduced basis.
-
-The returned coefficient is either `±R[i]` depending on whether the current
-digits match the stored representative directly or through reflection.
+Interpret the digit string `dgt` as coordinates in the parity-reduced basis.
+The returned coefficient is `±R[i]` depending on whether `dgt` matches the
+stored representative directly or through reflection. The 1-arg form
+`index(b)` is provided by the generic fallback in `AbstractBasis.jl`.
 """
-function index(b::ParityBasis)
-    index(b, b.dgt)
-end
 function index(b::ParityBasis, dgt::AbstractVector)
     Ia = index(dgt, base=b.B)
     state = Ia - one(eltype(b.I))

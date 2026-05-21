@@ -77,31 +77,18 @@ function FlipBasis(
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
     base = convert(dtype, base)
     MAX = base ^ L + 1
-    I, R = begin
-        judge = if small_N || isnothing(N)
-            FlipJudge(f, p, base, MAX, sqrt(2))
-        else
-            num = L*(base-1)-N
-            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            FlipJudge(g, p, base, MAX, sqrt(2))
-        end
-        if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base)
-        else
-            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
-        end
-    end
+    g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
+    judge = FlipJudge(g, p, base, MAX, sqrt(2))
+    I, R = _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
     FlipBasis(zeros(dtype, L), I, R, p, MAX, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    index(b::FlipBasis)
+    index(b::FlipBasis, dgt)
 
-Interpret the current digit buffer as coordinates in the spin-flip basis.
+Interpret `dgt` as coordinates in the spin-flip basis. The 1-arg form is
+provided by the generic fallback in `AbstractBasis.jl`.
 """
-function index(b::FlipBasis)
-    index(b, b.dgt)
-end
 function index(b::FlipBasis, dgt::AbstractVector)
     Ia = index(dgt, base=b.B)
     Ib = b.M - Ia

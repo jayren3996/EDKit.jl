@@ -92,33 +92,20 @@ function ParityFlipBasis(
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
     base = convert(dtype, base)
     MAX = base ^ L + 1
-    I, R = begin
-        C = [2.0, 2*sqrt(2), 0.0, 4.0]
-        judge = if small_N || isnothing(N)
-            ParityFlipJudge(f, p, z, base, MAX, C)
-        else
-            num = L*(base-1)-N
-            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            ParityFlipJudge(g, p, z, base, MAX, C)
-        end
-        if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base)
-        else
-            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
-        end
-    end
+    C = [2.0, 2*sqrt(2), 0.0, 4.0]
+    g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
+    judge = ParityFlipJudge(g, p, z, base, MAX, C)
+    I, R = _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
     ParityFlipBasis(zeros(dtype, L), I, R, p, z, MAX, base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
-    index(b::ParityFlipBasis)
+    index(b::ParityFlipBasis, dgt)
 
-Interpret the current digit buffer in the combined parity/flip basis and return
-the coefficient/index pair for the corresponding representative.
+Interpret `dgt` in the combined parity/flip basis and return the
+coefficient/index pair for the corresponding representative. The 1-arg form
+is provided by the generic fallback in `AbstractBasis.jl`.
 """
-function index(b::ParityFlipBasis)
-    index(b, b.dgt)
-end
 function index(b::ParityFlipBasis, dgt::AbstractVector)
     I0 = index(dgt, base=b.B)
     state = I0 - one(eltype(b.I))

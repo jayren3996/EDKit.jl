@@ -186,6 +186,18 @@ may exceed the safe range of default machine integers.
 int_type(b::AbstractBasis) = eltype(b.I)
 #-------------------------------------------------------------------------------------------------------------------------
 """
+    index(b::AbstractBasis)
+
+Read the basis-object's own working digit buffer `b.dgt`.
+
+Concrete bases override the two-argument form `index(b, dgt)`; this generic
+shim then handles the no-argument case uniformly. `TensorBasis` and the
+projection-style bases override this directly because they have a different
+return shape or accept a `check` keyword.
+"""
+index(b::AbstractBasis) = index(b, b.dgt)
+#-------------------------------------------------------------------------------------------------------------------------
+"""
     order(b::AbstractOnsiteBasis)
 
 Return the orbit order associated with the basis.
@@ -432,3 +444,78 @@ Integer equivalent of spin-flip (complement each digit: d → base-1-d).
 Operates on a 0-based integer state.  `maxstate = base^L - 1`.
 """
 @inline _int_spinflip(state::T, maxstate::T) where T <: Integer = maxstate - state
+
+#-------------------------------------------------------------------------------------------------------------------------
+# Generic helpers used by every reduced basis
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    binary_search(list::AbstractVector{<:Integer}, i::Integer)
+
+Return the position of `i` inside a sorted integer list, or `0` if it is absent.
+
+This helper is used pervasively by reduced bases to locate canonical
+representatives inside their stored index arrays without a linear scan.
+"""
+function binary_search(list::AbstractVector{<:Integer}, i::Integer)
+    isempty(list) && return 0
+
+    l::Int = 1
+    r::Int = length(list)
+    c::Int = (l + r) ÷ 2
+    while true
+        t = list[c]
+        (i < t) ? (r = c - 1) : (i > t) ? (l = c + 1) : break
+        (l > r) ? (c = 0; break) : (c = (l + r) ÷ 2)
+    end
+    c
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    index(b::AbstractOnsiteBasis, dgt::AbstractVector; check=false)
+
+Generic onsite-basis lookup: read the digit string, then locate the matching
+canonical index via [`binary_search`](@ref) over the stored representative
+list `b.I`.
+
+Concrete onsite bases (`ProjectedBasis`, `SpinlessFermionBasis`) inherit this
+method; `TensorBasis` provides its own faster method that bypasses the search.
+"""
+function index(b::AbstractOnsiteBasis, dgt::AbstractVector; check::Bool=false)
+    i = index(dgt, base=b.B)
+    ind = binary_search(b.I, i)
+    ind > 0 && return 1, ind
+    check ? error("No such basis state.") : return zero(eltype(b)), one(ind)
+end
+index(b::AbstractOnsiteBasis; check::Bool=false) = index(b, b.dgt; check)
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    _charge_predicate(f, num)
+
+Combine an optional digit predicate `f` with a fixed-charge constraint
+`sum(dgt) == num`. Used by every reduced-basis constructor that supports an
+explicit `N` sector together with an optional user-supplied filter.
+"""
+@inline _charge_predicate(::Nothing, num::Integer) = x -> sum(x) == num
+@inline _charge_predicate(f, num::Integer) = x -> (sum(x) == num && f(x))
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
+
+Construction-time helper used by every symmetry basis that returns a
+representative list paired with a normalization list (`ParityBasis`,
+`FlipBasis`, `ParityFlipBasis`, `TranslationalBasis`, `TranslationParityBasis`,
+`TranslationFlipBasis`).
+
+Picks among `selectindexnorm_N`, `selectindexnorm_threaded`, and
+`selectindexnorm` according to whether a fixed-`N` shortcut is available and
+whether threaded enumeration was requested.
+"""
+function _run_selectindexnorm(judge, L::Integer, N, base, alloc::Integer, threaded::Bool, small_N::Bool)
+    if small_N && !isnothing(N)
+        selectindexnorm_N(judge, L, N, base=base)
+    elseif threaded
+        selectindexnorm_threaded(judge, L, base=base, alloc=alloc)
+    else
+        selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)
+    end
+end

@@ -261,23 +261,12 @@ function TranslationalBasis(dtype::DataType=Int64;
         new: T|k⟩ = exp(-ik)|k⟩.
     In the new definition, cₖ⁺|VAC⟩ = |k⟩.
     =#
-    k = mod(-k, len) 
+    k = mod(-k, len)
     base = convert(dtype, base)
-    I, R = begin
-        norm = [len/sqrt(i) for i = 1:len]
-        judge = if small_N || isnothing(N)
-            TranslationJudge(f, k, a, len, base, norm)
-        else
-            num = L*(base-1)-N
-            g = isnothing(f) ? x -> (sum(x) == num) : x -> (sum(x) == num && f(x))
-            TranslationJudge(g, k, a, len, base, norm)
-        end
-        if small_N && !isnothing(N)
-            selectindexnorm_N(judge, L, N, base=base)
-        else
-            threaded ? selectindexnorm_threaded(judge, L, base=base, alloc=alloc) : selectindexnorm(judge, L, 1:base^L, base=base, alloc=alloc)        
-        end
-    end
+    norm = [len/sqrt(i) for i = 1:len]
+    g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
+    judge = TranslationJudge(g, k, a, len, base, norm)
+    I, R = _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
     C = phase_factor(k, len)
     TranslationalBasis(zeros(dtype, L), I, R, C, a, base)
 end
@@ -321,9 +310,6 @@ Because of the restriction from the momentum, some state with zero normalization
 To avoid exception in the matrix constructon of `Operation`, we allow the index to not in the basis content.
 When this happend, we return index 1, and normalization 0, so it has no effect on the matrix being filled.
 """
-function index(b::TranslationalBasis)
-    index(b, b.dgt)
-end
 function index(b::TranslationalBasis, dgt::AbstractVector)
     I0 = index(dgt, base=b.B)
     state = I0 - one(eltype(b.I))
