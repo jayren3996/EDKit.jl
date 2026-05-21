@@ -36,8 +36,8 @@ inserted on the intermediate sites:
 | `"n"`  | number operator `n_i = c†_i c_i`              | 1    |
 | `"z"`  | `n_i - 1/2` (eigenvalues `±1/2`)              | 1    |
 | `"I"`  | identity                                      | 1    |
-| `"+"`  | bare creation `c†_i` (no JW)                  | 1    |
-| `"-"`  | bare annihilation `c_i` (no JW)               | 1    |
+| `"+"`  | bare creation `c†_i` (no JW — see warning)    | 1    |
+| `"-"`  | bare annihilation `c_i` (no JW — see warning) | 1    |
 | `"+-"` | hop `c†_1 c_span`                             | ≥ 2  |
 | `"-+"` | `c_1 c†_span`                                 | ≥ 2  |
 | `"++"` | pair creation `c†_1 c†_span`                  | ≥ 2  |
@@ -123,6 +123,57 @@ H = -t * (H_hop + adjoint(H_hop))
     fermion Hamiltonian in the single-particle sector but produces wrong
     eigenvalues at `N ≥ 2`. Use `trans_inv_fermion_operator` instead.
 
+## Diagonalization and observables
+
+`Operator` objects materialize to dense or sparse matrices for direct
+diagonalization. For the canonical spinless-fermion chain
+`H = -t Σ_i (c†_i c_{i+1} + h.c.) + V Σ_i n_i n_{i+1}`:
+
+```julia
+using LinearAlgebra
+L, N, t, V = 8, 4, 1.0, 2.0
+B = SpinlessFermionBasis(L = L, N = N)
+
+H_hop = trans_inv_fermion_operator("+-", [1, 2], B)
+H_int = trans_inv_fermion_operator("nn", [1, 2], B)
+H = -t * (H_hop + adjoint(H_hop)) + V * H_int
+
+vals, vecs = eigen(Hermitian(Array(H)))
+E0, ψ = vals[1], vecs[:, 1]
+```
+
+For larger systems, call [`sparse!`](@ref) on the operator and use a Krylov
+solver such as `KrylovKit.eigsolve` to find low-lying eigenstates without
+forming the dense matrix.
+
+Single-site expectation values and density-density correlators follow the
+standard `dot(ψ, opt * ψ)` pattern:
+
+```julia
+ni  = real(dot(ψ, fermion_operator("n",  3,      B) * ψ))   # ⟨n_3⟩
+nij = real(dot(ψ, fermion_operator("nn", [3, 5], B) * ψ))   # ⟨n_3 n_5⟩
+```
+
+(`fermion_operator("n", 3, B)` is shorthand for `fermion_operator("n", [3], B)`.)
+
+## Entanglement entropy
+
+[`SpinlessFermionBasis`](@ref) is an `AbstractOnsiteBasis`, so the standard
+[`schmidt`](@ref) decomposition works without any fermion-specific glue:
+
+```julia
+λ = schmidt(ψ, 1:L÷2, B)
+S = -sum(s -> iszero(s) ? 0.0 : s^2 * log(s^2), λ)
+```
+
+!!! warning "Schmidt convention for fermions"
+    [`schmidt`](@ref) computes the Schmidt decomposition of `ψ` viewed as a
+    Jordan-Wigner *spin* state. For a **contiguous** real-space bipartition
+    (such as `1:k`), this coincides with the fermionic Schmidt decomposition
+    and the entanglement entropies agree. For a **non-contiguous** cut (e.g.
+    `Ainds = [1, 3, 5]`), the fermionic anticommutation signs are *not*
+    inserted automatically — interpret the result with care.
+
 ## Symmetry caveats
 
 The Jordan-Wigner transform is *not* a local map: `c†_j` and `c_j` each carry a
@@ -153,6 +204,18 @@ filter via `f=…`). Build translation-invariant Hamiltonians with
 [`trans_inv_fermion_operator`](@ref) so the wrap-around bond carries the
 correct Jordan-Wigner chain.
 
+## ITensor / MPS interface
+
+EDKit's MPS conversion routines (`mps2vec`, `vec2mps`) treat a
+[`SpinlessFermionBasis`](@ref) as an ordinary `S = 1/2` chain in the
+Jordan-Wigner spin representation — i.e. they expect MPS site indices
+built with `siteinds("S=1/2", L)`. ITensor's native
+`siteinds("Fermion", L)` site type inserts additional anticommuting
+fermionic-parity phases that EDKit does **not** account for, so the two
+are incompatible without an explicit conversion. When round-tripping
+fermion states between EDKit and ITensor, stick with `"S=1/2"` site
+indices.
+
 ## Limitations
 
 Supported:
@@ -173,6 +236,10 @@ Not yet supported:
 - Symmetry-reduced fermion bases (translation, parity, particle-hole). Using
   [`fermion_operator`](@ref) with a JW-bearing operator on these bases now
   raises a loud error rather than returning a silently wrong matrix.
+- 2D / 3D fermion lattices via [`AbelianBasis`](@ref). The Jordan-Wigner
+  string does not commute with arbitrary lattice permutations, so
+  [`fermion_operator`](@ref) on an `AbelianBasis` is rejected. A
+  fermion-aware lattice basis is future work.
 - Operator-string parsing for ≥ 4-fermion products (e.g. `"++--"` in one
   call) — build these by composing two-fermion or `"nn"` operators
 - Majorana operators `"x"`, `"y"`

@@ -463,6 +463,45 @@
                                                                 convention = :right)
     end
 
+    @testset "API conveniences: integer site, widened trans_inv dispatch" begin
+        L = 4
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+        Bp = ProjectedBasis(L = L, N = 2, base = 2)
+
+        # Single-site Integer shorthand for fermion_operator
+        for op in ("n", "z", "I", "+", "-")
+            @test Array(fermion_operator(op, 3, Bf)) ≈
+                  Array(fermion_operator(op, [3], Bf))
+        end
+
+        # trans_inv_fermion_operator dispatch widened to AbstractOnsiteBasis
+        @test trans_inv_fermion_operator("+-", [1, 2], Bt) isa EDKit.Operator
+        @test trans_inv_fermion_operator("+-", [1, 2], Bp) isa EDKit.Operator
+        @test trans_inv_fermion_operator("nn", [1, 2], Bp) isa EDKit.Operator
+
+        # On TensorBasis it must still equal the explicit per-bond loop.
+        H_widened = Array(trans_inv_fermion_operator("+-", [1, 2], Bt))
+        H_explicit = Array(sum(
+            fermion_operator("+-", [i, mod1(i + 1, L)], Bt) for i in 1:L
+        ))
+        @test H_widened ≈ H_explicit
+
+        # AbstractPermuteBasis still rejected via MethodError.
+        Btrans = TranslationalBasis(L = L, k = 0, base = 2)
+        @test_throws MethodError trans_inv_fermion_operator("+-", [1, 2], Btrans)
+    end
+
+    @testset "jw_string_required predicate" begin
+        for op in ("+", "-", "+-", "-+", "++", "--")
+            @test jw_string_required(op)
+        end
+        for op in ("n", "z", "I", "nn")
+            @test !jw_string_required(op)
+        end
+        @test !jw_string_required("xyz")  # unknown op: not JW-bearing by default
+    end
+
     @testset "Basis N-range validation and nf rounding" begin
         # Out-of-range N
         @test_throws ErrorException SpinlessFermionBasis(L = 6, N = -1)

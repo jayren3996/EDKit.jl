@@ -1,4 +1,17 @@
-export fermion, fermion_operator, trans_inv_fermion_operator
+export fermion, fermion_operator, trans_inv_fermion_operator, jw_string_required
+
+"""
+    jw_string_required(op::AbstractString) -> Bool
+
+Whether the fermion operator string `op` carries a Jordan-Wigner string when
+embedded into a many-body basis.
+
+JW-string-bearing operators (`"+"`, `"-"`, `"+-"`, `"-+"`, `"++"`, `"--"`) do
+not commute with spatial permutation symmetries. The diagonal operators
+`"n"`, `"z"`, `"I"`, and `"nn"` carry no JW string and remain safe on any
+onsite basis.
+"""
+jw_string_required(op::AbstractString) = op in ("+", "-", "+-", "-+", "++", "--")
 
 """
     fermion(op::AbstractString[, span::Integer]; convention::Symbol=:left)
@@ -25,8 +38,10 @@ inserted on sites `2, 3, …, span-1` whenever `span > 2`. An overall ±1 sign
 is folded in to account for the on-site `σ⁺σ_z = -σ⁺` / `σ⁻σ_z = +σ⁻`
 reduction at site 1.
 
-`convention` selects the Jordan-Wigner direction. Only `:left` is implemented
-in this MVP.
+`convention` selects the Jordan-Wigner direction. Only `:left` is implemented;
+the kwarg is plumbed through `fermion`, `fermion_operator`, and
+`trans_inv_fermion_operator` for forward compatibility with a future
+`:right` implementation.
 
 Embed the returned matrix into a many-body basis with [`operator`](@ref) or
 [`fermion_operator`](@ref).
@@ -137,16 +152,18 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
         error("Each entry of `sites` must lie in 1:$L for the supplied basis (got $sites).")
 
     # JW-bearing operators (c†, c, c†c†, cc, c†c, cc†) do not commute with
-    # spatial permutation symmetries — translation, parity, flip. Embedding
-    # them on an AbstractPermuteBasis would silently produce wrong eigenvalues.
-    # Diagonal/identity operators ("n", "z", "I", "nn") carry no JW string and
-    # commute with any onsite permutation, so they remain allowed.
-    if B isa AbstractPermuteBasis && !(op == "n" || op == "z" || op == "I" || op == "nn")
+    # spatial permutation symmetries. Embedding them on an AbstractPermuteBasis
+    # would silently produce wrong eigenvalues. Diagonal/identity operators
+    # carry no JW string and remain valid on any onsite permutation — gated
+    # via `jw_string_required` so new diagonal ops are safe by default.
+    if B isa AbstractPermuteBasis && jw_string_required(op)
         error("fermion_operator(\"$op\", $(sites), ::$(typeof(B))) is not supported: " *
               "the Jordan-Wigner string for c†/c does not commute with the symmetry of " *
-              "$(typeof(B)). Use SpinlessFermionBasis (with N=… or nf=…) instead — " *
-              "symmetry-resolved fermion bases are not yet implemented. See the " *
-              "\"Symmetry caveats\" section of the spinless fermions manual.")
+              "$(typeof(B)) (covers TranslationalBasis, ParityBasis, FlipBasis, " *
+              "ParityFlipBasis, and AbelianBasis). Use SpinlessFermionBasis (with " *
+              "N=… or nf=…) instead — symmetry-resolved fermion bases are not yet " *
+              "implemented. See the \"Symmetry caveats\" section of the spinless " *
+              "fermions manual.")
     end
 
     # Single-site diagonal / identity operators — no JW string.
@@ -240,9 +257,12 @@ chain through sites `2, …, L-1`. Without that chain the boundary bond is
 silently wrong at particle number `N ≥ 2` (the single-particle sector is
 accidentally correct).
 
-Restricted to [`SpinlessFermionBasis`](@ref). Symmetry-reduced fermion bases
-are not yet supported; see the "Symmetry caveats" section of the spinless
-fermions manual.
+Accepts any [`AbstractOnsiteBasis`](@ref) — [`SpinlessFermionBasis`](@ref),
+[`TensorBasis`](@ref), and `base=2` [`ProjectedBasis`](@ref) all work, since
+the JW string is purely an on-site permutation in those representations.
+Symmetry-reduced fermion bases (`AbstractPermuteBasis`) are not yet
+supported; see the "Symmetry caveats" section of the spinless fermions
+manual.
 
 # Example: tight-binding ring with PBC
 ```julia
@@ -260,7 +280,7 @@ H = -(H_hop + adjoint(H_hop))      # = -Σ_i (c†_i c_{i+1} + h.c.)
     `H = -H_hop`.
 """
 function trans_inv_fermion_operator(op::AbstractString,
-        support::AbstractVector{<:Integer}, B::SpinlessFermionBasis;
+        support::AbstractVector{<:Integer}, B::AbstractOnsiteBasis;
         convention::Symbol=:left)
     L = length(B.dgt)
     isempty(support) && error("`support` must be non-empty (got $support).")
@@ -277,5 +297,13 @@ function trans_inv_fermion_operator(op::AbstractString,
 end
 
 trans_inv_fermion_operator(op::AbstractString, span::Integer,
-        B::SpinlessFermionBasis; kwargs...) =
+        B::AbstractOnsiteBasis; kwargs...) =
     trans_inv_fermion_operator(op, collect(1:span), B; kwargs...)
+
+"""
+    fermion_operator(op::AbstractString, site::Integer, B::AbstractBasis; kwargs...)
+
+Single-site shorthand: equivalent to `fermion_operator(op, [site], B; kwargs...)`.
+"""
+fermion_operator(op::AbstractString, site::Integer, B::AbstractBasis; kwargs...) =
+    fermion_operator(op, [site], B; kwargs...)
