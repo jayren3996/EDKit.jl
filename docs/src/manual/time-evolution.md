@@ -195,7 +195,7 @@ quick experiments on small matrices. They are not a replacement for
   assumes `H` is Hermitian and uses a Lanczos (rather than Arnoldi)
   tridiagonalization. Hermiticity is **not checked at runtime**: passing a
   non-Hermitian operator will silently produce meaningless output. There is
-  no `hermitian` kwarg — the propagator is Hermitian-only by construction.
+  no `hermitian` kwarg; the propagator is Hermitian-only by construction.
 - **Backward time evolution is not supported.** All requested times must be
   non-negative, and a persistent `KrylovEvolutionCache` rejects any request
   earlier than its last served time. The stateless `timeevolve(H, ψ0, ts)`
@@ -210,7 +210,7 @@ quick experiments on small matrices. They are not a replacement for
   [ITensor Workflows](itensors.md). `timeevolve` operates on state vectors in
   an EDKit basis, not on MPS.
 - `timeevolve` is a state-vector propagator. It does not compute full spectra
-  or Floquet quasi-energies — use explicit diagonalization for those.
+  or Floquet quasi-energies; use explicit diagonalization for those.
 
 ## A Note On The Defect Monitor
 
@@ -226,7 +226,7 @@ intervals and wide-spectrum operators, where a naive fixed sample grid could
 miss narrow peaks between samples.
 
 If you suspect a specific problem is slipping through the monitor, the safest
-response is to tighten `tol`. You can also bump `nsample` as a fallback — the
+response is to tighten `tol`. You can also bump `nsample` as a fallback; the
 adaptive densifier only raises the count above the user-supplied floor, so a
 larger `nsample` is always respected.
 
@@ -260,7 +260,7 @@ tells you how many Lanczos bases were needed to cover the full window.
 ## Example 2: Symmetry Sector Dynamics
 
 `timeevolve` works directly on a symmetry-reduced basis. There is nothing
-special to set up — the cache asks the operator how to apply itself, and the
+special to set up: the cache asks the operator how to apply itself, and the
 operator already knows how to act inside the sector.
 
 ```julia

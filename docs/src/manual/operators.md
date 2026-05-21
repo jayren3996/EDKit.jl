@@ -1,8 +1,8 @@
 # Operators
 
-The operator layer is the heart of EDKit.
+The operator layer is the central interface of EDKit.
 
-Instead of asking you to build a full matrix immediately, EDKit lets you specify local terms and where they act, then stores the result as an `Operator`.
+Instead of building a full matrix immediately, EDKit lets you specify local terms and where they act, then stores the result as an `Operator`.
 
 ## Why `Operator` Matters
 
@@ -107,7 +107,7 @@ If you need control over the output buffer, `addto!` writes into an existing mat
 
 The same `Operator` you build for diagonalization can be fed directly into the
 closed-system real-time propagator. There is no need to call `Array(H)` or
-`sparse(H)` first — [`timeevolve`](@ref) uses the matrix-free `mul!` path
+`sparse(H)` first; [`timeevolve`](@ref) uses the matrix-free `mul!` path
 under the hood.
 
 ```julia
@@ -142,7 +142,7 @@ h2 = spin((1.0, "xx"), (1.0, "yy"), (1.0, "zz"))
 H = trans_inv_operator(h2, 1:2, B)
 ```
 
-This is one of the main advantages of the EDKit design: the model description stays the same while the basis changes.
+The model description stays the same while the basis changes.
 
 ## Performance Tips
 

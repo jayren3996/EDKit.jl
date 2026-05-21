@@ -9,6 +9,7 @@ entries below.
 
 ```@docs
 AbstractBasis
+EDKit.AbstractOnsiteBasis
 content
 index
 change!

@@ -94,11 +94,11 @@ In a full tensor-product basis, Schmidt decomposition is straightforward. In
 symmetry-reduced bases, however, the state coordinates no longer correspond
 directly to plain product states.
 
-EDKit handles that bookkeeping for you. The basis object determines how each
+EDKit handles that bookkeeping. The basis object determines how each
 representative contributes, including orbit weights and symmetry phases, and
 the Schmidt matrix is assembled accordingly.
 
-That makes the entanglement tools especially useful when you diagonalize in momentum, parity, or combined symmetry sectors but still want real-space bipartite diagnostics.
+The entanglement tools apply when you diagonalize in momentum, parity, or combined symmetry sectors but still want real-space bipartite diagnostics.
 
 ## MPS Entanglement
 

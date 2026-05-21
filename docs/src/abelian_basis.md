@@ -130,7 +130,7 @@ action itself.
 
 ## Checking A Custom Action
 
-Two helpers are especially useful when debugging a user-defined generator:
+Two helpers are useful when debugging a user-defined generator:
 
 - `EDKit.check_min(dgt, G; base=...)` checks whether `dgt` is already the
   canonical orbit representative,
@@ -212,10 +212,9 @@ z_sub = (collect(1:L), 0, even_inv)
 B = basis(; L, symmetries=[z_flip])
 ```
 
-Here the period is inferred from the action automatically, which is convenient
-for quick lattice constructions. The wrapper validates that every `perm` is a
-permutation of `1:L`, that each `inv` mask has length `L`, and that the custom
-generators commute pairwise. To deliberately use a known compatible sector of a
+Here the period is inferred from the action automatically. The wrapper
+validates that every `perm` is a permutation of `1:L`, that each `inv` mask has
+length `L`, and that the custom generators commute pairwise. To deliberately use a known compatible sector of a
 non-commuting generator set, pass `allow_noncommuting_symmetries=true` and check
 the resulting sector against a full-space projection.
 
@@ -266,3 +265,75 @@ E, V = eigen(Hermitian(Array(H)))
 println("Ground state energy per site: ", E[1] / L)
 println("Reduced Hilbert space dimension: ", size(B, 1))
 ```
+
+## Non-Abelian Point Groups Via Abelian Subgroups
+
+The dihedral group `D_4` of a square lattice has eight elements: four rotations `e, C_4, C_4^2, C_4^3` and four reflections `σ_h, σ_v, σ_d, σ_{d'}`. The dihedral relation `σ_h C_4 σ_h = C_4^{-1}` says rotations and reflections do not commute, so `D_4` is non-abelian and `AbelianBasis` cannot resolve it as a single combined sector. What it can resolve is any abelian subgroup, and a subgroup chain in which a non-abelian generator happens to commute with the projector onto an earlier sector.
+
+The two largest abelian subgroups of `D_4` are `C_4` (rotations only, cyclic of order 4) and `Z_2 × Z_2 = {e, C_4^2, σ_h, σ_v}` (the inversion together with two perpendicular reflections). `C_4` is the more common choice because the rotation eigenvalue `e^{i π k / 2}` is a direct quantum number.
+
+### Why `σ_h` is compatible only with `k = 0` and `k = 2`
+
+The relation `σ_h C_4 = C_4^{-1} σ_h` means `σ_h` takes a `C_4`-eigenstate with momentum `k` to one with momentum `-k mod 4`. The sector closes under `σ_h` exactly when `k ≡ -k mod 4`, which selects `k = 0` and `k = 2`. The remaining sectors `k = 1` and `k = 3` are paired by `σ_h` into a 2D `E` representation of `D_4`; `σ_h` cannot split them.
+
+### Construction on a 3×3 lattice
+
+```julia
+using EDKit, LinearAlgebra
+
+Lx = Ly = 3
+L = Lx * Ly
+sites = [(x, y) for y in 0:Ly-1 for x in 0:Lx-1]
+idx(x, y) = mod(x, Lx) + Lx * mod(y, Ly) + 1
+
+# C_4 rotates around the center (1, 1): (x, y) -> (2 - y, x).
+C4 = [idx(2 - y, x) for (x, y) in sites]
+# σ_h reflects across the middle row: (x, y) -> (x, 2 - y).
+sh = [idx(x, 2 - y) for (x, y) in sites]
+```
+
+By default, `basis(...; symmetries = [(C4, 0), (sh, 0)])` errors with the message "Custom symmetry generators must commute pairwise". Pass `allow_noncommuting_symmetries = true` to opt into a compatible sector:
+
+```julia
+B_A1 = basis(L = L, base = 2,
+             symmetries = [(C4, 0), (sh, 0)],
+             allow_noncommuting_symmetries = true)
+```
+
+For the transverse-field Ising model `H = -J Σ_⟨ij⟩ Z_i Z_j - h Σ_i X_i` on the 3×3 torus, the four compatible `D_4` sectors have:
+
+| representation | `(k, p)` | dimension |
+|----------------|----------|-----------|
+| `A_1`          | `(0, 0)` | 102       |
+| `A_2`          | `(0, 1)` | 38        |
+| `B_1`          | `(2, 0)` | 66        |
+| `B_2`          | `(2, 1)` | 66        |
+
+These four sectors sum to 272 states. The remaining 240 sit in the 2D `E` representation `{k = 1} ⊕ {k = 3}`. Calling `basis(...; symmetries = [(C4, 1), (sh, p)], allow_noncommuting_symmetries = true)` does not raise an error but returns a basis that is not an irreducible-representation sector and yields a meaningless spectrum. Keep the second-step reflection only in `k = 0` and `k = 2`.
+
+### Verifying against the full space
+
+```julia
+ZZ, X = spin((1.0, "zz")), spin((1.0, "x"))
+bonds = Set{Tuple{Int,Int}}()
+for (x, y) in sites
+    i = idx(x, y)
+    push!(bonds, minmax(i, idx(x + 1, y)))
+    push!(bonds, minmax(i, idx(x, y + 1)))
+end
+bonds = collect(bonds)
+bond_pairs   = [[b[1], b[2]] for b in bonds]
+field_sites  = [[i] for i in 1:L]
+
+J, h = 1.0, 0.7
+H_full = -J * operator([ZZ for _ in bonds], bond_pairs, L) -
+         h  * operator([X  for _ in 1:L],   field_sites, L)
+H_A1   = -J * operator([ZZ for _ in bonds], bond_pairs, B_A1) -
+         h  * operator([X  for _ in 1:L],   field_sites, B_A1)
+
+E0_full = eigvals(Hermitian(Array(H_full)))[1]
+E0_A1   = eigvals(Hermitian(Array(H_A1  )))[1]
+@assert abs(E0_full - E0_A1) < 1e-10   # ground state sits in A_1
+```
+
+Excited states with other `D_4` quantum numbers are reached by changing `(k, p)` to `(0, 1)`, `(2, 0)`, or `(2, 1)`.

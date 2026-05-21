@@ -107,7 +107,7 @@ For open systems, the routing is slightly different:
 
 ## Working In A Symmetry Sector
 
-EDKit becomes especially useful when you do not want the full Hilbert space.
+EDKit can also work directly in a symmetry sector instead of the full Hilbert space.
 
 For example, the half-filling momentum-zero sector can be built with the high-level `basis(...)` helper:
 

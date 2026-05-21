@@ -183,7 +183,7 @@ Those low-level operations are what allow operator application, basis conversion
 
 ## The Digit Buffer and Thread Safety
 
-Every basis object carries a mutable digit buffer `b.dgt`, a `Vector{Int}` of length `L` that stores the local state label for each site. The two core operations — `change!` (decode a basis index into digits) and `index` (interpret digits as basis coordinates) — read from and write to this buffer.
+Every basis object carries a mutable digit buffer `b.dgt`, a `Vector{Int}` of length `L` that stores the local state label for each site. The two core operations, `change!` (decode a basis index into digits) and `index` (interpret digits as basis coordinates), read from and write to this buffer.
 
 Because `b.dgt` is shared mutable state, naive concurrent use of the same basis across threads would cause data races. EDKit solves this through **explicit buffer passing**: all hot-path functions accept an optional `dgt::AbstractVector` argument that replaces `b.dgt`:
 
@@ -216,9 +216,9 @@ end
 
 This design means:
 
-- **Thread-safe by construction** — no locks, no atomics, no synchronization overhead.
-- **Zero performance cost** — benchmarks show the explicit-buffer path is slightly faster than the old struct-based path (~6%), because the compiler can optimize local variables better than struct field accesses.
-- **Backward compatible** — `b.dgt` still exists and the old no-argument forms of `index(b)` and `change!(b, i)` still work by delegating to the buffer-passing variants with `b.dgt`.
+- **Thread-safe by construction**: no locks, no atomics, no synchronization overhead.
+- **Zero performance cost**: benchmarks show the explicit-buffer path is slightly faster than the old struct-based path (~6%), because the compiler can optimize local variables better than struct field accesses.
+- **Backward compatible**: `b.dgt` still exists and the old no-argument forms of `index(b)` and `change!(b, i)` still work by delegating to the buffer-passing variants with `b.dgt`.
 
 !!! note "For custom code using basis objects"
     If you write your own loops over basis states and want thread safety, allocate

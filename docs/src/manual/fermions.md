@@ -22,7 +22,7 @@ The `N` keyword counts **occupations** (`dgt=1` entries), unlike
 entries). The constructor compensates internally so users can write `N`
 directly as the particle number. Pass `N = [n1, n2, …]` to construct the
 union of several fixed-N sectors (representatives are sorted), or `nf` as a
-filling fraction shorthand — the constructor errors if `nf * L` is not an
+filling fraction shorthand; the constructor errors if `nf * L` is not an
 integer.
 
 ## Local operators
@@ -49,7 +49,7 @@ inserted on the intermediate sites:
     matrix (`σ⁻` / `σ⁺`) without any Jordan-Wigner prefix. Passing the result
     of `fermion("+")` directly to [`operator`](@ref) at a site `i ≥ 2` will
     produce a wrong operator. Always build `c†_i` / `c_i` via
-    [`fermion_operator`](@ref) — it inserts the full `σ_z^1 ⋯ σ_z^{i-1}`
+    [`fermion_operator`](@ref), which inserts the full `σ_z^1 ⋯ σ_z^{i-1}`
     prefix automatically.
 
 The default Jordan-Wigner convention is left-string:
@@ -166,17 +166,17 @@ S = ent_S(ψ, 1:L÷2, B)              # von Neumann entropy of the half-chain cu
 ```
 
 If you want the underlying singular values or the Schmidt matrix itself,
-use [`ent_spec`](@ref) or [`schmidt`](@ref). Note that `schmidt(...)` returns
+use [`ent_spec`](@ref) or [`EDKit.schmidt`](@ref). Note that `schmidt(...)` returns
 the bipartite Schmidt matrix (not a vector of singular values), so to compute
 entropy by hand use `svdvals` on its result.
 
 !!! warning "Schmidt convention for fermions"
-    [`schmidt`](@ref) and [`ent_S`](@ref) compute the decomposition of `ψ`
+    [`EDKit.schmidt`](@ref) and [`ent_S`](@ref) compute the decomposition of `ψ`
     viewed as a Jordan-Wigner *spin* state. For a **contiguous** real-space
     bipartition (such as `1:k`), this coincides with the fermionic Schmidt
     decomposition and the entanglement entropies agree. For a
     **non-contiguous** cut (e.g. `Ainds = [1, 3, 5]`), the fermionic
-    anticommutation signs are *not* inserted automatically — interpret the
+    anticommutation signs are *not* inserted automatically; interpret the
     result with care.
 
 ## Symmetry caveats
@@ -191,7 +191,7 @@ are different group actions:
 - A site-permutation `σ : i ↦ π(i)` applied to a spin basis sends
   `σ⁻_i ↦ σ⁻_{π(i)}` (unchanged otherwise).
 - The same permutation applied to the fermion operators picks up additional
-  fermionic signs from re-ordering the JW string — these signs depend on
+  fermionic signs from re-ordering the JW string. These signs depend on
   the total particle number `N` and the parity of the permutation.
 
 For this reason EDKit currently does **not** support symmetry-reduced fermion
@@ -213,7 +213,7 @@ correct Jordan-Wigner chain.
 
 EDKit's MPS conversion routines (`mps2vec`, `vec2mps`) treat a
 [`SpinlessFermionBasis`](@ref) as an ordinary `S = 1/2` chain in the
-Jordan-Wigner spin representation — i.e. they expect MPS site indices
+Jordan-Wigner spin representation, i.e. they expect MPS site indices
 built with `siteinds("S=1/2", L)`. ITensor's native
 `siteinds("Fermion", L)` site type inserts additional anticommuting
 fermionic-parity phases that EDKit does **not** account for, so the two
@@ -246,6 +246,6 @@ Not yet supported:
   [`fermion_operator`](@ref) on an `AbelianBasis` is rejected. A
   fermion-aware lattice basis is future work.
 - Operator-string parsing for ≥ 4-fermion products (e.g. `"++--"` in one
-  call) — build these by composing two-fermion or `"nn"` operators
+  call); build these by composing two-fermion or `"nn"` operators
 - Majorana operators `"x"`, `"y"`
 - Right-string JW convention

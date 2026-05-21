@@ -474,7 +474,7 @@ end
     index(b::AbstractOnsiteBasis, dgt::AbstractVector; check=false)
 
 Generic onsite-basis lookup: read the digit string, then locate the matching
-canonical index via [`binary_search`](@ref) over the stored representative
+canonical index via `binary_search` over the stored representative
 list `b.I`.
 
 Concrete onsite bases (`ProjectedBasis`, `SpinlessFermionBasis`) inherit this

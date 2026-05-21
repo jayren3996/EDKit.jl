@@ -24,7 +24,7 @@ inds = vcat(
 H = operator(mats, inds, L)
 ```
 
-This is the basic “define terms once, then assemble” pattern used throughout the package.
+This is the basic "define terms once, then assemble" pattern used throughout the package.
 
 ## Use The Same Model In Different Representations
 
@@ -36,7 +36,7 @@ Hsparse = sparse(H)
 vals = eigvals(Hermitian(Hdense))
 ```
 
-This is one of the package's main conveniences: the same `Operator` can serve as a matrix-free object or as an explicit matrix.
+The same `Operator` can be used as a matrix-free object or as an explicit matrix.
 
 ## Build A Translation-Invariant Model
 

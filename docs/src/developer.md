@@ -28,7 +28,7 @@ Main sections:
 
 ## Documentation Roles
 
-The repository now uses three complementary documentation layers:
+The repository uses three documentation layers:
 
 - Source docstrings in `src/`
   This is the most detailed semantic layer. It is written to help advanced

@@ -1,8 +1,6 @@
 # Maps and Symmetrizers
 
-Not every workflow stays inside one basis. Sometimes you want to move amplitudes between a full tensor-product basis and a symmetry-reduced basis, or between two different symmetry sectors that share the same local Hilbert space.
-
-That is what `DoubleBasis` is for.
+Some workflows need to move amplitudes between a full tensor-product basis and a symmetry-reduced basis, or between two different symmetry sectors that share the same local Hilbert space. `DoubleBasis` provides that mapping.
 
 ## `DoubleBasis`
 
@@ -71,7 +69,7 @@ space.
 `DoubleBasis` itself can also act on a vector, as in the example above:
 `v_sector = T(v_full)`.
 
-This is convenient when you want the basis map as an operation, not just as an
+This is convenient when you want the basis map as an operation rather than an
 explicit matrix. It also avoids building a potentially large dense matrix when
 you only need one application.
 
@@ -85,7 +83,7 @@ share the same representative set or orbit normalization conventions.
 product states rather than by matching stored representative indices directly.
 
 For `ProjectedBasis`, off-sector states are treated as zero contributions in the
-map construction rather than as hard errors. That behavior is what makes the
+map construction rather than as hard errors. That behavior keeps the
 projection and embedding workflows practical.
 
 ## When To Reach For This Layer

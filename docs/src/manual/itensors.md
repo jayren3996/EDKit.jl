@@ -1,6 +1,6 @@
 # ITensor Workflows
 
-EDKit includes a practical bridge between exact-diagonalization style data structures and ITensor-based tensor-network workflows.
+EDKit includes a bridge between exact-diagonalization data structures and ITensor-based tensor-network workflows.
 
 This layer is useful when you want to:
 
@@ -76,7 +76,7 @@ The main pieces are:
 - `dissipation_mat` for the dissipator `D[L]`,
 - `mps2pmps`, `pmps2mpo`, and `mpo2pmpo` for Pauli-space tensor-network conversions.
 
-This is particularly useful for operator growth and Lindbladian tensor-network workflows.
+These tools apply to operator growth and Lindbladian tensor-network workflows.
 
 ## TEBD Gates
 
@@ -95,4 +95,4 @@ The lower-level `tebd_n!` routine applies an n-site TEBD update directly to an M
 
 ## When To Use This Layer
 
-Use the ITensor layer when exact diagonalization and tensor networks need to meet. If you only need small-system dense or sparse exact diagonalization, you can stay entirely inside the basis and operator layers.
+Use the ITensor layer when a workflow requires both exact diagonalization and tensor-network data. If you only need small-system dense or sparse exact diagonalization, stay inside the basis and operator layers.

@@ -1,12 +1,11 @@
 # Utilities
 
-A few smaller helpers in EDKit are worth knowing even though they are not the
-package's headline features. They cover four main jobs:
+EDKit ships several smaller helpers. They cover four areas:
 
 - spectral statistics,
 - basis-space product-state preparation,
 - lightweight exponential actions for small problems,
-- and the quantum inverse method utilities.
+- quantum inverse method utilities.
 
 For serious closed-system real-time dynamics, use the dedicated
 [Time Evolution](time-evolution.md) layer rather than the lightweight

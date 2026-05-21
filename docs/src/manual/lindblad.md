@@ -32,7 +32,7 @@ matrix.
 
 ## Adaptive Krylov / Arnoldi Many-Body Lindblad Evolution
 
-This is EDKit's main general-purpose solver for demanding many-body Lindblad
+This is EDKit's main general-purpose solver for many-body Lindblad
 dynamics. It is the open-system analogue of the closed-system
 [`timeevolve`](@ref) layer: instead of a Lanczos basis for a Hermitian
 Hamiltonian acting on a state vector, it builds an Arnoldi basis for the
@@ -112,11 +112,10 @@ At user level, the solver works as follows:
    trustworthy over the requested interval, either extend the basis in place
    or restart from a newly reconstructed anchor density matrix.
 
-The important optimization is basis reuse. A successful Arnoldi build is not
-thrown away after one time step. It becomes a reusable reduced dynamical model
-anchored at the current density matrix and time. Closely spaced output times
-can often be served by reduced-space work alone, while long intervals trigger
-either basis extension or restart.
+The important optimization is basis reuse. A successful Arnoldi build is
+retained as a reduced dynamical model anchored at the current density matrix
+and time. Closely spaced output times can often be served by reduced-space
+work alone, while long intervals trigger either basis extension or restart.
 
 This is the same architectural idea as [`timeevolve`](@ref), but with two key
 differences:
