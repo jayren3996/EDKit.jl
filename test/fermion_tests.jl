@@ -217,4 +217,75 @@
         @test_throws ErrorException SpinlessFermionBasis(L = 6, N = 3, nf = 0.5)
         @test_throws ErrorException SpinlessFermionBasis(L = 6, nf = 0.3)
     end
+
+    @testset "Tight-binding ring PBC at N ≥ 2 (long-way JW on wrap)" begin
+        # Free-fermion eigenvalues at fixed N on the L-site ring: pick any N
+        # single-particle modes from ε_k = -2t cos(2π k / L) and sum them.
+        # The N = 1 sector is already covered above; this set targets N ≥ 2,
+        # where a missing JW string on the L→1 bond gives wrong eigenvalues.
+        function tight_binding_spectrum(L::Integer, N::Integer; t::Real=1.0)
+            modes = [-2 * t * cos(2π * k / L) for k in 0:L-1]
+            spectrum = Float64[]
+            for bits in 0:(2^L - 1)
+                count_ones(bits) == N || continue
+                E = sum(modes[i+1] for i in 0:L-1 if (bits >> i) & 1 == 1; init = 0.0)
+                push!(spectrum, E)
+            end
+            sort!(spectrum)
+        end
+
+        for (L, N) in [(4, 2), (6, 3)]
+            Bf = SpinlessFermionBasis(L = L, N = N)
+
+            # Explicit per-bond construction (mod1 wraps include the L→1 bond)
+            H_explicit = sum(
+                fermion_operator("+-", [i, mod1(i + 1, L)], Bf) +
+                fermion_operator("+-", [mod1(i + 1, L), i], Bf)
+                for i in 1:L
+            )
+            Hm_explicit = -Array(H_explicit)
+            @test Hm_explicit ≈ Hm_explicit'
+
+            # Same Hamiltonian via trans_inv_fermion_operator
+            H_hop = trans_inv_fermion_operator("+-", [1, 2], Bf)
+            Hm_trans = -Array(H_hop + adjoint(H_hop))
+            @test Hm_trans ≈ Hm_trans'
+
+            @test Hm_trans ≈ Hm_explicit atol = 1e-10
+            @test sort(eigvals(Hermitian(Hm_explicit))) ≈ tight_binding_spectrum(L, N) atol = 1e-10
+        end
+
+        # Range form sugar: span Integer agrees with explicit support vector.
+        Bf = SpinlessFermionBasis(L = 5, N = 2)
+        @test Array(trans_inv_fermion_operator("+-", 2, Bf)) ≈
+              Array(trans_inv_fermion_operator("+-", [1, 2], Bf))
+    end
+
+    @testset "fermion_operator errors on symmetry-reduced bases" begin
+        L = 6
+        Bt = TranslationalBasis(L = L, k = 0, base = 2)
+        Bp = ParityBasis(L = L, p = 1, base = 2)
+
+        # JW-bearing operators must error — silently embedding them on a
+        # permutation-symmetric basis would give wrong eigenvalues.
+        for op in ("+", "-")
+            @test_throws ErrorException fermion_operator(op, [1], Bt)
+            @test_throws ErrorException fermion_operator(op, [1], Bp)
+        end
+        for op in ("+-", "-+", "++", "--")
+            @test_throws ErrorException fermion_operator(op, [1, 2], Bt)
+            @test_throws ErrorException fermion_operator(op, [1, 2], Bp)
+        end
+
+        # Diagonal / identity operators carry no JW string and commute with
+        # any permutation, so they remain valid.
+        @test fermion_operator("n", [1], Bt) isa EDKit.Operator
+        @test fermion_operator("z", [2], Bt) isa EDKit.Operator
+        @test fermion_operator("I", [3], Bp) isa EDKit.Operator
+        @test fermion_operator("nn", [1, 3], Bt) isa EDKit.Operator
+
+        # And the trans_inv helper itself does not accept those bases (the
+        # method only dispatches on SpinlessFermionBasis).
+        @test_throws MethodError trans_inv_fermion_operator("+-", [1, 2], Bt)
+    end
 end

@@ -1,4 +1,4 @@
-export fermion, fermion_operator
+export fermion, fermion_operator, trans_inv_fermion_operator
 
 """
     fermion(op::AbstractString[, span::Integer]; convention::Symbol=:left)
@@ -127,6 +127,19 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
         B::AbstractBasis; convention::Symbol=:left)
     convention === :left || error("Only the :left convention is implemented.")
 
+    # JW-bearing operators (c†, c, c†c†, cc, c†c, cc†) do not commute with
+    # spatial permutation symmetries — translation, parity, flip. Embedding
+    # them on an AbstractPermuteBasis would silently produce wrong eigenvalues.
+    # Diagonal/identity operators ("n", "z", "I", "nn") carry no JW string and
+    # commute with any onsite permutation, so they remain allowed.
+    if B isa AbstractPermuteBasis && !(op == "n" || op == "z" || op == "I" || op == "nn")
+        error("fermion_operator(\"$op\", $(sites), ::$(typeof(B))) is not supported: " *
+              "the Jordan-Wigner string for c†/c does not commute with the symmetry of " *
+              "$(typeof(B)). Use SpinlessFermionBasis (with N=… or nf=…) instead — " *
+              "symmetry-resolved fermion bases are not yet implemented. See the " *
+              "\"Symmetry caveats\" section of the spinless fermions manual.")
+    end
+
     # Single-site diagonal / identity operators — no JW string.
     if op == "n" || op == "z" || op == "I"
         length(sites) == 1 || error("\"$op\" takes exactly one site (got $(length(sites))).")
@@ -192,3 +205,46 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
     end
     operator(local_op, collect(lo:hi), B)
 end
+
+"""
+    trans_inv_fermion_operator(op, support, B; convention=:left)
+    trans_inv_fermion_operator(op, span::Integer, B; convention=:left)
+
+Build a translationally-invariant fermion operator by summing
+`fermion_operator(op, mod1.(support .+ t, L), B)` over `t = 0, 1, …, L-1`.
+
+Unlike [`trans_inv_operator`](@ref) — which duplicates the same local matrix
+on every translation — this helper rebuilds the Jordan-Wigner string for each
+translated bond, so the wrap-around term carries the correct long-way JW
+chain through sites `2, …, L-1`. Without that chain the boundary bond is
+silently wrong at particle number `N ≥ 2` (the single-particle sector is
+accidentally correct).
+
+Restricted to [`SpinlessFermionBasis`](@ref). Symmetry-reduced fermion bases
+are not yet supported; see the "Symmetry caveats" section of the spinless
+fermions manual.
+
+# Example: tight-binding ring with PBC
+```julia
+L = 6
+B = SpinlessFermionBasis(L = L, N = L ÷ 2)
+H_hop = trans_inv_fermion_operator("+-", [1, 2], B)
+H = -(H_hop + adjoint(H_hop))      # = -Σ_i (c†_i c_{i+1} + h.c.)
+```
+"""
+function trans_inv_fermion_operator(op::AbstractString,
+        support::AbstractVector{<:Integer}, B::SpinlessFermionBasis;
+        convention::Symbol=:left)
+    L = length(B.dgt)
+    total = nothing
+    for t in 0:L-1
+        sites = mod1.(support .+ t, L)
+        term = fermion_operator(op, sites, B; convention=convention)
+        total = isnothing(total) ? term : total + term
+    end
+    total
+end
+
+trans_inv_fermion_operator(op::AbstractString, span::Integer,
+        B::SpinlessFermionBasis; kwargs...) =
+    trans_inv_fermion_operator(op, collect(1:span), B; kwargs...)

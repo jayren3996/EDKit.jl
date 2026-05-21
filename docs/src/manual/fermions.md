@@ -98,6 +98,53 @@ H = sum(
 )
 ```
 
+The same Hamiltonian using the [`trans_inv_fermion_operator`](@ref) helper,
+which inserts the long-way Jordan-Wigner chain on the wrap-around bond
+automatically:
+
+```julia
+H_hop = trans_inv_fermion_operator("+-", [1, 2], B)
+H = -t * (H_hop + adjoint(H_hop))
+```
+
+!!! warning
+    Do **not** use the spin-flavored [`trans_inv_operator`](@ref) for fermion
+    `c†c` hops on a ring. It duplicates the same 2-site matrix on every
+    translation, including the boundary bond `[L, 1]`, with no Jordan-Wigner
+    string on the interior sites. The result happens to match the correct
+    fermion Hamiltonian in the single-particle sector but produces wrong
+    eigenvalues at `N ≥ 2`. Use `trans_inv_fermion_operator` instead.
+
+## Symmetry caveats
+
+The Jordan-Wigner transform is *not* a local map: `c†_j` and `c_j` each carry a
+string `σ_z^1 ⋯ σ_z^{j-1}` whose length and sign depend on the site index. As
+a consequence, spatial spin symmetries (translation, parity/reflection,
+spin-flip) do **not** commute with `c†` and `c`. Equivalently, "spin-translation
+on the JW representation" and "fermion-translation on the physical operators"
+are different group actions:
+
+- A site-permutation `σ : i ↦ π(i)` applied to a spin basis sends
+  `σ⁻_i ↦ σ⁻_{π(i)}` (unchanged otherwise).
+- The same permutation applied to the fermion operators picks up additional
+  fermionic signs from re-ordering the JW string — these signs depend on
+  the total particle number `N` and the parity of the permutation.
+
+For this reason EDKit currently does **not** support symmetry-reduced fermion
+bases. Calling [`fermion_operator`](@ref) with a [`TranslationalBasis`](@ref),
+[`ParityBasis`](@ref), [`FlipBasis`](@ref), [`ParityFlipBasis`](@ref), or
+`AbelianBasis` on a JW-bearing operator (`"+"`, `"-"`, `"+-"`, `"-+"`, `"++"`,
+`"--"`) raises an error rather than silently returning the wrong matrix.
+
+Diagonal operators (`"n"`, `"z"`, `"I"`, `"nn"`) do **not** carry a JW string
+and commute with any onsite permutation, so they remain valid on every basis.
+
+**Recommended workflow:** for fermion problems use
+[`SpinlessFermionBasis`](@ref) with `N=…` or `nf=…` (and any extra predicate
+filter via `f=…`). Build translation-invariant Hamiltonians with
+[`trans_inv_fermion_operator`](@ref) so the wrap-around bond carries the
+correct Jordan-Wigner chain.
+
 ## Limitations
 
 Supported:
@@ -106,6 +153,8 @@ Supported:
 - Single-site `"+"` and `"-"` embedded with the full left-string JW prefix
 - Two-fermion products `"+-"`, `"-+"`, `"++"`, `"--"` (with JW chain)
 - Density-density `"nn"` (no JW; diagonal at both endpoints)
+- Translation-invariant assembly via [`trans_inv_fermion_operator`](@ref),
+  with the correct long-way JW chain on the PBC wrap-around bond
 - Fixed-N sectors, multi-sector unions (`N = [n1, n2, …]`), and density
   shorthand `nf = n / L`
 - Custom predicate filter `f(dgt) -> Bool` on basis construction
@@ -113,7 +162,9 @@ Supported:
 Not yet supported:
 
 - Spinful fermion basis with separate `(N↑, N↓)` sectors
-- Symmetry-reduced fermion bases (translation, parity, particle-hole)
+- Symmetry-reduced fermion bases (translation, parity, particle-hole). Using
+  [`fermion_operator`](@ref) with a JW-bearing operator on these bases now
+  raises a loud error rather than returning a silently wrong matrix.
 - Operator-string parsing for ≥ 4-fermion products (e.g. `"++--"` in one
   call) — build these by composing two-fermion or `"nn"` operators
 - Majorana operators `"x"`, `"y"`
