@@ -499,7 +499,43 @@
         for op in ("n", "z", "I", "nn")
             @test !jw_string_required(op)
         end
-        @test !jw_string_required("xyz")  # unknown op: not JW-bearing by default
+        # Unknown ops error rather than silently defaulting either way (fail-closed).
+        @test_throws ErrorException jw_string_required("xyz")
+        @test_throws ErrorException jw_string_required("x")
+    end
+
+    @testset "fermion_operator rejects non-base-2 bases" begin
+        # Spinless fermion local Hilbert space is 2 (empty / occupied). A
+        # higher-base basis would silently produce a dim mismatch downstream.
+        Bbase3 = TensorBasis(L = 4, base = 3)
+        @test_throws ErrorException fermion_operator("n", [1], Bbase3)
+        @test_throws ErrorException fermion_operator("+-", [1, 2], Bbase3)
+    end
+
+    @testset "trans_inv_fermion_operator type stability" begin
+        # The accumulator used to be Union{Nothing, Operator}; ensure it's now
+        # a concrete Operator so downstream Array / eigen / sparse! stay stable.
+        B = SpinlessFermionBasis(L = 4, N = 2)
+        H = trans_inv_fermion_operator("+-", [1, 2], B)
+        @test H isa EDKit.Operator
+        # Array() must work without a Union-typed branch.
+        @test Array(H) isa Matrix
+    end
+
+    @testset "Single-site c†/c sparse-build at moderate L" begin
+        # Regression: the kron chain used to allocate a 2^i × 2^i dense
+        # intermediate. After sparsification this should stay light even for
+        # i = 10 on L = 10 (matrix has 2^(i-1) = 512 nonzeros).
+        σ⁺ = Array(EDKit.spin_Sp(2))
+        σ⁻ = Array(EDKit.spin_Sm(2))
+        σ_z = [1.0 0.0; 0.0 -1.0]
+        L = 10
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+        # c†_10 = σ_z^1 ⋯ σ_z^9 σ⁻_10
+        prefix = foldl(kron, fill(σ_z, L - 1))
+        expected = Array(operator(kron(prefix, σ⁻), collect(1:L), Bt))
+        @test Array(fermion_operator("+", [L], Bf)) ≈ expected
     end
 
     @testset "Basis N-range validation and nf rounding" begin

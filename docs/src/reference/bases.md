@@ -20,6 +20,7 @@ FlipBasis
 ParityFlipBasis
 TranslationParityBasis
 TranslationFlipBasis
+SpinlessFermionBasis
 basis
 EDKit.AbelianOperator
 EDKit.AbelianBasis

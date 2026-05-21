@@ -159,20 +159,25 @@ nij = real(dot(ψ, fermion_operator("nn", [3, 5], B) * ψ))   # ⟨n_3 n_5⟩
 ## Entanglement entropy
 
 [`SpinlessFermionBasis`](@ref) is an `AbstractOnsiteBasis`, so the standard
-[`schmidt`](@ref) decomposition works without any fermion-specific glue:
+[`ent_S`](@ref) helper works without any fermion-specific glue:
 
 ```julia
-λ = schmidt(ψ, 1:L÷2, B)
-S = -sum(s -> iszero(s) ? 0.0 : s^2 * log(s^2), λ)
+S = ent_S(ψ, 1:L÷2, B)              # von Neumann entropy of the half-chain cut
 ```
 
+If you want the underlying singular values or the Schmidt matrix itself,
+use [`ent_spec`](@ref) or [`schmidt`](@ref). Note that `schmidt(...)` returns
+the bipartite Schmidt matrix (not a vector of singular values), so to compute
+entropy by hand use `svdvals` on its result.
+
 !!! warning "Schmidt convention for fermions"
-    [`schmidt`](@ref) computes the Schmidt decomposition of `ψ` viewed as a
-    Jordan-Wigner *spin* state. For a **contiguous** real-space bipartition
-    (such as `1:k`), this coincides with the fermionic Schmidt decomposition
-    and the entanglement entropies agree. For a **non-contiguous** cut (e.g.
-    `Ainds = [1, 3, 5]`), the fermionic anticommutation signs are *not*
-    inserted automatically — interpret the result with care.
+    [`schmidt`](@ref) and [`ent_S`](@ref) compute the decomposition of `ψ`
+    viewed as a Jordan-Wigner *spin* state. For a **contiguous** real-space
+    bipartition (such as `1:k`), this coincides with the fermionic Schmidt
+    decomposition and the entanglement entropies agree. For a
+    **non-contiguous** cut (e.g. `Ainds = [1, 3, 5]`), the fermionic
+    anticommutation signs are *not* inserted automatically — interpret the
+    result with care.
 
 ## Symmetry caveats
 

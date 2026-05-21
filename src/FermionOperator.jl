@@ -1,5 +1,8 @@
 export fermion, fermion_operator, trans_inv_fermion_operator, jw_string_required
 
+const _JW_BEARING_OPS  = ("+", "-", "+-", "-+", "++", "--")
+const _JW_FREE_OPS     = ("n", "z", "I", "nn")
+
 """
     jw_string_required(op::AbstractString) -> Bool
 
@@ -9,9 +12,15 @@ embedded into a many-body basis.
 JW-string-bearing operators (`"+"`, `"-"`, `"+-"`, `"-+"`, `"++"`, `"--"`) do
 not commute with spatial permutation symmetries. The diagonal operators
 `"n"`, `"z"`, `"I"`, and `"nn"` carry no JW string and remain safe on any
-onsite basis.
+onsite basis. Raises an error for unrecognised op strings rather than
+silently defaulting either way.
 """
-jw_string_required(op::AbstractString) = op in ("+", "-", "+-", "-+", "++", "--")
+function jw_string_required(op::AbstractString)
+    op in _JW_BEARING_OPS && return true
+    op in _JW_FREE_OPS    && return false
+    error("Unknown fermion operator string \"$op\". Recognised: " *
+          "$(_JW_BEARING_OPS) (JW-bearing) and $(_JW_FREE_OPS) (no JW).")
+end
 
 """
     fermion(op::AbstractString[, span::Integer]; convention::Symbol=:left)
@@ -73,45 +82,42 @@ function fermion(op::AbstractString, span::Integer=length(op); convention::Symbo
     span >= 2 || error("Two-fermion operators require span >= 2 (got $span).")
 
     # Density-density "nn" — diagonal at both endpoints, no JW string.
+    # Use sparse arrays so the intermediate is O(2^(span-2)) nnz instead of a
+    # dense 2^span × 2^span matrix.
     if op == "nn"
-        n_mat = [0.0 0.0; 0.0 1.0]
-        Id2 = Matrix{Float64}(I, 2, 2)
-        factors = Vector{Matrix{Float64}}(undef, span)
-        factors[1] = n_mat
+        n_sp  = sparse([0.0 0.0; 0.0 1.0])
+        Id_sp = sparse(1.0 * I, 2, 2)
+        mat = n_sp
         for k in 2:span-1
-            factors[k] = Id2
+            mat = kron(mat, Id_sp)
         end
-        factors[span] = n_mat
-        mat = factors[1]
-        for k in 2:span
-            mat = kron(mat, factors[k])
-        end
+        mat = kron(mat, n_sp)
         return mat
     end
 
-    σ⁺ = Array(spin_Sp(2))
-    σ⁻ = Array(spin_Sm(2))
-    σ_z = Array(spin_Sz(2)) * 2  # spin_Sz returns Sz = σ_z / 2; we want σ_z = diag(1, -1)
+    # Two-character ±±/+-/-+ ops. The JW string is a diagonal of ±1 and each
+    # endpoint is the rank-2 σ⁻ / σ⁺, so the full local matrix has only
+    # 2^(span-1) nonzeros. Building it sparse avoids the 2^span × 2^span
+    # dense intermediate that would OOM for span ≳ 20.
+    σ⁺_sp = sparse(Array(spin_Sp(2)))
+    σ⁻_sp = sparse(Array(spin_Sm(2)))
+    σ_z_sp = sparse([1.0 0.0; 0.0 -1.0])  # spin_Sz gives Sz = σ_z/2; we want σ_z = diag(1, -1)
 
-    site1 = op[1] == '+' ? σ⁻ : op[1] == '-' ? σ⁺ : error("Unsupported operator char: '$(op[1])' in \"$op\".")
-    site2 = op[2] == '+' ? σ⁻ : op[2] == '-' ? σ⁺ : error("Unsupported operator char: '$(op[2])' in \"$op\".")
+    site1 = op[1] == '+' ? σ⁻_sp : op[1] == '-' ? σ⁺_sp :
+            error("Unsupported operator char: '$(op[1])' in \"$op\".")
+    site2 = op[2] == '+' ? σ⁻_sp : op[2] == '-' ? σ⁺_sp :
+            error("Unsupported operator char: '$(op[2])' in \"$op\".")
 
-    factors = Vector{Matrix{Float64}}(undef, span)
-    factors[1] = site1
-    for k in 2:span-1
-        factors[k] = σ_z
-    end
-    factors[span] = site2
-
-    # Sign comes from the on-site product at site 1:
+    # Sign from the on-site product at site 1:
     #   σ⁻ σ_z = +σ⁻  → "+? " → +1
     #   σ⁺ σ_z = −σ⁺  → "-? " → −1
     sign = op[1] == '+' ? 1.0 : -1.0
 
-    mat = factors[1]
-    for k in 2:span
-        mat = kron(mat, factors[k])
+    mat = site1
+    for k in 2:span-1
+        mat = kron(mat, σ_z_sp)
     end
+    mat = kron(mat, site2)
     sign * mat
 end
 
@@ -143,6 +149,11 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
         B::AbstractBasis; convention::Symbol=:left)
     convention === :left || error("Only the :left convention is implemented.")
 
+    # Spinless fermion ops are defined on a 2-state local Hilbert space
+    # (empty / occupied). A higher-base basis would silently produce a
+    # dimension mismatch in `operator(...)` further down.
+    B.B == 2 || error("fermion_operator requires a base=2 basis (got base=$(B.B)).")
+
     # Validate site indices against the basis size — internal kernels use
     # @inbounds and can silently miscompute (or corrupt the dgt buffer) on
     # out-of-range entries.
@@ -159,11 +170,12 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
     if B isa AbstractPermuteBasis && jw_string_required(op)
         error("fermion_operator(\"$op\", $(sites), ::$(typeof(B))) is not supported: " *
               "the Jordan-Wigner string for c†/c does not commute with the symmetry of " *
-              "$(typeof(B)) (covers TranslationalBasis, ParityBasis, FlipBasis, " *
-              "ParityFlipBasis, and AbelianBasis). Use SpinlessFermionBasis (with " *
-              "N=… or nf=…) instead — symmetry-resolved fermion bases are not yet " *
-              "implemented. See the \"Symmetry caveats\" section of the spinless " *
-              "fermions manual.")
+              "$(typeof(B)). All AbstractPermuteBasis subtypes are rejected — " *
+              "TranslationalBasis, ParityBasis, FlipBasis, ParityFlipBasis, " *
+              "TranslationParityBasis, TranslationFlipBasis, and AbelianBasis. Use " *
+              "SpinlessFermionBasis (with N=… or nf=…) instead — symmetry-resolved " *
+              "fermion bases are not yet implemented. See the \"Symmetry caveats\" " *
+              "section of the spinless fermions manual.")
     end
 
     # Single-site diagonal / identity operators — no JW string.
@@ -181,17 +193,17 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
         if i == 1
             return operator(fermion(op), [1], B)
         end
-        σ_z = [1.0 0.0; 0.0 -1.0]
-        endpoint = fermion(op)
-        factors = Vector{Matrix{Float64}}(undef, i)
-        for k in 1:i-1
-            factors[k] = σ_z
+        # Sparse JW prefix: i−1 σ_z factors (each diagonal) kron'd with the
+        # endpoint σ⁻ / σ⁺. The full local matrix has 2^(i-1) nonzeros, so
+        # a sparse build is O(2^(i-1)) memory vs the 2^i × 2^i dense
+        # intermediate (which OOMs for i ≳ 20).
+        σ_z_sp   = sparse([1.0 0.0; 0.0 -1.0])
+        endpoint = sparse(fermion(op))
+        mat = σ_z_sp
+        for k in 2:i-1
+            mat = kron(mat, σ_z_sp)
         end
-        factors[i] = endpoint
-        mat = factors[1]
-        for k in 2:i
-            mat = kron(mat, factors[k])
-        end
+        mat = kron(mat, endpoint)
         return operator(mat, collect(1:i), B)
     end
 
@@ -287,11 +299,13 @@ function trans_inv_fermion_operator(op::AbstractString,
     all(s -> 1 <= s <= L, support) ||
         error("Each entry of `support` must lie in 1:$L (got $support). " *
               "Out-of-range indices would be silently wrapped by mod1 into a wrong operator.")
-    total = nothing
-    for t in 0:L-1
+    # Seed `total` with the t=0 term so its inferred type is `Operator` rather
+    # than `Union{Nothing, Operator}` — keeps the return type stable for
+    # downstream Array / eigen / sparse! calls.
+    total = fermion_operator(op, mod1.(support, L), B; convention=convention)
+    for t in 1:L-1
         sites = mod1.(support .+ t, L)
-        term = fermion_operator(op, sites, B; convention=convention)
-        total = isnothing(total) ? term : total + term
+        total = total + fermion_operator(op, sites, B; convention=convention)
     end
     total
 end
