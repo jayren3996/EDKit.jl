@@ -288,4 +288,200 @@
         # method only dispatches on SpinlessFermionBasis).
         @test_throws MethodError trans_inv_fermion_operator("+-", [1, 2], Bt)
     end
+
+    @testset "Full pairwise {c,c}=0 and {c†,c†}=0 anticommutators" begin
+        L = 4
+        Bf = SpinlessFermionBasis(L = L)
+        Z = zeros(2^L, 2^L)
+        for i in 1:L, j in 1:L
+            a = Array(fermion_operator("+", [i], Bf))
+            b = Array(fermion_operator("+", [j], Bf))
+            @test a * b + b * a ≈ Z atol = 1e-12
+
+            c = Array(fermion_operator("-", [i], Bf))
+            d = Array(fermion_operator("-", [j], Bf))
+            @test c * d + d * c ≈ Z atol = 1e-12
+        end
+    end
+
+    @testset "Pair operators ++ and -- via fermion_operator (non-adjacent + swap)" begin
+        σ⁺ = Array(EDKit.spin_Sp(2))
+        σ⁻ = Array(EDKit.spin_Sm(2))
+        σ_z = [1.0 0.0; 0.0 -1.0]
+        L = 5
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+
+        # c†_1 c†_4 = σ⁻_1 σ_z^2 σ_z^3 σ⁻_4 (no leading sign — σ⁻σ_z = +σ⁻)
+        @test Array(fermion_operator("++", [1, 4], Bf)) ≈
+              Array(operator(kron(σ⁻, σ_z, σ_z, σ⁻), [1, 2, 3, 4], Bt))
+        # c_2 c_5 = −σ⁺_2 σ_z^3 σ_z^4 σ⁺_5 (leading − from σ⁺σ_z = −σ⁺ at site 2)
+        @test Array(fermion_operator("--", [2, 5], Bf)) ≈
+              Array(operator(-kron(σ⁺, σ_z, σ_z, σ⁺), [2, 3, 4, 5], Bt))
+
+        # Swap branches: c†_j c†_i = −c†_i c†_j and c_j c_i = −c_i c_j.
+        @test Array(fermion_operator("++", [4, 1], Bf)) ≈
+              -Array(fermion_operator("++", [1, 4], Bf))
+        @test Array(fermion_operator("--", [5, 2], Bf)) ≈
+              -Array(fermion_operator("--", [2, 5], Bf))
+    end
+
+    @testset "Predicate filter f= on SpinlessFermionBasis" begin
+        L = 4
+        # No N: filter alone — only states with dgt[1] == 1
+        Bf = SpinlessFermionBasis(L = L, f = dgt -> dgt[1] == 1)
+        @test size(Bf, 1) == 2^(L - 1)
+        for i in 1:size(Bf, 1)
+            change!(Bf, i)
+            @test Bf.dgt[1] == 1
+        end
+
+        # f combined with N (exercises the small_N=true + f path in selectindex_N)
+        Bfn = SpinlessFermionBasis(L = L, N = 2, f = dgt -> dgt[1] == 1)
+        # |11⟩ at site 1 + one more occupied site among {2, 3, 4}: 3 states
+        @test size(Bfn, 1) == 3
+        for i in 1:size(Bfn, 1)
+            change!(Bfn, i)
+            @test Bfn.dgt[1] == 1
+            @test sum(Bfn.dgt) == 2
+        end
+
+        # small_N=false also honours f
+        Bfn_slow = SpinlessFermionBasis(L = L, N = 2, f = dgt -> dgt[1] == 1,
+                                        small_N = false)
+        @test Bfn_slow.I == Bfn.I
+    end
+
+    @testset "trans_inv_fermion_operator: longer support and other ops" begin
+        L = 5
+        Bf = SpinlessFermionBasis(L = L)
+
+        # Next-nearest-neighbor hop: support=[1, 3]
+        H_nnn = Array(trans_inv_fermion_operator("+-", [1, 3], Bf))
+        H_nnn_explicit = Array(sum(
+            fermion_operator("+-", [i, mod1(i + 2, L)], Bf) for i in 1:L
+        ))
+        @test H_nnn ≈ H_nnn_explicit
+
+        # Pair creation "++" with PBC wrap (anticommutation signs must agree)
+        H_pp = Array(trans_inv_fermion_operator("++", [1, 2], Bf))
+        H_pp_explicit = Array(sum(
+            fermion_operator("++", [i, mod1(i + 1, L)], Bf) for i in 1:L
+        ))
+        @test H_pp ≈ H_pp_explicit
+
+        # Density-density "nn" — no JW string, but trans_inv dispatch must resolve.
+        H_nn = Array(trans_inv_fermion_operator("nn", [1, 2], Bf))
+        H_nn_explicit = Array(sum(
+            fermion_operator("nn", [i, mod1(i + 1, L)], Bf) for i in 1:L
+        ))
+        @test H_nn ≈ H_nn_explicit
+        @test H_nn ≈ H_nn'  # diagonal, trivially Hermitian
+    end
+
+    @testset "L=2 ring degeneracy in trans_inv_fermion_operator" begin
+        # Documented edge case: on a 2-site ring, trans_inv sums c†_1 c_2 and
+        # c†_2 c_1 — already Hermitian — so the docstring recipe
+        # `-(H_hop + adjoint(H_hop))` double-counts. Pin the behavior.
+        L = 2
+        Bf = SpinlessFermionBasis(L = L)
+        H_hop = trans_inv_fermion_operator("+-", [1, 2], Bf)
+        Hm = Array(H_hop)
+        @test Hm ≈ Hm'  # already Hermitian
+        Hdouble = Array(-(H_hop + adjoint(H_hop)))
+        @test Hdouble ≈ -2 * Hm
+    end
+
+    @testset "fermion_operator on TensorBasis and ProjectedBasis(base=2)" begin
+        L = 4
+        Bf = SpinlessFermionBasis(L = L)
+        Bt = TensorBasis(L = L, base = 2)
+        # ProjectedBasis with no N: same enumeration as full TensorBasis
+        Bp = ProjectedBasis(L = L, f = _ -> true, base = 2)
+
+        # Sites picked to exercise span ≥ 3 for two-character ops.
+        site_pairs = [[1, 2], [1, 3], [2, 4]]
+        for op in ("n", "z", "I")
+            @test Array(fermion_operator(op, [2], Bt)) ≈
+                  Array(fermion_operator(op, [2], Bf))
+            @test Array(fermion_operator(op, [2], Bp)) ≈
+                  Array(fermion_operator(op, [2], Bf))
+        end
+        for op in ("+", "-")
+            @test Array(fermion_operator(op, [3], Bt)) ≈
+                  Array(fermion_operator(op, [3], Bf))
+            @test Array(fermion_operator(op, [3], Bp)) ≈
+                  Array(fermion_operator(op, [3], Bf))
+        end
+        for op in ("+-", "-+", "++", "--", "nn"), sites in site_pairs
+            @test Array(fermion_operator(op, sites, Bt)) ≈
+                  Array(fermion_operator(op, sites, Bf))
+            @test Array(fermion_operator(op, sites, Bp)) ≈
+                  Array(fermion_operator(op, sites, Bf))
+        end
+    end
+
+    @testset "Input validation and error paths" begin
+        Bf = SpinlessFermionBasis(L = 4)
+
+        # Same-site reductions — distinct error messages for each "++" / "--"
+        # / "+-" / "-+" / "nn".
+        @test_throws ErrorException fermion_operator("+-", [2, 2], Bf)
+        @test_throws ErrorException fermion_operator("-+", [3, 3], Bf)
+        @test_throws ErrorException fermion_operator("++", [1, 1], Bf)
+        @test_throws ErrorException fermion_operator("--", [4, 4], Bf)
+        @test_throws ErrorException fermion_operator("nn", [2, 2], Bf)
+
+        # Bogus operator strings
+        @test_throws ErrorException fermion("xyz")
+        @test_throws ErrorException fermion("x")
+        @test_throws ErrorException fermion_operator("xyz", [1, 2], Bf)
+
+        # Span mismatch on single-site operators
+        @test_throws ErrorException fermion("n", 2)
+        @test_throws ErrorException fermion("z", 2)
+        @test_throws ErrorException fermion("I", 2)
+
+        # Two-character op with span < 2
+        @test_throws ErrorException fermion("+-", 1)
+
+        # Out-of-range sites on the basis — must not silently miscompute
+        @test_throws ErrorException fermion_operator("n", [5], Bf)
+        @test_throws ErrorException fermion_operator("+-", [1, 5], Bf)
+        @test_throws ErrorException fermion_operator("+-", [0, 2], Bf)
+        @test_throws ErrorException fermion_operator("n", Int[], Bf)
+
+        # trans_inv_fermion_operator: out-of-range support
+        @test_throws ErrorException trans_inv_fermion_operator("+-", [1, 5], Bf)
+        @test_throws ErrorException trans_inv_fermion_operator("+-", [0, 2], Bf)
+        @test_throws ErrorException trans_inv_fermion_operator("+-", Int[], Bf)
+
+        # convention=:right not implemented
+        @test_throws ErrorException fermion("+-", 2; convention = :right)
+        @test_throws ErrorException fermion_operator("+-", [1, 2], Bf; convention = :right)
+        @test_throws ErrorException trans_inv_fermion_operator("+-", [1, 2], Bf;
+                                                                convention = :right)
+    end
+
+    @testset "Basis N-range validation and nf rounding" begin
+        # Out-of-range N
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, N = -1)
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, N = 7)
+        # Multi-sector with one bad entry
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, N = [1, 8])
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, N = [-2, 3])
+        # Empty multi-sector
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, N = Int[])
+        # Boundary N=0 (vacuum) and N=L (fully filled)
+        @test size(SpinlessFermionBasis(L = 6, N = 0), 1) == 1
+        @test size(SpinlessFermionBasis(L = 6, N = 6), 1) == 1
+
+        # nf tight rounding: tiny float drift from a rational like 1/3 is OK,
+        # but a clearly non-integer filling close-but-not-equal to 0.5 is not.
+        @test SpinlessFermionBasis(L = 6, nf = 1//3).I ==
+              SpinlessFermionBasis(L = 6, N = 2).I
+        @test SpinlessFermionBasis(L = 6, nf = 1/3).I ==
+              SpinlessFermionBasis(L = 6, N = 2).I
+        @test_throws ErrorException SpinlessFermionBasis(L = 6, nf = 0.5 + 1e-8)
+    end
 end

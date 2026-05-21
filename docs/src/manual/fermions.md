@@ -44,6 +44,14 @@ inserted on the intermediate sites:
 | `"--"` | pair annihilation `c_1 c_span`                | ≥ 2  |
 | `"nn"` | density-density `n_1 n_span` (no JW)          | ≥ 2  |
 
+!!! warning
+    The single-character entries `"+"` and `"-"` return the **bare** on-site
+    matrix (`σ⁻` / `σ⁺`) without any Jordan-Wigner prefix. Passing the result
+    of `fermion("+")` directly to [`operator`](@ref) at a site `i ≥ 2` will
+    produce a wrong operator. Always build `c†_i` / `c_i` via
+    [`fermion_operator`](@ref) — it inserts the full `σ_z^1 ⋯ σ_z^{i-1}`
+    prefix automatically.
+
 The default Jordan-Wigner convention is left-string:
 `c_j = (σ_z^1 σ_z^2 ⋯ σ_z^{j-1}) σ⁺_j`. EDKit identifies `dgt=0` with empty
 and `dgt=1` with occupied, so `c†` maps to `σ⁻` and `c` maps to `σ⁺`.

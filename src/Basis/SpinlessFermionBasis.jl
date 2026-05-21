@@ -44,8 +44,21 @@ function SpinlessFermionBasis(dtype::DataType=Int64;
         isnothing(N) || error("Specify either N or nf, not both.")
         scaled = nf * L
         Nint = round(Int, scaled)
-        isapprox(scaled, Nint) || error("nf=$nf does not yield an integer particle number for L=$L (nf*L=$scaled).")
+        # Tight tolerance: accepts float drift from rationals like 1/3 (≈2e-16
+        # of slop on L*1/3) but rejects clearly non-integer fillings like
+        # 0.5 + 1e-9. Use `nf = a // b` for exact rational fillings.
+        isapprox(scaled, Nint; atol=1e-10) ||
+            error("nf=$nf does not yield an integer particle number for L=$L (nf*L=$scaled).")
         N = Nint
+    end
+
+    if N isa Integer
+        0 <= N <= L ||
+            error("N=$N is out of range 0:$L for a $L-site spinless fermion basis.")
+    elseif N isa AbstractVector
+        isempty(N) && error("Multi-sector N must contain at least one particle number (got empty vector).")
+        all(0 .<= N .<= L) ||
+            error("Every entry of N must lie in 0:$L (got $N).")
     end
 
     I = if isnothing(N)

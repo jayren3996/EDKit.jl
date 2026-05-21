@@ -21,8 +21,9 @@ Two-character operators (`span ≥ 2`):
 - `"nn"` — density-density `n_1 n_span` (no JW string; both endpoints diagonal)
 
 For the four `±` two-character operators, the Jordan-Wigner `σ_z` string is
-inserted on sites `2, 3, …, span-1` whenever `span > 2`, plus on site 1 of the
-kron product whenever the second operator brings a `σ_z` chain through.
+inserted on sites `2, 3, …, span-1` whenever `span > 2`. An overall ±1 sign
+is folded in to account for the on-site `σ⁺σ_z = -σ⁺` / `σ⁻σ_z = +σ⁻`
+reduction at site 1.
 
 `convention` selects the Jordan-Wigner direction. Only `:left` is implemented
 in this MVP.
@@ -127,6 +128,14 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
         B::AbstractBasis; convention::Symbol=:left)
     convention === :left || error("Only the :left convention is implemented.")
 
+    # Validate site indices against the basis size — internal kernels use
+    # @inbounds and can silently miscompute (or corrupt the dgt buffer) on
+    # out-of-range entries.
+    L = length(B.dgt)
+    isempty(sites) && error("`sites` must be non-empty (got $sites).")
+    all(s -> 1 <= s <= L, sites) ||
+        error("Each entry of `sites` must lie in 1:$L for the supplied basis (got $sites).")
+
     # JW-bearing operators (c†, c, c†c†, cc, c†c, cc†) do not commute with
     # spatial permutation symmetries — translation, parity, flip. Embedding
     # them on an AbstractPermuteBasis would silently produce wrong eigenvalues.
@@ -182,7 +191,18 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
         return operator(fermion("nn", span), collect(lo:hi), B)
     end
 
-    i == j && error("\"$op\" on the same site is identically zero (Pauli exclusion).")
+    if i == j
+        if op == "+-"
+            error("\"+-\" on the same site is the number operator: c†_$i c_$i = n_$i. " *
+                  "Use fermion_operator(\"n\", [$i], B) instead.")
+        elseif op == "-+"
+            error("\"-+\" on the same site equals I − n: c_$i c†_$i = I − n_$i. " *
+                  "Construct as I − fermion_operator(\"n\", [$i], B).")
+        else
+            # "++" and "--" only — both vanish by Pauli exclusion.
+            error("\"$op\" on the same site is identically zero by Pauli exclusion (c†² = c² = 0).")
+        end
+    end
     swapped = i > j
     lo, hi = minmax(i, j)
     span = hi - lo + 1
@@ -231,11 +251,22 @@ B = SpinlessFermionBasis(L = L, N = L ÷ 2)
 H_hop = trans_inv_fermion_operator("+-", [1, 2], B)
 H = -(H_hop + adjoint(H_hop))      # = -Σ_i (c†_i c_{i+1} + h.c.)
 ```
+
+!!! warning "L = 2 ring is a special case"
+    On a 2-site ring there is only one bond, but `trans_inv_fermion_operator`
+    still sums over `t = 0, 1`, producing `c†_1 c_2 + c†_2 c_1` (already
+    Hermitian). Applying the `H_hop + adjoint(H_hop)` recipe above then
+    double-counts. For `L = 2`, build the Hamiltonian directly as
+    `H = -H_hop`.
 """
 function trans_inv_fermion_operator(op::AbstractString,
         support::AbstractVector{<:Integer}, B::SpinlessFermionBasis;
         convention::Symbol=:left)
     L = length(B.dgt)
+    isempty(support) && error("`support` must be non-empty (got $support).")
+    all(s -> 1 <= s <= L, support) ||
+        error("Each entry of `support` must lie in 1:$L (got $support). " *
+              "Out-of-range indices would be silently wrapped by mod1 into a wrong operator.")
     total = nothing
     for t in 0:L-1
         sites = mod1.(support .+ t, L)
