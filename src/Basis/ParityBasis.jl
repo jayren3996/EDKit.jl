@@ -44,7 +44,9 @@ its normalization factor.
 function (judge::ParityJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
     # If there is a projective selection function F, check `F(dgt)` first
     isnothing(judge.F) || judge.F(dgt) || return (false, 0.0)
-    
+    # f may not be reflection-invariant: the reflected partner must also satisfy f.
+    isnothing(judge.F) || judge.F(reverse(dgt)) || return (false, 0.0)
+
     # Check parity
     In = rindex(dgt, base=judge.B)
     In < i && return (false, 0.0)

@@ -73,7 +73,12 @@ corresponding normalization factor.
 function (judge::ParityFlipJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
     # If there is a projective selection function F, check `F(dgt)` first
     isnothing(judge.F) || judge.F(dgt) || return (false, 0.0)
-    
+    # f may not be reflection/flip-invariant: every orbit partner must satisfy f.
+    if !isnothing(judge.F)
+        flp = judge.B .- 1 .- dgt
+        (judge.F(reverse(dgt)) && judge.F(flp) && judge.F(reverse(flp))) || return (false, 0.0)
+    end
+
     Q, n = double_parity_check(dgt, i, judge.B, judge.MAX, judge.P, judge.Z)
     Q, judge.C[n]
 end

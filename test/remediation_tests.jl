@@ -233,3 +233,20 @@ end
         @test c.dgt == b.dgt
     end
 end
+
+@testset "parityflip-2: non-invariant predicate rejects broken orbits" begin
+    f = dgt -> dgt[1] == 0
+    # Flip maps dgt[1]=0 -> 1 for every state, so NO orbit is f-closed -> empty
+    # (was over-counted to 8 before the partner re-check).
+    @test size(FlipBasis(L=4, p=1, f=f), 1) == 0
+    @test size(FlipBasis(L=4, p=-1, f=f), 1) == 0
+    # ParityFlip: the flip component still breaks every orbit -> empty (was 6).
+    @test size(ParityFlipBasis(L=4, p=1, z=1, f=f), 1) == 0
+    # Reflection CAN fix an f-state (palindrome-like), so the parity basis keeps
+    # exactly the f-closed orbits -- not over-counted (was 7). The p=±1 sectors
+    # span the 4 configs with dgt[1]==0 & dgt[end]==0.
+    @test size(ParityBasis(L=4, p=1, f=f), 1) == 3
+    @test size(ParityBasis(L=4, p=-1, f=f), 1) == 1
+    # An invariant predicate is unaffected (sanity).
+    @test size(FlipBasis(L=4, p=1, f=dgt->true), 1) > 0
+end

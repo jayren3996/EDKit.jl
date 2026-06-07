@@ -42,7 +42,9 @@ and the corresponding normalization factor.
 function (judge::FlipJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
     # If there is a projective selection function F, check `F(dgt)` first
     isnothing(judge.F) || judge.F(dgt) || return (false, 0.0)
-    
+    # f may not be flip-invariant: the flipped partner must also satisfy f.
+    isnothing(judge.F) || judge.F(judge.B .- 1 .- dgt) || return (false, 0.0)
+
     # Check parity
     In = judge.MAX - i
     In < i && return (false, 0.0)

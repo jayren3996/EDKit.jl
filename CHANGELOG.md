@@ -23,6 +23,11 @@ breaking changes; see each entry below.
   `2L/a` for the parity/flip variants) instead of `L`/`2L`. This corrects
   `symmetrizer`/`basis_embedding`/`mps2vec` normalization for unit cells `a>1`
   (results were off by a factor of `a`); `a=1` is unaffected (`trans-1`).
+- `ParityBasis`/`FlipBasis`/`ParityFlipBasis` now re-check a custom predicate `f`
+  on each symmetry-orbit partner (reflection/flip), rejecting orbits that are not
+  `f`-closed. A non-symmetry-invariant `f` previously produced an over-counted,
+  invalid basis; it now yields the correct (smaller, possibly empty) basis
+  (`parityflip-2`).
 
 ### Fixed
 - `productstate` now works correctly for symmetry-reduced bases: it uses a local
