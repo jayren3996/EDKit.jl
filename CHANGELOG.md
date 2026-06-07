@@ -83,6 +83,10 @@ breaking changes; see each entry below.
 - `operator(...)` deduplicates repeated local-term supports in `O(num)` via a
   `Dict` instead of an `O(num²)` linear scan, speeding up construction of
   operators with many terms (`operator-6`).
+- Fixed-charge construction for `base>2` (`ProjectedBasis`/`TranslationalBasis`
+  with `N`) now enumerates only in-range digit strings via a bounded mixed-radix
+  generator, instead of generating all compositions and discarding 70–95% of
+  them — markedly faster for large qudit bases (`optimization-1`).
 
 ### Added
 - Continuous-integration workflow running the test suite on Julia 1.10 and

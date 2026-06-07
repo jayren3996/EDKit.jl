@@ -194,13 +194,9 @@ function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000
     end
     I = T[]
     sizehint!(I, alloc)
-    dgt = Vector{T}(undef, L)
-    for fdgt in multiexponents(L, N)
-        all(b < base for b in fdgt) || continue
-        _complement_digits!(dgt, fdgt, base)
-        isnothing(f) || f(dgt) || continue
-        ind = index(dgt, base=base)
-        push!(I, ind)
+    dgt = zeros(T, L)
+    _foreach_bounded_digits(dgt, L * (base - 1) - N, base) do d
+        (isnothing(f) || f(d)) && push!(I, index(d, base=base))
     end
     sorted ? sort!(I) : I
 end

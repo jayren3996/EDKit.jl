@@ -521,6 +521,32 @@ function _check_index_capacity(dtype::DataType, base::Integer, L::Integer)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
+    _foreach_bounded_digits(body, dgt, target, base)
+
+Call `body(dgt)` for every length-`length(dgt)` digit string with entries in
+`0:base-1` summing to `target`. Generates only in-range strings (no filtering),
+which is the fixed-charge enumeration for `base>2`.
+"""
+function _foreach_bounded_digits(body::F, dgt::AbstractVector, target::Integer, base::Integer) where F
+    _rec_bounded_digits!(body, dgt, 1, target, base, length(dgt))
+end
+function _rec_bounded_digits!(body::F, dgt::AbstractVector, pos::Int, remaining::Integer, base::Integer, L::Int) where F
+    if pos == L
+        (0 <= remaining <= base - 1) || return
+        @inbounds dgt[L] = remaining
+        body(dgt)
+        return
+    end
+    hi = min(base - 1, remaining)
+    lo = max(0, remaining - (L - pos) * (base - 1))
+    for d in lo:hi
+        @inbounds dgt[pos] = d
+        _rec_bounded_digits!(body, dgt, pos + 1, remaining - d, base, L)
+    end
+    return
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
     _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
 
 Construction-time helper used by every symmetry basis that returns a

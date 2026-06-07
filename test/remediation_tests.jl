@@ -250,3 +250,22 @@ end
     # An invariant predicate is unaffected (sanity).
     @test size(FlipBasis(L=4, p=1, f=dgt->true), 1) > 0
 end
+
+# ---------------------------------------------------------------------------
+# Phase 6 — optimizations
+# ---------------------------------------------------------------------------
+
+@testset "optimization-1: bounded base>2 enumeration matches full scan" begin
+    # The small_N (combinatorial) and full-scan paths must build the identical basis.
+    for (L, N, base) in [(4, 4, 3), (5, 6, 3), (4, 5, 4), (3, 4, 5)]
+        a = sort(ProjectedBasis(L=L, N=N, base=base, small_N=true).I)
+        b = sort(ProjectedBasis(L=L, N=N, base=base, small_N=false).I)
+        @test a == b
+    end
+    # Translational fixed-N path likewise unchanged vs full scan.
+    for (L, N, base) in [(4, 4, 3), (6, 6, 3)]
+        a = sort(TranslationalBasis(L=L, N=N, k=0, base=base, small_N=true).I)
+        b = sort(TranslationalBasis(L=L, N=N, k=0, base=base, small_N=false).I)
+        @test a == b
+    end
+end
