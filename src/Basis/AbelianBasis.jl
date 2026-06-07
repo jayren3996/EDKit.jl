@@ -589,6 +589,7 @@ struct AbelianBasis{Ti <: Integer, Tg <: Number} <: AbstractPermuteBasis
     B::Ti                   # Base
 end
 order(b::AbelianBasis) = order(b.G)
+eltype(::AbelianBasis{Ti, Tg}) where {Ti, Tg} = Tg <: Real ? Float64 : ComplexF64
 #-------------------------------------------------------------------------------------------------------------------------
 """
     _has_all_benes(G::AbelianOperator)

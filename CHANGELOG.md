@@ -37,6 +37,11 @@ breaking changes; see each entry below.
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)
   element type, making their `index` type-stable and letting real Hamiltonians
   assemble as real matrices instead of `ComplexF64` (`parityflip-1`).
+- `AbelianBasis` now reports a real (`Float64`) element type for real-character
+  sectors (k=0, parity, spin-flip, and k=L/2), keyed on its phase-table type
+  parameter, so the most common symmetry workflows assemble and diagonalize real
+  matrices at half the memory/FLOPs; genuine momentum sectors remain
+  `ComplexF64` (`abelian-5`).
 
 ### Added
 - Continuous-integration workflow running the test suite on Julia 1.10 and

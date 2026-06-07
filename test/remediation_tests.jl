@@ -104,3 +104,28 @@ end
         @test r isa Tuple{Float64, <:Integer}
     end
 end
+
+@testset "abelian-5: real AbelianBasis sectors are Float64 and preserve spectrum" begin
+    L = 6
+    # Real-character sectors -> Float64; genuine momentum stays ComplexF64.
+    @test eltype(basis(L=L, k=0)) == Float64
+    @test eltype(basis(L=L, p=1)) == Float64
+    @test eltype(basis(L=L, p=-1)) == Float64
+    @test eltype(basis(L=L, z=-1)) == Float64
+    @test eltype(basis(L=L, k=0, p=-1)) == Float64
+    @test eltype(basis(L=L, k=1)) == ComplexF64
+
+    # A real, reflection-symmetric Hamiltonian assembles real on a real sector,
+    # and the parity sectors still partition the full spectrum (no value corruption).
+    hmat = [1.0 0 0 0; 0 -1 2 0; 0 2 -1 0; 0 0 0 1]   # swap-symmetric real 2-site term
+    Bp = basis(L=L, p=1)
+    Hp = trans_inv_operator(hmat, 2, Bp) |> Array
+    @test eltype(Hp) == Float64
+
+    Efull = trans_inv_operator(hmat, 2, TensorBasis(L=L)) |> Array |> Hermitian |> eigvals
+    Epar = Float64[]
+    for s in (1, -1)
+        append!(Epar, trans_inv_operator(hmat, 2, basis(L=L, p=s)) |> Array |> Hermitian |> eigvals)
+    end
+    @test sort(Epar) ≈ sort(Efull)
+end
