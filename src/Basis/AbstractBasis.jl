@@ -358,18 +358,20 @@ Returns:
 
 This is the inverse of `index(dgt; base=...)`.
 """
-@inline function change!(dgt::AbstractVector{T}, ind::T; base::T=2) where T
-    N = ind - one(T)
+@inline function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T
+    N = ind - oneunit(ind)
     if base == 2
         @inbounds for i = length(dgt):-1:1
-            dgt[i] = N & one(T)
+            dgt[i] = N & oneunit(N)
             N >>= 1
         end
     else
         @inbounds for i = length(dgt):-1:1
-            N, dgt[i] = divrem(N, base)
+            N, r = divrem(N, base)
+            dgt[i] = r
         end
     end
+    dgt
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """

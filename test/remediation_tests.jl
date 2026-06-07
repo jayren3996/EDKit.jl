@@ -215,3 +215,12 @@ end
     ref = operator([3 .* X], [[1]], TensorBasis(L=4))
     @test Array(op) ≈ Array(ref)
 end
+
+@testset "bug-4: change! accepts mismatched integer types for ind/base" begin
+    dgt = zeros(Int32, 4)
+    EDKit.change!(dgt, 6; base=2)     # ind::Int64, dgt::Int32 (was a MethodError)
+    @test dgt == [0, 1, 0, 1]
+    dgt3 = zeros(Int32, 3)
+    EDKit.change!(dgt3, 9; base=3)    # base::Int64 (decimal 8 -> base-3 digits 0,2,2)
+    @test dgt3 == [0, 2, 2]
+end

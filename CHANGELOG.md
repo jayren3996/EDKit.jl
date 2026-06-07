@@ -46,6 +46,9 @@ breaking changes; see each entry below.
 - The public 2-arg `index(B::AbelianBasis, dgt)` no longer mutates the basis's
   shared group odometer `B.G`, making it (and `index_nocheck`) thread-safe like
   the internal hot paths (`abelian-3`).
+- `change!(dgt, ind; base)` accepts `ind`/`base` integer types that differ from
+  the digit buffer's element type (e.g. an `Int64` index into an `Int32` buffer),
+  converting internally instead of throwing a `MethodError` (`bug-4`).
 - `entropy(s; α, cutoff)` now forwards `cutoff` to the Rényi branch (α∉{0,1}) and
   `renyi_entropy` normalizes its input over above-cutoff entries, so noise
   Schmidt values are dropped and unnormalized inputs give correct entropies
