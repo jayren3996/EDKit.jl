@@ -201,3 +201,10 @@ end
     v = randn(4)
     @test EDKit.expv(B, v) ≈ exp(B) * v
 end
+
+@testset "gapratio-1: sorting + degeneracy handling" begin
+    @test gapratio([3.0, 1.0, 2.0]; sorted=false) == gapratio([1.0, 2.0, 3.0])
+    r = gapratio([1.0, 1.0, 1.0, 2.0])               # 0/0 at the triple-degenerate gap
+    @test isnan(r[1]) && r[2] == 0.0                 # was 1.0 / 0.0 (wrong)
+    @test !isnan(meangapratio([1.0, 1.0, 1.0, 2.0])) # NaNs filtered out
+end

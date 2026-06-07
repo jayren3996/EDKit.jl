@@ -12,18 +12,14 @@ with entries `min(δ_n, δ_{n+1}) / max(δ_n, δ_{n+1})`.
 
 The input should already be sorted in ascending order.
 """
-function gapratio(E::AbstractVector{<:Real})
-    dE = diff(E)
+function gapratio(E::AbstractVector{<:Real}; sorted::Bool=true)
+    Es = sorted ? E : sort(E)
+    dE = diff(Es)
     length(dE) < 2 && return Float64[]
     r = zeros(length(dE)-1)
-    for i = 1:length(r)
-        if dE[i] < dE[i+1]
-            r[i] = dE[i]/dE[i+1]
-        elseif dE[i] > dE[i+1]
-            r[i] = dE[i+1]/dE[i]
-        else
-            r[i] = 1.0
-        end
+    for i in eachindex(r)
+        lo, hi = minmax(dE[i], dE[i+1])
+        r[i] = iszero(hi) ? NaN : lo / hi   # 0/0 (full degeneracy) is undefined, not 1
     end
     r
 end
@@ -35,8 +31,8 @@ Return the mean adjacent-gap ratio of a sorted spectrum `E`.
 
 This is a convenience wrapper around [`gapratio`](@ref).
 """
-function meangapratio(E::AbstractVector{<:Real})
-    r = gapratio(E)
+function meangapratio(E::AbstractVector{<:Real}; sorted::Bool=true)
+    r = filter(!isnan, gapratio(E; sorted))
     isempty(r) ? NaN : sum(r) / length(r)
 end
 

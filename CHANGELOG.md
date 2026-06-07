@@ -53,6 +53,9 @@ breaking changes; see each entry below.
 - `expm`/`expv` now use scaling-and-squaring, so they stay accurate for matrices
   with large norm (the previous fixed-order Taylor truncation diverged for
   `‖A‖ ≳ 5`) (`expm-1`).
+- `gapratio`/`meangapratio` gained a `sorted` keyword (sorts the spectrum when
+  `false`) and now return `NaN` for fully-degenerate `0/0` gaps instead of a
+  spurious `1.0`; `meangapratio` filters those out (`gapratio-1`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)
