@@ -26,6 +26,12 @@ breaking changes; see each entry below.
   coefficient, allocates with the basis element type, and errors on
   configurations outside the basis sector instead of silently writing amplitude
   onto basis vector 1 (`productstate`).
+- `AbelianBasis` / `basis(...)` with a non-default index `dtype` (e.g. `Int32`)
+  no longer throws a `MethodError`; representatives and base are converted to the
+  requested type at construction (`abelian-2`). Note: the base-2 integer fast
+  path remains bounded by 64-bit orbit machinery, so `L ≤ 62`/`64` still applies
+  regardless of `dtype` (`abelian-7`; `_gosper_enumerate` already errors above
+  this, and the new capacity guard reports it with a clearer message).
 
 ### Performance
 - _none yet_

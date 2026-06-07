@@ -61,3 +61,20 @@ end
     @test size(TensorBasis(L=10, base=2), 1) == 1024
     @test size(ProjectedBasis(L=8, N=4, base=2), 1) == binomial(8, 4)
 end
+
+@testset "abelian-2: AbelianBasis works with a non-default index dtype" begin
+    # Int64 reference (half-filling, with translation symmetry).
+    B64 = basis(L=6, N=3, k=0)
+    # Same basis with a narrow index type must construct, not MethodError.
+    B32 = basis(Int32; L=6, N=3, k=0)
+    @test size(B32, 1) == size(B64, 1)
+    @test eltype(B32.I) == Int32
+    # Spectra agree: build the same Hamiltonian on both and compare sorted eigenvalues.
+    mat = [1.0 0 0 0; 0 -1 2 0; 0 2 -1 0; 0 0 0 1]   # Heisenberg bond (XXZ-like) on 2 sites
+    E64 = trans_inv_operator(mat, 2, B64) |> Array |> Hermitian |> eigvals
+    E32 = trans_inv_operator(mat, 2, B32) |> Array |> Hermitian |> eigvals
+    @test E32 ≈ E64
+    # A non-default dtype also works on a base>2, no-symmetry-cap small case.
+    B32b = basis(Int32; L=4, base=3, k=0)
+    @test size(B32b, 1) > 0
+end

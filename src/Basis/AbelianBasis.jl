@@ -649,7 +649,7 @@ function AbelianBasis(
     else
         _abelian_select(f, G, L, 1:base^L, C; base, alloc)
     end
-    AbelianBasis(zeros(dtype, L), I, R, G, base)
+    AbelianBasis(zeros(dtype, L), convert(Vector{dtype}, I), R, G, convert(dtype, base))
 end
 
 """
