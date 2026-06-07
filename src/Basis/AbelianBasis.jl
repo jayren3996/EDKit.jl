@@ -610,6 +610,18 @@ function AbelianBasis(
         iszero(mod(Ng, i)) && (C[i] = sqrt(Ng * i))
     end
 
+    # Guard (abelian-1): a spin-inversion symmetry together with a fixed charge N
+    # is only valid at half-filling. Off half-filling the inversion maps the N
+    # sector to the L-N sector, so the requested symmetry sector is empty.
+    if !isnothing(N) && any(any, G.inv) && 2 * N != L * (base - 1)
+        error(
+            "Fixed charge N together with a spin-inversion symmetry (e.g. `z`) is only " *
+            "valid at half-filling (2N == L*(base-1)). Got N=$N, L=$L, base=$base. " *
+            "Off half-filling the inversion maps the N sector to a different charge " *
+            "sector, so the requested symmetry sector is empty."
+        )
+    end
+
     # Dispatch between construction paths
     Ndigits = isnothing(N) ? nothing : L * (base - 1) - N
     use_gosper = (base == 2 && Ndigits !== nothing && 0 <= Ndigits <= L)
