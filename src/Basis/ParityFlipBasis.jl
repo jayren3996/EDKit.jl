@@ -139,3 +139,4 @@ Return the maximum symmetry-orbit size for the combined parity/flip action.
 """
 order(b::ParityFlipBasis) = 4
 eltype(::ParityFlipBasis) = Float64
+copy(b::ParityFlipBasis) = ParityFlipBasis(deepcopy(b.dgt), b.I, b.R, b.P, b.Z, b.M, b.B)

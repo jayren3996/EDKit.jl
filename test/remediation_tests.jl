@@ -224,3 +224,12 @@ end
     EDKit.change!(dgt3, 9; base=3)    # base::Int64 (decimal 8 -> base-3 digits 0,2,2)
     @test dgt3 == [0, 2, 2]
 end
+
+@testset "parityflip-4: copy methods for parity/flip bases" begin
+    for b in (ParityBasis(L=4, p=1), FlipBasis(L=4, p=1), ParityFlipBasis(L=4, p=1, z=1))
+        c = copy(b)
+        @test c.I === b.I            # representative list shared
+        @test c.dgt !== b.dgt        # buffer independent
+        @test c.dgt == b.dgt
+    end
+end

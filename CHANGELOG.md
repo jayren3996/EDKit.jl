@@ -46,6 +46,8 @@ breaking changes; see each entry below.
 - The public 2-arg `index(B::AbelianBasis, dgt)` no longer mutates the basis's
   shared group odometer `B.G`, making it (and `index_nocheck`) thread-safe like
   the internal hot paths (`abelian-3`).
+- Added `copy` methods for `ParityBasis`, `FlipBasis`, and `ParityFlipBasis`
+  (previously a `MethodError`), matching the other bases (`parityflip-4`).
 - `change!(dgt, ind; base)` accepts `ind`/`base` integer types that differ from
   the digit buffer's element type (e.g. an `Int64` index into an `Int32` buffer),
   converting internally instead of throwing a `MethodError` (`bug-4`).
