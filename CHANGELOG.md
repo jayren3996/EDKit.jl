@@ -19,6 +19,10 @@ breaking changes; see each entry below.
   symmetry bases) now error when `base^L` does not fit the chosen index `dtype`,
   instead of silently overflowing to wrong/negative/empty representatives
   (`bug-1`, `bug-2`, `bug-3`).
+- `order(b)` for the translational bases now returns the orbit size `L/a` (and
+  `2L/a` for the parity/flip variants) instead of `L`/`2L`. This corrects
+  `symmetrizer`/`basis_embedding`/`mps2vec` normalization for unit cells `a>1`
+  (results were off by a factor of `a`); `a=1` is unaffected (`trans-1`).
 
 ### Fixed
 - `productstate` now works correctly for symmetry-reduced bases: it uses a local

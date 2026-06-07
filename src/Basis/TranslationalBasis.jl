@@ -350,4 +350,4 @@ end
 Return the orbit size associated with the translational action on the full
 lattice.
 """
-order(b::TranslationalBasis) = length(b.dgt)
+order(b::TranslationalBasis) = ncycle(b)

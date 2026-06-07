@@ -160,3 +160,15 @@ end
     Yp = zeros(T, d, 4); mul!(Yp, H, X);  @test Yp ≈ 3 .* Yref
     clear_sparse_cache!()
 end
+
+# ---------------------------------------------------------------------------
+# Phase 5 — long-tail correctness bugs
+# ---------------------------------------------------------------------------
+
+@testset "trans-1: order() returns the orbit size L/a" begin
+    @test EDKit.order(TranslationalBasis(L=6, k=0, a=1)) == 6           # unchanged at a=1
+    @test EDKit.order(TranslationalBasis(L=6, k=0, a=2)) == 3           # was 6
+    @test EDKit.order(TranslationalBasis(L=6, k=0, a=3)) == 2           # was 6
+    @test EDKit.order(TranslationParityBasis(L=6, k=0, p=1, a=2)) == 6  # 2*ncycle, was 12
+    @test EDKit.order(TranslationFlipBasis(L=6, k=0, p=1, a=2)) == 6    # 2*ncycle, was 12
+end
