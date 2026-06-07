@@ -105,9 +105,15 @@ space defined by `B`, so this works for tensor-product, projected, and
 symmetry-reduced bases alike.
 """
 function productstate(v::AbstractVector{<:Integer}, B::AbstractBasis)
-    s = zeros(size(B, 1))
-    B.dgt .= v 
-    I = index(B)[2]
-    s[I] = 1 
+    length(v) == length(B.dgt) ||
+        error("Configuration length $(length(v)) does not match basis length $(length(B.dgt)).")
+    dgt = collect(v)                       # local buffer: thread-safe, no shared-state mutation
+    c, I = index(B, dgt)
+    iszero(c) &&
+        error("Product configuration $(collect(Int, v)) is not contained in the sector spanned by the basis.")
+    T = eltype(B)
+    T <: Integer && (T = Float64)          # state vectors should be floating-point; keeps onsite output Float64
+    s = zeros(T, size(B, 1))
+    s[I] = c                               # keep the orbit phase / normalization coefficient
     s
 end

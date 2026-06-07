@@ -12,9 +12,16 @@ breaking changes; see each entry below.
 - `basis(...)` with a fixed charge `N` and a spin-inversion symmetry (`z` or a
   custom inversion generator) off half-filling now throws instead of silently
   returning an incomplete basis with a wrong spectrum (`abelian-1`).
+- `productstate` now errors on configurations outside the basis sector and
+  returns a complex vector for symmetry-reduced bases (previously silent / always
+  `Float64`).
 
 ### Fixed
-- _none yet_
+- `productstate` now works correctly for symmetry-reduced bases: it uses a local
+  digit buffer (no shared-state mutation), keeps the orbit phase/normalization
+  coefficient, allocates with the basis element type, and errors on
+  configurations outside the basis sector instead of silently writing amplitude
+  onto basis vector 1 (`productstate`).
 
 ### Performance
 - _none yet_
