@@ -43,6 +43,9 @@ breaking changes; see each entry below.
 - Documented `sparse!`'s snapshot semantics: the cache is keyed by object
   identity, so mutating an operator's stored matrices in place after `sparse!`
   requires a fresh `sparse!` call to refresh the cache (`operator-1`).
+- The public 2-arg `index(B::AbelianBasis, dgt)` no longer mutates the basis's
+  shared group odometer `B.G`, making it (and `index_nocheck`) thread-safe like
+  the internal hot paths (`abelian-3`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)

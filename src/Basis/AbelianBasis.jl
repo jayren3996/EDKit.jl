@@ -771,7 +771,7 @@ associated with the group element that maps the current digits to the canonical
 representative.
 """
 function index(B::AbelianBasis, dgt::AbstractVector)
-    index(B, dgt, B.G)
+    index(B, dgt, _shallow_workspace(B.G))
 end
 
 function index(B::AbelianBasis, dgt::AbstractVector, G::AbelianOperator)

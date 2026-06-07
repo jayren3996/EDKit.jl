@@ -172,3 +172,15 @@ end
     @test EDKit.order(TranslationParityBasis(L=6, k=0, p=1, a=2)) == 6  # 2*ncycle, was 12
     @test EDKit.order(TranslationFlipBasis(L=6, k=0, p=1, a=2)) == 6    # 2*ncycle, was 12
 end
+
+@testset "abelian-3: 2-arg index does not mutate the shared odometer" begin
+    B = basis(L=8, k=1)                       # momentum sector with a non-trivial odometer
+    s_before = copy(B.G.s)
+    for _ in 1:50
+        EDKit.index(B, rand(0:1, 8))
+    end
+    @test B.G.s == s_before                   # shared B.G must be left untouched (thread-safe)
+    # And it still returns the same coefficient/index as the workspace-threaded internal call.
+    dgt = rand(0:1, 8)
+    @test EDKit.index(B, dgt) == EDKit.index(B, dgt, EDKit._shallow_workspace(B.G))
+end
