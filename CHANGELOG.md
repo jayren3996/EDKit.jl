@@ -36,6 +36,9 @@ breaking changes; see each entry below.
   cache (SpMM) like `*` and `mul` already did, so block and iterative-solver code
   that calls the standard `mul!` gets the documented acceleration instead of
   silently falling back to the matrix-free path (`operator-2`, `operator-5`).
+- Documented `sparse!`'s snapshot semantics: the cache is keyed by object
+  identity, so mutating an operator's stored matrices in place after `sparse!`
+  requires a fresh `sparse!` call to refresh the cache (`operator-1`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)

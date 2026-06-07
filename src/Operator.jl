@@ -320,6 +320,14 @@ The cache holds up to 8 operators (LRU eviction).  Call
 [`clear_sparse_cache!`](@ref) when you no longer need the cached matrices
 and want to reclaim memory.
 
+!!! note "Snapshot semantics"
+    `sparse!` snapshots the operator's contents at call time and keys the cache
+    by object identity. Every public transformation (`c*opt`, `opt1+opt2`,
+    `adjoint`, …) returns a fresh `Operator`, so this is transparent. The one
+    exception is mutating an operator's stored matrices *in place* after
+    `sparse!`: that is not tracked, and subsequent `*`/`mul`/`mul!` will use the
+    stale cached matrix. Call `sparse!(opt)` again to refresh it.
+
 # When to use
 
 Call `sparse!` when you plan to multiply the same operator by a matrix more
