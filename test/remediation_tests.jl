@@ -88,3 +88,19 @@ end
     @test size(FlipBasis(L=6, p=1), 1) > 0
     @test size(TranslationalBasis(L=6, k=0), 1) > 0
 end
+
+# ---------------------------------------------------------------------------
+# Phase 3 — eltype-correctness sweep
+# ---------------------------------------------------------------------------
+
+@testset "parityflip-1: Parity/Flip/ParityFlip have real eltype and type-stable index" begin
+    L = 6
+    @test eltype(ParityBasis(L=L, p=1)) == Float64
+    @test eltype(FlipBasis(L=L, p=1)) == Float64
+    @test eltype(ParityFlipBasis(L=L, p=1, z=1)) == Float64
+    # index must be type-stable: returns a concrete Float64 tuple, not a Union with ComplexF64.
+    for B in (ParityBasis(L=L, p=1), FlipBasis(L=L, p=1), ParityFlipBasis(L=L, p=1, z=1))
+        r = @inferred EDKit.index(B, collect(zeros(Int, L)))
+        @test r isa Tuple{Float64, <:Integer}
+    end
+end

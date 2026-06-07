@@ -119,7 +119,7 @@ function index(b::ParityFlipBasis, dgt::AbstractVector)
     Ipz = _int_spinflip(Ip - one(TI), maxstate) + one(TI)
     Ir = min(I0, Iz, Ip, Ipz)
     i = binary_search(b.I, Ir)
-    iszero(i) && return (0.0, one(b.B))
+    iszero(i) && return (zero(eltype(b)), one(b.B))
     N = if isequal(Ir, I0)
         b.R[i]
     elseif isequal(Ir, Ip)
@@ -138,3 +138,4 @@ end
 Return the maximum symmetry-orbit size for the combined parity/flip action.
 """
 order(b::ParityFlipBasis) = 4
+eltype(::ParityFlipBasis) = Float64

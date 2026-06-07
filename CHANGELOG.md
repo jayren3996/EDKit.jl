@@ -34,7 +34,9 @@ breaking changes; see each entry below.
   this, and the new capacity guard reports it with a clearer message).
 
 ### Performance
-- _none yet_
+- `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)
+  element type, making their `index` type-stable and letting real Hamiltonians
+  assemble as real matrices instead of `ComplexF64` (`parityflip-1`).
 
 ### Added
 - Continuous-integration workflow running the test suite on Julia 1.10 and
