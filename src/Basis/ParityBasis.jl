@@ -78,6 +78,7 @@ function ParityBasis(
     base::Integer=2, alloc::Integer=1000, threaded::Bool=true, small_N::Bool=true
 )
     @assert isone(p) || isone(-p) "Invalid parity"
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
     judge = ParityJudge(g, p, base, sqrt(2))

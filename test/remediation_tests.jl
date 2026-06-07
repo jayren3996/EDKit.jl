@@ -78,3 +78,13 @@ end
     B32b = basis(Int32; L=4, base=3, k=0)
     @test size(B32b, 1) > 0
 end
+
+@testset "parityflip-3 / sweep: symmetry bases guard index overflow" begin
+    @test_throws ErrorException FlipBasis(L=63, p=1)
+    @test_throws ErrorException ParityBasis(L=63, p=1)
+    @test_throws ErrorException ParityFlipBasis(L=63, p=1, z=1)
+    @test_throws ErrorException TranslationalBasis(L=63, k=0)
+    # Small valid cases still construct.
+    @test size(FlipBasis(L=6, p=1), 1) > 0
+    @test size(TranslationalBasis(L=6, k=0), 1) > 0
+end

@@ -137,6 +137,7 @@ function TranslationFlipBasis(
     In the new definition, cₖ⁺|VAC⟩ = |k⟩.
     =#
     k = mod(-k, len)
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     MAX = base ^ L + 1
     N2 = [2len/ sqrt(i) for i = 1:len]

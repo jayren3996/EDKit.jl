@@ -90,6 +90,7 @@ function ParityFlipBasis(
 )
     @assert isone(p) || isone(-p) "Invalid parity"
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     MAX = base ^ L + 1
     C = [2.0, 2*sqrt(2), 0.0, 4.0]

@@ -75,6 +75,7 @@ function FlipBasis(
 )
     @assert isone(p) || isone(-p) "Invalid parity"
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     MAX = base ^ L + 1
     g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)

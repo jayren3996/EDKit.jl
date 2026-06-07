@@ -262,6 +262,7 @@ function TranslationalBasis(dtype::DataType=Int64;
     In the new definition, cₖ⁺|VAC⟩ = |k⟩.
     =#
     k = mod(-k, len)
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     norm = [len/sqrt(i) for i = 1:len]
     g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)

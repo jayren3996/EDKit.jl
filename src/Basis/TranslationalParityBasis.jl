@@ -153,6 +153,7 @@ function TranslationParityBasis(
     end
     @assert isone(p) || isone(-p) "Invalid parity"
 
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     N2 = [2len/ sqrt(i) for i = 1:len]
     N1 = N2 ./ sqrt(2)
