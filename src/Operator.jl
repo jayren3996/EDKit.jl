@@ -441,10 +441,15 @@ Accumulate `opt * m` into the preallocated matrix `target`.
 As for vectors, the three-argument method accumulates while the five-argument
 method follows `target = α * opt * m + β * target`.
 """
-mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix) =
+function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
+    S = _cached_sparse(opt)
+    S !== nothing && return mul!(target, S, m, true, true)   # cached SpMM, accumulating (operator-2)
     _apply_columns!(target, opt, axes(m, 1), m)
+end
 
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Number, β::Number)
+    S = _cached_sparse(opt)
+    S !== nothing && return mul!(target, S, m, α, β)         # cached SpMM (operator-2)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
     _apply_columns!(target, opt, axes(m, 1), m, α)

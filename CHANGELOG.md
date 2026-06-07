@@ -32,6 +32,10 @@ breaking changes; see each entry below.
   path remains bounded by 64-bit orbit machinery, so `L ≤ 62`/`64` still applies
   regardless of `dtype` (`abelian-7`; `_gosper_enumerate` already errors above
   this, and the new capacity guard reports it with a clearer message).
+- `mul!(target, opt::Operator, m::AbstractMatrix, …)` now uses the `sparse!`
+  cache (SpMM) like `*` and `mul` already did, so block and iterative-solver code
+  that calls the standard `mul!` gets the documented acceleration instead of
+  silently falling back to the matrix-free path (`operator-2`, `operator-5`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)

@@ -129,3 +129,34 @@ end
     end
     @test sort(Epar) ≈ sort(Efull)
 end
+
+# ---------------------------------------------------------------------------
+# Phase 4 — cached-sparse wiring
+# ---------------------------------------------------------------------------
+
+@testset "operator-2: matrix mul! consults the sparse cache" begin
+    L = 6
+    B = basis(L=L, N=3)
+    H = trans_inv_operator([1.0 0 0 0; 0 -1 2 0; 0 2 -1 0; 0 0 0 1], 2, B)
+    d = size(H, 1)
+    T = promote_type(eltype(H), Float64)
+    X = randn(T, d, 4)
+    Yref = Array(H) * X
+
+    clear_sparse_cache!()
+    # Uncached path stays correct (regression guard): 3-arg accumulates, 5-arg scales.
+    Y3 = zeros(T, d, 4); mul!(Y3, H, X);          @test Y3 ≈ Yref
+    Y5 = randn(T, d, 4); mul!(Y5, H, X, 2.0, 0.0); @test Y5 ≈ 2 .* Yref
+
+    # Cached path gives identical results.
+    sparse!(H)
+    Yc3 = zeros(T, d, 4); mul!(Yc3, H, X);          @test Yc3 ≈ Yref
+    Yc5 = randn(T, d, 4); mul!(Yc5, H, X, 2.0, 0.0); @test Yc5 ≈ 2 .* Yref
+
+    # Prove mul! actually READS the cache: poison the cached matrix and observe
+    # the result change (matrix-free would ignore the poisoned entry).
+    Sorig = EDKit._cached_sparse(H)
+    EDKit._SPARSE_CACHE[objectid(H)] = 3 .* Sorig
+    Yp = zeros(T, d, 4); mul!(Yp, H, X);  @test Yp ≈ 3 .* Yref
+    clear_sparse_cache!()
+end
