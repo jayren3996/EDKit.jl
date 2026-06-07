@@ -1,6 +1,6 @@
 # Regression tests for the 0.6.0 review-remediation roadmap.
 # Self-runnable (`julia --project test/remediation_tests.jl`) and included by runtests.jl.
-using EDKit, Test, LinearAlgebra
+using EDKit, Test, LinearAlgebra, SparseArrays
 
 @testset "abelian-1: fixed N + inversion off half-filling errors" begin
     # Global spin-flip maps the N sector to the L-N sector. Off half-filling the
@@ -268,4 +268,17 @@ end
         b = sort(TranslationalBasis(L=L, N=N, k=0, base=base, small_N=false).I)
         @test a == b
     end
+end
+
+@testset "linearmap-1: basis_embedding/symmetrizer are sparse and correct" begin
+    B = basis(L=6, k=0)
+    E = EDKit.basis_embedding(B)
+    @test issparse(E)
+    @test size(E) == (2^6, size(B, 1))
+    Bfull = TensorBasis(L=6)
+    D = DoubleBasis(B, Bfull)
+    S = symmetrizer(D)
+    @test issparse(S)
+    v = randn(ComplexF64, size(Bfull, 1))
+    @test S * v ≈ D(v)                         # symmetrizer matrix == matrix-free action
 end

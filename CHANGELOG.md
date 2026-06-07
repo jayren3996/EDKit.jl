@@ -87,6 +87,10 @@ breaking changes; see each entry below.
   with `N`) now enumerates only in-range digit strings via a bounded mixed-radix
   generator, instead of generating all compositions and discarding 70–95% of
   them — markedly faster for large qudit bases (`optimization-1`).
+- `basis_embedding` (and therefore `symmetrizer`) now builds a **sparse** matrix
+  with the basis's natural element type instead of a dense `base^L × dim`
+  `ComplexF64` matrix, so these maps scale to larger systems and real sectors
+  stay real (`linearmap-1`).
 
 ### Added
 - Continuous-integration workflow running the test suite on Julia 1.10 and
