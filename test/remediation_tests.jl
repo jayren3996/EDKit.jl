@@ -192,3 +192,12 @@ end
     # schmidt-2: unnormalized input is normalized before the Renyi formula.
     @test EDKit.entropy([0.5, 0.5, 0.5, 0.5], α=2) ≈ log(4)
 end
+
+@testset "expm-1: scaling-and-squaring is accurate at large norm" begin
+    A = [0.0 5.0; -5.0 0.0]                    # ‖A‖ ≈ 5, where degree-10 Taylor diverges
+    @test EDKit.expm(A) ≈ exp(A)
+    M = randn(4, 4); B = 3 .* (M - M')         # antisymmetric, larger norm
+    @test EDKit.expm(B) ≈ exp(B)
+    v = randn(4)
+    @test EDKit.expv(B, v) ≈ exp(B) * v
+end

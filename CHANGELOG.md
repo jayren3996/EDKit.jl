@@ -50,6 +50,9 @@ breaking changes; see each entry below.
   `renyi_entropy` normalizes its input over above-cutoff entries, so noise
   Schmidt values are dropped and unnormalized inputs give correct entropies
   (`schmidt-1`, `schmidt-2`).
+- `expm`/`expv` now use scaling-and-squaring, so they stay accurate for matrices
+  with large norm (the previous fixed-order Taylor truncation diverged for
+  `‖A‖ ≳ 5`) (`expm-1`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)

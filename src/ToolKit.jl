@@ -56,13 +56,19 @@ Returns:
 - An approximation to the matrix exponential of `A`.
 """
 function expm(A; order::Integer=10)
-    mat = I + A / order
-    order -= 1
-    while order > 0
-        mat = A * mat
-        mat ./= order
+    nrm = opnorm(A, 1)
+    s = nrm > 0.5 ? ceil(Int, log2(nrm)) + 1 : 0
+    B = A / (2.0^s)
+    mat = I + B / order
+    k = order - 1
+    while k > 0
+        mat = B * mat
+        mat ./= k
         mat += I
-        order -= 1
+        k -= 1
+    end
+    for _ in 1:s
+        mat = mat * mat
     end
     mat
 end
@@ -79,15 +85,7 @@ Returns:
 - An approximation to the action of `exp(λA)` on `v`.
 """
 function expv(A, v::AbstractVecOrMat; order::Integer=10, λ::Number=1)
-    vec = v + λ * A * v / order
-    order -= 1
-    while order > 0
-        vec = λ * A * vec
-        vec ./= order
-        vec += v
-        order -= 1
-    end
-    vec
+    expm(λ * A; order=order) * v
 end
 
 #-----------------------------------------------------------------------------------------------------
