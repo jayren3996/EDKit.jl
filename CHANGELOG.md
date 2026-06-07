@@ -93,5 +93,12 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `rdm(v, Ainds, b)` returns the reduced density matrix `ρ_A = S S†` of a
+  subsystem from a state vector, reusing every existing `schmidt` dispatch
+  (works for tensor, projected, translational, parity/flip, and Abelian bases);
+  real-phase bases give a real `ρ_A` (`schmidt-4`).
+- `mutual_information(v, Ainds, Cinds, b)` computes `I(A:C) = S(A)+S(C)−S(A∪C)`
+  between two disjoint subsystems, with `α`/`cutoff` forwarded to `ent_S`
+  (`schmidt-4`).
 - Continuous-integration workflow running the test suite on Julia 1.10 and
   latest across Ubuntu and macOS.
