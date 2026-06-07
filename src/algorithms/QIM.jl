@@ -18,6 +18,11 @@ Arguments:
 
 Returns:
 - cm: (Symmetric real) matrix.
+
+Note:
+- The `½⟨{hᵢ,hⱼ}⟩` form requires each operator in `ol` to be **Hermitian**. The
+  implementation computes `Re⟨hᵢψ|hⱼψ⟩ − ⟨hᵢ⟩⟨hⱼ⟩`, which equals the documented
+  anticommutator covariance only for Hermitian `hᵢ`. Pass Hermitian operators.
 """
 function covmat(ol::AbstractVector, v::AbstractVecOrMat{<:Number})
     n = length(ol)

@@ -48,6 +48,10 @@ breaking changes; see each entry below.
   the internal hot paths (`abelian-3`).
 - Added `copy` methods for `ParityBasis`, `FlipBasis`, and `ParityFlipBasis`
   (previously a `MethodError`), matching the other bases (`parityflip-4`).
+- Documented that `covmat` computes the anticommutator covariance only for
+  **Hermitian** operators (`qim-1`).
+- Documented `tebd4`'s `exp(τ·h)` convention: real-time evolution by `dt` needs
+  `τ = -im*dt`; a real `dt` performs imaginary-time evolution (`tebd4`).
 - `change!(dgt, ind; base)` accepts `ind`/`base` integer types that differ from
   the digit buffer's element type (e.g. an `Int64` index into an `Int32` buffer),
   converting internally instead of throwing a `MethodError` (`bug-4`).
