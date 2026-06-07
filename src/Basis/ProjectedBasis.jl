@@ -239,6 +239,7 @@ function ProjectedBasis(dtype::DataType=Int64;
     base::Integer=2, alloc::Integer=1000, 
     threaded::Bool=true, small_N::Bool=true
 )
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     I = if isnothing(N)
         threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)

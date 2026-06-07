@@ -603,6 +603,7 @@ function AbelianBasis(
     N::Union{Nothing, Integer}=nothing,
     alloc=1000, threaded::Bool=true
 )
+    _check_index_capacity(dtype, base, L)
     Ng = order(G)
 
     C = zeros(Ng)

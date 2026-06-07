@@ -244,6 +244,7 @@ Returns:
 - A fresh [`TensorBasis`](@ref) with a zero-initialized working digit buffer.
 """
 function TensorBasis(;L::Integer, base::Integer=2)
+    _check_index_capacity(Int64, base, L)
     dgt = zeros(Int64, L)
     B = Int64(base)
     TensorBasis(dgt, B)
@@ -497,6 +498,25 @@ explicit `N` sector together with an optional user-supplied filter.
 """
 @inline _charge_predicate(::Nothing, num::Integer) = x -> sum(x) == num
 @inline _charge_predicate(f, num::Integer) = x -> (sum(x) == num && f(x))
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    _check_index_capacity(dtype, base, L)
+
+Error if a base-`base` system on `L` sites cannot be indexed in `dtype` without
+overflow. The largest 1-based index is `base^L`; some bases also store
+`base^L + 1`, so we require `base^L < typemax(dtype)`. Computed in `BigInt` so the
+check itself never overflows.
+"""
+function _check_index_capacity(dtype::DataType, base::Integer, L::Integer)
+    if big(base)^L >= typemax(dtype)
+        error(
+            "A base-$base system on $L sites needs 1-based indices up to $(big(base)^L), " *
+            "which does not fit the index type $dtype (typemax = $(typemax(dtype))). " *
+            "Construct the basis with a wider index dtype, e.g. Int128."
+        )
+    end
+    nothing
+end
 #-------------------------------------------------------------------------------------------------------------------------
 """
     _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)

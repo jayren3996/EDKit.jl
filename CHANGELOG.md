@@ -15,6 +15,10 @@ breaking changes; see each entry below.
 - `productstate` now errors on configurations outside the basis sector and
   returns a complex vector for symmetry-reduced bases (previously silent / always
   `Float64`).
+- Basis constructors (`TensorBasis`, `ProjectedBasis`, `AbelianBasis`, and the
+  symmetry bases) now error when `base^L` does not fit the chosen index `dtype`,
+  instead of silently overflowing to wrong/negative/empty representatives
+  (`bug-1`, `bug-2`, `bug-3`).
 
 ### Fixed
 - `productstate` now works correctly for symmetry-reduced bases: it uses a local

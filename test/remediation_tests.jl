@@ -41,3 +41,23 @@ end
     @test sum(st) == 1.0
     @test count(!iszero, st) == 1
 end
+
+# ---------------------------------------------------------------------------
+# Phase 2 — integer-width sweep
+# ---------------------------------------------------------------------------
+
+@testset "bug-1/2/3: index capacity guard errors instead of silent overflow" begin
+    # bug-1: Int32 + base>2 overflows the index type -> must error, not store wrapped reps.
+    @test_throws ErrorException ProjectedBasis(Int32; L=20, N=0, base=3)
+    @test_throws ErrorException basis(Int32; L=20, N=0, base=3)
+    # bug-2: base=2 at L=63 overflowed the Gosper enumerator to an empty basis -> must error.
+    @test_throws ErrorException ProjectedBasis(L=63, N=1, base=2)
+    # bug-3: TensorBasis size overflowed to a negative value at L>=63 -> must error.
+    @test_throws ErrorException TensorBasis(L=63, base=2)
+    # Boundary positive: the largest valid base-2 Int64 size (L=62) still constructs.
+    Bok = ProjectedBasis(L=62, N=1, base=2)
+    @test size(Bok, 1) == 62
+    # Ordinary small cases are unaffected.
+    @test size(TensorBasis(L=10, base=2), 1) == 1024
+    @test size(ProjectedBasis(L=8, N=4, base=2), 1) == binomial(8, 4)
+end
