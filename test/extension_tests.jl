@@ -102,3 +102,47 @@ end
     # Convenience overload.
     @test mutual_information(v, A, C, L) ≈ I_AC
 end
+
+@testset "lindblad-6: steady state" begin
+    # Single-qubit amplitude damping: H = 0, L = σ⁻ ⇒ ρ_ss = |0⟩⟨0|.
+    σm = ComplexF64[0 1; 0 0]
+    A1 = LiouvillianMap(zeros(ComplexF64, 2, 2), [σm])
+    ρ1 = steadystate(A1)
+    @test Array(ρ1) ≈ [1 0; 0 0]
+    @test tr(ρ1.ρ) ≈ 1
+    @test norm(ρ1.ρ - ρ1.ρ') < 1e-9                # Hermitian
+    @test norm(A1 * ρ1.ρ) < 1e-9                    # 𝓛[ρ_ss] = 0
+
+    # Two-qubit driven-dissipative system with a unique steady state.
+    σx = ComplexF64[0 1; 1 0]; I2 = ComplexF64[1 0; 0 1]
+    H = kron(σx, I2) + kron(I2, σx)
+    jumps = [kron(σm, I2), kron(I2, σm)]
+    A = LiouvillianMap(H, jumps)
+
+    ρdense  = steadystate(A; method=:dense)
+    ρkrylov = steadystate(A; method=:krylov)
+    for ρ in (ρdense, ρkrylov)
+        M = ρ.ρ
+        @test tr(M) ≈ 1
+        @test norm(M - M') < 1e-7                            # Hermitian
+        @test minimum(real(eigvals(Hermitian(M)))) > -1e-7   # PSD
+        @test norm(A * M) < 1e-6                             # 𝓛[ρ_ss] = 0
+    end
+    @test Array(ρdense) ≈ Array(ρkrylov)                      # methods agree
+
+    # Cross-check against long-time evolution with the explicit propagator.
+    lb = lindblad(H, jumps)
+    dm = densitymatrix(Matrix{ComplexF64}(I, 4, 4) / 4)       # maximally mixed start
+    for _ in 1:4000
+        dm = lb(dm, 0.02)
+    end
+    normalize!(dm)
+    @test Matrix(Array(ρdense)) ≈ dm.ρ atol=1e-4
+
+    # Overloads: Lindblad and (H, jumps).
+    @test Array(steadystate(lb)) ≈ Array(ρdense)
+    @test Array(steadystate(H, jumps)) ≈ Array(ρdense)
+
+    # Unknown method errors.
+    @test_throws ArgumentError steadystate(A; method=:bogus)
+end

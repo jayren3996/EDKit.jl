@@ -93,6 +93,12 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `steadystate(A)` computes a Lindblad steady state `ρ_ss` (`𝓛[ρ_ss]=0`) from a
+  `LiouvillianMap`, `Lindblad`, or `(H, jumps)`. Uses dense diagonalization for
+  small systems (`d ≤ 16`) and matrix-free Arnoldi (`KrylovKit.eigsolve`) for
+  large ones, returning a trace-normalized Hermitian `DensityMatrix`
+  (`lindblad-6`). This adds **KrylovKit** as a direct dependency (previously
+  transitive via ITensorMPS).
 - `rdm(v, Ainds, b)` returns the reduced density matrix `ρ_A = S S†` of a
   subsystem from a state vector, reusing every existing `schmidt` dispatch
   (works for tensor, projected, translational, parity/flip, and Abelian bases);

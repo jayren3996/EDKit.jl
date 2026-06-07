@@ -19,6 +19,7 @@ module EDKit
 
 using LinearAlgebra, SparseArrays, Random, Combinatorics
 using ITensors, ITensorMPS, LRUCache
+using KrylovKit: eigsolve
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, copy
 import LinearAlgebra: norm, mul!

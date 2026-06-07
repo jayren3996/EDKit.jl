@@ -3,7 +3,7 @@
 #---------------------------------------------------------------------------------------------------
 
 export LiouvillianMap, lindblad_timeevolve, lindblad_timeevolve!,
-       LindbladArnoldiCache, LindbladArnoldiDiagnostics
+       LindbladArnoldiCache, LindbladArnoldiDiagnostics, steadystate
 
 """
     LindbladArnoldiDiagnostics
@@ -148,6 +148,95 @@ function Base.:*(A::LiouvillianMap, v::AbstractVector)
     ws = _LiouvillianWorkspace(T, A.dim)
     out = zeros(T, length(v))
     _liouvillian_apply!(out, A, Vector{T}(v), ws)
+end
+
+#---------------------------------------------------------------------------------------------------
+# Steady state
+#---------------------------------------------------------------------------------------------------
+"""
+    steadystate(A::LiouvillianMap; method=:auto, tol=1e-12, maxiter=300, howmany=2, v0=nothing)
+    steadystate(lb::Lindblad; kwargs...)
+    steadystate(H, jumps; kwargs...)
+
+Compute a nonequilibrium steady state `ρ_ss` of a Lindbladian — the density
+matrix annihilated by the generator, `𝓛[ρ_ss] = 0`.
+
+`ρ_ss` is the eigenvector of the Liouvillian with eigenvalue `0` (the eigenvalue
+of largest real part, since `𝓛` has spectrum in the closed left half-plane).
+The eigenvector is reshaped to a `d × d` matrix, trace-normalized, Hermitized,
+and returned as a [`DensityMatrix`](@ref) so it composes with
+[`expectation`](@ref), [`entropy`](@ref), and `normalize!`.
+
+# Methods
+- `:dense`  — assemble the full `d² × d²` generator and diagonalize. Exact;
+  chosen automatically when `d ≤ 16`.
+- `:krylov` — matrix-free Arnoldi (`KrylovKit.eigsolve`, `:LR`) driving the
+  existing [`LiouvillianMap`](@ref); scales to large `d` where the dense
+  generator is infeasible. Chosen automatically when `d > 16`.
+- `:auto`   — `:dense` for `d ≤ 16`, else `:krylov` (default).
+
+# Keyword arguments
+- `tol`     : Arnoldi convergence tolerance (`:krylov` only). Default `1e-12`.
+- `maxiter` : maximum Arnoldi restarts (`:krylov` only). Default `300`.
+- `howmany` : eigenpairs requested near `0` (`:krylov`); the steady state is the
+  one with the largest `|trace|`. Default `2`.
+- `v0`      : optional starting vector (`vec`-shaped); defaults to the maximally
+  mixed state.
+
+!!! note
+    A unique steady state is assumed. If the `λ ≈ 0` eigenspace is degenerate
+    (e.g. pure dephasing), the returned matrix is the largest-trace member of
+    whatever basis the solver produces.
+"""
+function steadystate(A::LiouvillianMap; method::Symbol=:auto, tol::Real=1e-12,
+                     maxiter::Integer=300, howmany::Integer=2, v0=nothing)
+    d = A.dim
+    T = complex(float(real(eltype(A))))
+    use = method === :auto ? (d ≤ 16 ? :dense : :krylov) : method
+    if use === :dense
+        D = d^2
+        Lmat = Matrix{T}(undef, D, D)
+        e = zeros(T, D)
+        for k in 1:D
+            e[k] = one(T)
+            Lmat[:, k] = A * e
+            e[k] = zero(T)
+        end
+        F = eigen(Lmat)
+        ρ = _select_steadystate(F.values, F.vectors, d)
+    elseif use === :krylov
+        x0 = isnothing(v0) ? vec(Matrix{T}(I, d, d)) : Vector{T}(vec(v0))
+        vals, vecs, info = eigsolve(x -> A * x, x0, howmany, :LR; tol=tol, maxiter=maxiter)
+        info.converged ≥ 1 || @warn "steadystate: KrylovKit did not fully converge" converged=info.converged normres=info.normres
+        V = reduce(hcat, vecs)
+        ρ = _select_steadystate(vals, V, d)
+    else
+        throw(ArgumentError("steadystate: unknown method $method (use :auto, :dense, or :krylov)."))
+    end
+    DensityMatrix(ρ)
+end
+
+steadystate(lb::Lindblad; kwargs...) = steadystate(LiouvillianMap(lb); kwargs...)
+steadystate(H::AbstractMatrix, jumps::AbstractVector{<:AbstractMatrix}; kwargs...) =
+    steadystate(LiouvillianMap(H, jumps); kwargs...)
+
+# Among the eigenpairs, pick the λ ≈ 0 mode with the largest |trace| (the
+# physical, trace-ful steady state), then trace-normalize and Hermitize.
+function _select_steadystate(vals, vecs::AbstractMatrix, d::Integer)
+    λr = real.(vals)
+    λmax = maximum(λr)
+    cand = findall(≥(λmax - 1e-6), λr)
+    isempty(cand) && (cand = [argmax(λr)])
+    best, bestw = cand[1], -1.0
+    for i in cand
+        w = abs(tr(reshape(vecs[:, i], d, d)))
+        w > bestw && ((best, bestw) = (i, w))
+    end
+    bestw > 1e-10 || throw(ArgumentError("steadystate: the λ≈0 eigenmode is traceless; the steady state may be non-unique or absent."))
+    ρ = Matrix(reshape(vecs[:, best], d, d))
+    ρ ./= tr(ρ)
+    ρ .= (ρ .+ ρ') ./ 2
+    ρ
 end
 
 """
