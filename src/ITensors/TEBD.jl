@@ -155,7 +155,9 @@ one fourth-order TEBD time step of size `τ`.
 Arguments:
 - `h`: local Hamiltonian matrices placed along the chain.
 - `s`: ITensor site indices.
-- `τ`: physical time step.
+- `τ`: time-step multiplier. The gate built is `exp(τ·h)`, so `τ` multiplies the
+  local Hamiltonian directly. For **real-time** evolution by `dt`, pass
+  `τ = -im*dt`; passing a real `dt` performs imaginary-time evolution.
 
 Returns:
 - A vector of gate ITensors ordered according to the fourth-order decomposition.

@@ -194,13 +194,9 @@ function selectindex_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=1000
     end
     I = T[]
     sizehint!(I, alloc)
-    dgt = Vector{T}(undef, L)
-    for fdgt in multiexponents(L, N)
-        all(b < base for b in fdgt) || continue
-        _complement_digits!(dgt, fdgt, base)
-        isnothing(f) || f(dgt) || continue
-        ind = index(dgt, base=base)
-        push!(I, ind)
+    dgt = zeros(T, L)
+    _foreach_bounded_digits(dgt, L * (base - 1) - N, base) do d
+        (isnothing(f) || f(d)) && push!(I, index(d, base=base))
     end
     sorted ? sort!(I) : I
 end
@@ -239,6 +235,7 @@ function ProjectedBasis(dtype::DataType=Int64;
     base::Integer=2, alloc::Integer=1000, 
     threaded::Bool=true, small_N::Bool=true
 )
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     I = if isnothing(N)
         threaded ? selectindex_threaded(f, L, base=base, alloc=alloc) : selectindex(f, L, 1:base^L, base=base, alloc=alloc)

@@ -589,6 +589,7 @@ struct AbelianBasis{Ti <: Integer, Tg <: Number} <: AbstractPermuteBasis
     B::Ti                   # Base
 end
 order(b::AbelianBasis) = order(b.G)
+eltype(::AbelianBasis{Ti, Tg}) where {Ti, Tg} = Tg <: Real ? Float64 : ComplexF64
 #-------------------------------------------------------------------------------------------------------------------------
 """
     _has_all_benes(G::AbelianOperator)
@@ -603,11 +604,24 @@ function AbelianBasis(
     N::Union{Nothing, Integer}=nothing,
     alloc=1000, threaded::Bool=true
 )
+    _check_index_capacity(dtype, base, L)
     Ng = order(G)
 
     C = zeros(Ng)
     for i in eachindex(C)
         iszero(mod(Ng, i)) && (C[i] = sqrt(Ng * i))
+    end
+
+    # Guard (abelian-1): a spin-inversion symmetry together with a fixed charge N
+    # is only valid at half-filling. Off half-filling the inversion maps the N
+    # sector to the L-N sector, so the requested symmetry sector is empty.
+    if !isnothing(N) && any(any, G.inv) && 2 * N != L * (base - 1)
+        error(
+            "Fixed charge N together with a spin-inversion symmetry (e.g. `z`) is only " *
+            "valid at half-filling (2N == L*(base-1)). Got N=$N, L=$L, base=$base. " *
+            "Off half-filling the inversion maps the N sector to a different charge " *
+            "sector, so the requested symmetry sector is empty."
+        )
     end
 
     # Dispatch between construction paths
@@ -636,7 +650,7 @@ function AbelianBasis(
     else
         _abelian_select(f, G, L, 1:base^L, C; base, alloc)
     end
-    AbelianBasis(zeros(dtype, L), I, R, G, base)
+    AbelianBasis(zeros(dtype, L), convert(Vector{dtype}, I), R, G, convert(dtype, base))
 end
 
 """
@@ -757,7 +771,7 @@ associated with the group element that maps the current digits to the canonical
 representative.
 """
 function index(B::AbelianBasis, dgt::AbstractVector)
-    index(B, dgt, B.G)
+    index(B, dgt, _shallow_workspace(B.G))
 end
 
 function index(B::AbelianBasis, dgt::AbstractVector, G::AbelianOperator)

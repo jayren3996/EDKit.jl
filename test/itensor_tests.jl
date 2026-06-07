@@ -83,3 +83,31 @@
         @test abs(abs(dot(before, mps2vec(ψ))) - 1) < 1e-8
     end
 end
+
+#----------------------------------------------------------------------------------------------------
+# Pauli MPS / MPO round-trips (adopted from TensorTest.jl, ext-1)
+#----------------------------------------------------------------------------------------------------
+@testset "Pauli PMPS fidelity round-trip" begin
+    for L in 2:7
+        s = siteinds("S=1/2", L)
+        ps = siteinds("Pauli", L)
+        vec = rand(ComplexF64, 2^L) |> normalize!
+        ρ = vec * vec'
+        pmps = vec2mps(pauli_list(ρ), ps)
+        mpo = pmps2mpo(pmps, s)
+        ψ = vec2mps(vec, s)
+        @test inner(ψ', mpo, ψ) ≈ 1.0
+    end
+end
+
+@testset "MPS -> PMPS round-trip" begin
+    for L in 2:7
+        s = siteinds("S=1/2", L)
+        ps = siteinds("Pauli", L)
+        vec = rand(ComplexF64, 2^L) |> normalize!
+        ψ = vec2mps(vec, s)
+        pmps = mps2pmps(ψ, ps)
+        mpo = pmps2mpo(pmps, s)
+        @test inner(ψ', mpo, ψ) ≈ 1.0
+    end
+end

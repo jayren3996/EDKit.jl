@@ -60,14 +60,17 @@ function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<
     M = Vector{SparseMatrixCSC{dtype, Int64}}(undef, num)
     I = Vector{Vector{Int64}}(undef, num)
     N = 0
+    slot = Dict{Vector{Int64}, Int}()
     for i = 1:num
         iszero(mats[i]) && continue
         ind = inds[i]
-        pos = findfirst(x -> isequal(x, ind), view(I, 1:N))
-        if isnothing(pos)
+        key = Vector{Int64}(ind)
+        pos = get(slot, key, 0)
+        if iszero(pos)
             N += 1
             I[N] = ind
             M[N] = sparse(mats[i])
+            slot[key] = N
         else
             M[pos] += mats[i]
         end
@@ -320,6 +323,14 @@ The cache holds up to 8 operators (LRU eviction).  Call
 [`clear_sparse_cache!`](@ref) when you no longer need the cached matrices
 and want to reclaim memory.
 
+!!! note "Snapshot semantics"
+    `sparse!` snapshots the operator's contents at call time and keys the cache
+    by object identity. Every public transformation (`c*opt`, `opt1+opt2`,
+    `adjoint`, …) returns a fresh `Operator`, so this is transparent. The one
+    exception is mutating an operator's stored matrices *in place* after
+    `sparse!`: that is not tracked, and subsequent `*`/`mul`/`mul!` will use the
+    stale cached matrix. Call `sparse!(opt)` again to refresh it.
+
 # When to use
 
 Call `sparse!` when you plan to multiply the same operator by a matrix more
@@ -441,10 +452,15 @@ Accumulate `opt * m` into the preallocated matrix `target`.
 As for vectors, the three-argument method accumulates while the five-argument
 method follows `target = α * opt * m + β * target`.
 """
-mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix) =
+function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix)
+    S = _cached_sparse(opt)
+    S !== nothing && return mul!(target, S, m, true, true)   # cached SpMM, accumulating (operator-2)
     _apply_columns!(target, opt, axes(m, 1), m)
+end
 
 function mul!(target::AbstractMatrix, opt::Operator, m::AbstractMatrix, α::Number, β::Number)
+    S = _cached_sparse(opt)
+    S !== nothing && return mul!(target, S, m, α, β)         # cached SpMM (operator-2)
     iszero(β) ? fill!(target, zero(eltype(target))) : (target .*= β)
     iszero(α) && return target
     _apply_columns!(target, opt, axes(m, 1), m, α)

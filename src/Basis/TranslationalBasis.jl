@@ -177,14 +177,12 @@ function selectindexnorm_N(f, L::Integer, N::Integer; base::T=2, alloc::Integer=
     sizehint!(I, alloc)
     sizehint!(R, alloc)
     dgt = Vector{T}(undef, L)
-    for fdgt in multiexponents(L, N)
-        all(b < base for b in fdgt) || continue
-        _complement_digits!(dgt, fdgt, base)
-        i = index(dgt, base=base)
-        Q, nrm = f(dgt, i)
-        Q || continue
-        push!(I, i)
-        push!(R, nrm)
+    work = Vector{T}(undef, L)   # the judge mutates its buffer during the orbit search
+    _foreach_bounded_digits(dgt, L * (base - 1) - N, base) do d
+        i = index(d, base=base)
+        work .= d
+        Q, nrm = f(work, i)
+        Q && (push!(I, i); push!(R, nrm))
     end
     sorted || return I, R
     sperm = sortperm(I)
@@ -262,6 +260,7 @@ function TranslationalBasis(dtype::DataType=Int64;
     In the new definition, cₖ⁺|VAC⟩ = |k⟩.
     =#
     k = mod(-k, len)
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     norm = [len/sqrt(i) for i = 1:len]
     g = (small_N || isnothing(N)) ? f : _charge_predicate(f, L*(base-1) - N)
@@ -349,4 +348,4 @@ end
 Return the orbit size associated with the translational action on the full
 lattice.
 """
-order(b::TranslationalBasis) = length(b.dgt)
+order(b::TranslationalBasis) = ncycle(b)

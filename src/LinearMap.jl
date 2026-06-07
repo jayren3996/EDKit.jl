@@ -50,7 +50,9 @@ Construct the explicit embedding matrix from coordinates in basis `B` to the
 full tensor-product basis.
 
 Returns:
-- A dense matrix of size `dim(full) × dim(B)`.
+- A sparse matrix of size `dim(full) × dim(B)` (≤ one nonzero per row), with the
+  basis's natural element type (`Float64` for real-phase bases, `ComplexF64` for
+  momentum sectors).
 
 This helper is the bridge between abstract symmetry-reduced coordinates and
 ordinary full-space amplitudes. It is mainly used to build [`symmetrizer`](@ref)
@@ -58,10 +60,11 @@ matrices.
 """
 function basis_embedding(B::AbstractBasis)
     full = TensorBasis(L = length(B), base = B.B)
-    embed = zeros(ComplexF64, size(full, 1), size(B, 1))
+    T = float(eltype(B))                       # real for Projected/Parity/Flip/real-Abelian sectors
     ord = orbit_order(B)
     dgt = similar(B.dgt)
     full_dgt = similar(full.dgt)
+    rows = Int[]; cols = Int[]; vals = T[]
     for j in 1:size(full, 1)
         change!(full, j, full_dgt)
         dgt .= full_dgt
@@ -71,9 +74,11 @@ function basis_embedding(B::AbstractBasis)
         # shift, hence the conjugation. For real-phase bases (Projected,
         # Parity, Flip) the conjugation is a no-op and this branch is
         # equivalent to the historical convention.
-        iszero(coeff) || (embed[j, pos] = conj(coeff) / ord)
+        if !iszero(coeff)
+            push!(rows, j); push!(cols, pos); push!(vals, conj(coeff) / ord)
+        end
     end
-    embed
+    sparse(rows, cols, vals, size(full, 1), size(B, 1))
 end
 
 #-----------------------------------------------------------------------------------------------------

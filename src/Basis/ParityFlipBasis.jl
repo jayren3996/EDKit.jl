@@ -73,7 +73,12 @@ corresponding normalization factor.
 function (judge::ParityFlipJudge)(dgt::AbstractVector{<:Integer}, i::Integer)
     # If there is a projective selection function F, check `F(dgt)` first
     isnothing(judge.F) || judge.F(dgt) || return (false, 0.0)
-    
+    # f may not be reflection/flip-invariant: every orbit partner must satisfy f.
+    if !isnothing(judge.F)
+        flp = judge.B .- 1 .- dgt
+        (judge.F(reverse(dgt)) && judge.F(flp) && judge.F(reverse(flp))) || return (false, 0.0)
+    end
+
     Q, n = double_parity_check(dgt, i, judge.B, judge.MAX, judge.P, judge.Z)
     Q, judge.C[n]
 end
@@ -90,6 +95,7 @@ function ParityFlipBasis(
 )
     @assert isone(p) || isone(-p) "Invalid parity"
     @assert isnothing(N) || isequal(2N, L*(base-1)) "N = $N not compatible."
+    _check_index_capacity(dtype, base, L)
     base = convert(dtype, base)
     MAX = base ^ L + 1
     C = [2.0, 2*sqrt(2), 0.0, 4.0]
@@ -118,7 +124,7 @@ function index(b::ParityFlipBasis, dgt::AbstractVector)
     Ipz = _int_spinflip(Ip - one(TI), maxstate) + one(TI)
     Ir = min(I0, Iz, Ip, Ipz)
     i = binary_search(b.I, Ir)
-    iszero(i) && return (0.0, one(b.B))
+    iszero(i) && return (zero(eltype(b)), one(b.B))
     N = if isequal(Ir, I0)
         b.R[i]
     elseif isequal(Ir, Ip)
@@ -137,3 +143,5 @@ end
 Return the maximum symmetry-orbit size for the combined parity/flip action.
 """
 order(b::ParityFlipBasis) = 4
+eltype(::ParityFlipBasis) = Float64
+copy(b::ParityFlipBasis) = ParityFlipBasis(deepcopy(b.dgt), b.I, b.R, b.P, b.Z, b.M, b.B)

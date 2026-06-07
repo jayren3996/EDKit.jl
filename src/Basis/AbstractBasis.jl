@@ -244,6 +244,7 @@ Returns:
 - A fresh [`TensorBasis`](@ref) with a zero-initialized working digit buffer.
 """
 function TensorBasis(;L::Integer, base::Integer=2)
+    _check_index_capacity(Int64, base, L)
     dgt = zeros(Int64, L)
     B = Int64(base)
     TensorBasis(dgt, B)
@@ -357,18 +358,20 @@ Returns:
 
 This is the inverse of `index(dgt; base=...)`.
 """
-@inline function change!(dgt::AbstractVector{T}, ind::T; base::T=2) where T
-    N = ind - one(T)
+@inline function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T
+    N = ind - oneunit(ind)
     if base == 2
         @inbounds for i = length(dgt):-1:1
-            dgt[i] = N & one(T)
+            dgt[i] = N & oneunit(N)
             N >>= 1
         end
     else
         @inbounds for i = length(dgt):-1:1
-            N, dgt[i] = divrem(N, base)
+            N, r = divrem(N, base)
+            dgt[i] = r
         end
     end
+    dgt
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -497,6 +500,51 @@ explicit `N` sector together with an optional user-supplied filter.
 """
 @inline _charge_predicate(::Nothing, num::Integer) = x -> sum(x) == num
 @inline _charge_predicate(f, num::Integer) = x -> (sum(x) == num && f(x))
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    _check_index_capacity(dtype, base, L)
+
+Error if a base-`base` system on `L` sites cannot be indexed in `dtype` without
+overflow. The largest 1-based index is `base^L`; some bases also store
+`base^L + 1`, so we require `base^L < typemax(dtype)`. Computed in `BigInt` so the
+check itself never overflows.
+"""
+function _check_index_capacity(dtype::DataType, base::Integer, L::Integer)
+    if big(base)^L >= typemax(dtype)
+        error(
+            "A base-$base system on $L sites needs 1-based indices up to $(big(base)^L), " *
+            "which does not fit the index type $dtype (typemax = $(typemax(dtype))). " *
+            "Construct the basis with a wider index dtype, e.g. Int128."
+        )
+    end
+    nothing
+end
+#-------------------------------------------------------------------------------------------------------------------------
+"""
+    _foreach_bounded_digits(body, dgt, target, base)
+
+Call `body(dgt)` for every length-`length(dgt)` digit string with entries in
+`0:base-1` summing to `target`. Generates only in-range strings (no filtering),
+which is the fixed-charge enumeration for `base>2`.
+"""
+function _foreach_bounded_digits(body::F, dgt::AbstractVector, target::Integer, base::Integer) where F
+    _rec_bounded_digits!(body, dgt, 1, target, base, length(dgt))
+end
+function _rec_bounded_digits!(body::F, dgt::AbstractVector, pos::Int, remaining::Integer, base::Integer, L::Int) where F
+    if pos == L
+        (0 <= remaining <= base - 1) || return
+        @inbounds dgt[L] = remaining
+        body(dgt)
+        return
+    end
+    hi = min(base - 1, remaining)
+    lo = max(0, remaining - (L - pos) * (base - 1))
+    for d in lo:hi
+        @inbounds dgt[pos] = d
+        _rec_bounded_digits!(body, dgt, pos + 1, remaining - d, base, L)
+    end
+    return
+end
 #-------------------------------------------------------------------------------------------------------------------------
 """
     _run_selectindexnorm(judge, L, N, base, alloc, threaded, small_N)
