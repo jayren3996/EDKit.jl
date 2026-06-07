@@ -208,3 +208,10 @@ end
     @test isnan(r[1]) && r[2] == 0.0                 # was 1.0 / 0.0 (wrong)
     @test !isnan(meangapratio([1.0, 1.0, 1.0, 2.0])) # NaNs filtered out
 end
+
+@testset "operator-6: support dedup sums duplicate terms" begin
+    X = [0.0 1.0; 1.0 0.0]
+    op = operator([X, 2 .* X], [[1], [1]], TensorBasis(L=4))
+    ref = operator([3 .* X], [[1]], TensorBasis(L=4))
+    @test Array(op) ≈ Array(ref)
+end

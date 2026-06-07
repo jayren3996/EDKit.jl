@@ -66,6 +66,9 @@ breaking changes; see each entry below.
   parameter, so the most common symmetry workflows assemble and diagonalize real
   matrices at half the memory/FLOPs; genuine momentum sectors remain
   `ComplexF64` (`abelian-5`).
+- `operator(...)` deduplicates repeated local-term supports in `O(num)` via a
+  `Dict` instead of an `O(num²)` linear scan, speeding up construction of
+  operators with many terms (`operator-6`).
 
 ### Added
 - Continuous-integration workflow running the test suite on Julia 1.10 and

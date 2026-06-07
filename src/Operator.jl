@@ -60,14 +60,17 @@ function operator(mats::AbstractVector{<:AbstractMatrix}, inds::AbstractVector{<
     M = Vector{SparseMatrixCSC{dtype, Int64}}(undef, num)
     I = Vector{Vector{Int64}}(undef, num)
     N = 0
+    slot = Dict{Vector{Int64}, Int}()
     for i = 1:num
         iszero(mats[i]) && continue
         ind = inds[i]
-        pos = findfirst(x -> isequal(x, ind), view(I, 1:N))
-        if isnothing(pos)
+        key = Vector{Int64}(ind)
+        pos = get(slot, key, 0)
+        if iszero(pos)
             N += 1
             I[N] = ind
             M[N] = sparse(mats[i])
+            slot[key] = N
         else
             M[pos] += mats[i]
         end
