@@ -93,6 +93,11 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `timeevolve`/`timeevolve!` now support **backward and two-sided** evolution: a
+  negative time evolves by `exp(+i|t|H)`, and a forward pass followed by a
+  backward pass enables OTOC / Heisenberg-picture workflows. Each cache evolves
+  in one direction (fixed by its first motion); mixing positive and negative
+  times in one stateless call is rejected (`te-4`).
 - `steadystate(A)` computes a Lindblad steady state `ρ_ss` (`𝓛[ρ_ss]=0`) from a
   `LiouvillianMap`, `Lindblad`, or `(H, jumps)`. Uses dense diagonalization for
   small systems (`d ≤ 16`) and matrix-free Arnoldi (`KrylovKit.eigsolve`) for

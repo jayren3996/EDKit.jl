@@ -165,18 +165,25 @@
         @test_throws ErrorException KrylovEvolutionCache(H, zeros(ComplexF64, size(B, 1)))
     end
 
-    @testset "Forward-only time rules" begin
+    @testset "Time direction rules" begin
         L = 6
         B = TensorBasis(L = L, base = 2)
         H = _xxz_operator(L, B)
         Hd = Hermitian(Array(H))
         ψ0 = randn(ComplexF64, size(B, 1)); normalize!(ψ0)
 
-        # Negative single-time request is rejected.
-        @test_throws ErrorException timeevolve(H, ψ0, -0.3; tol = 1e-12)
+        # Negative single-time request performs backward evolution exp(+itH).
+        ψ_back = timeevolve(H, ψ0, -0.3; tol = 1e-12)
+        @test ψ_back ≈ exp(+1im * 0.3 * Array(Hd)) * ψ0 rtol = 1e-9
 
-        # Any negative entry in ts is rejected by the stateless form.
+        # Mixing positive and negative times in one stateless call is rejected
+        # (a single cache evolves in one direction).
         @test_throws ErrorException timeevolve(H, ψ0, [-0.1, 0.3]; tol = 1e-12)
+
+        # A backward cache rejects a subsequent forward step.
+        cache_back = KrylovEvolutionCache(H, ψ0; tol = 1e-12)
+        timeevolve!(cache_back, -0.2)
+        @test_throws ErrorException timeevolve!(cache_back, 0.1)
 
         # Stateless multi-time form sorts internally and restores the caller's
         # order on the output columns.

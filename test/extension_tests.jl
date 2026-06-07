@@ -146,3 +146,48 @@ end
     # Unknown method errors.
     @test_throws ArgumentError steadystate(A; method=:bogus)
 end
+
+@testset "te-4: backward / two-sided evolution" begin
+    Random.seed!(170)
+    L = 8
+    H = trans_inv_operator(spin((1.0, "xx"), (1.0, "yy"), (0.7, "zz")), 1:2, TensorBasis(L=L, base=2))
+    N = 2^L
+    Hm = Matrix(H)
+    ψ0 = randn(ComplexF64, N); ψ0 ./= norm(ψ0)
+
+    # Backward evolution to -t reproduces exp(+i t H) ψ0.
+    for t in (0.5, 1.3, 2.0)
+        ψ_back = timeevolve(H, ψ0, -t; tol=1e-11)
+        @test ψ_back ≈ exp(+im * t * Hm) * ψ0 rtol=1e-7
+    end
+
+    # Forward then backward returns the original state (unitary round trip).
+    ψf = timeevolve(H, ψ0, 2.5; tol=1e-11)
+    ψr = timeevolve(H, ψf, -2.5; tol=1e-11)
+    @test ψr ≈ ψ0 rtol=1e-7
+
+    # Within one cache: evolve forward, then step backward to an earlier time.
+    cache = KrylovEvolutionCache(H, ψ0; tol=1e-11)
+    ψa = timeevolve!(cache, 1.0)
+    @test ψa ≈ exp(-im * 1.0 * Hm) * ψ0 rtol=1e-7
+    cache2 = KrylovEvolutionCache(H, ψ0; tol=1e-11)
+    ψb = timeevolve!(cache2, -1.0)
+    @test ψb ≈ exp(+im * 1.0 * Hm) * ψ0 rtol=1e-7
+
+    # Multi-time backward: a vector of negative times, returned in input order.
+    ts = [-0.4, -1.2, -0.8]
+    ψs = timeevolve(H, ψ0, ts; tol=1e-11)
+    for (k, t) in enumerate(ts)
+        @test ψs[:, k] ≈ exp(-im * t * Hm) * ψ0 rtol=1e-7
+    end
+
+    # Mixing positive and negative target times in one call is rejected.
+    @test_throws Exception timeevolve(H, ψ0, [-0.5, 0.5]; tol=1e-11)
+
+    # OTOC-style two-sided round trip: e^{+iHt} W e^{-iHt} ψ with W diagonal.
+    W = Diagonal(cis.(randn(N)))           # unitary "operator insertion"
+    ψ_fwd = timeevolve(H, ψ0, 1.5; tol=1e-11)
+    ψ_ins = W * ψ_fwd
+    ψ_otoc = timeevolve(H, ψ_ins, -1.5; tol=1e-11)
+    @test ψ_otoc ≈ exp(+im * 1.5 * Hm) * (W * (exp(-im * 1.5 * Hm) * ψ0)) rtol=1e-7
+end
