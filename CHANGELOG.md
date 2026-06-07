@@ -46,6 +46,10 @@ breaking changes; see each entry below.
 - The public 2-arg `index(B::AbelianBasis, dgt)` no longer mutates the basis's
   shared group odometer `B.G`, making it (and `index_nocheck`) thread-safe like
   the internal hot paths (`abelian-3`).
+- `entropy(s; α, cutoff)` now forwards `cutoff` to the Rényi branch (α∉{0,1}) and
+  `renyi_entropy` normalizes its input over above-cutoff entries, so noise
+  Schmidt values are dropped and unnormalized inputs give correct entropies
+  (`schmidt-1`, `schmidt-2`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)

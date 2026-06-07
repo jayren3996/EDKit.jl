@@ -108,7 +108,7 @@ function entropy(s::AbstractVector{<:Real}; α::Real=1, cutoff::Real=1e-20)
     elseif iszero(α)
         renyi_zero_entropy(s, cutoff=cutoff)
     else
-        renyi_entropy(s, α)
+        renyi_entropy(s, α, cutoff=cutoff)
     end
 end
 #-------------------------------------------------------------------------------------------------------------------------
@@ -139,7 +139,18 @@ end
 """
 Compute the Renyi entropy of order `α` for a probability vector `s`.
 """
-renyi_entropy(s::AbstractVector{<:Real}, α::Real) = log(sum(s.^α)) / (1-α)
+function renyi_entropy(s::AbstractVector{<:Real}, α::Real; cutoff::Real=1e-20)
+    Z = 0.0
+    for si in s
+        si > cutoff && (Z += si)
+    end
+    iszero(Z) && return 0.0
+    acc = 0.0
+    for si in s
+        si > cutoff && (acc += (si / Z)^α)
+    end
+    log(acc) / (1 - α)
+end
 #-------------------------------------------------------------------------------------------------------------------------
 export ent_S
 """

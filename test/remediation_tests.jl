@@ -184,3 +184,11 @@ end
     dgt = rand(0:1, 8)
     @test EDKit.index(B, dgt) == EDKit.index(B, dgt, EDKit._shallow_workspace(B.G))
 end
+
+@testset "schmidt-1/2: Renyi entropy respects cutoff and normalizes" begin
+    # schmidt-1: a noise eigenvalue below the cutoff is dropped (was ignored entirely).
+    s = [0.25, 0.25, 0.25, 0.25, 1e-8]
+    @test EDKit.entropy(s, α=0.5, cutoff=1e-6) ≈ log(4)
+    # schmidt-2: unnormalized input is normalized before the Renyi formula.
+    @test EDKit.entropy([0.5, 0.5, 0.5, 0.5], α=2) ≈ log(4)
+end
