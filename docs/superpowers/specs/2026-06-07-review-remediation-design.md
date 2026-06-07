@@ -66,7 +66,7 @@ a regression test that fails before and passes after.
 
 | Item | Location | Fix | Regression test |
 |---|---|---|---|
-| `abelian-1` | `src/Basis/AbelianBasis.jl:614-625` | Compute `has_inv=any(any,G.inv)`; gate `use_gosper` on `(!has_inv \|\| 2*Ndigits==L*(base-1))`. When the gate fails, **fall back to the full-scan path** (preserves the feature off half-filling rather than erroring). | `basis(L=6,N=2,z=1)` → dim 15 and spectrum matches the unsymmetrized reference. |
+| `abelian-1` | `src/Basis/AbelianBasis.jl:600-616` | Compute `has_inv=any(any,G.inv)`; when `has_inv && N fixed && 2N != L*(base-1)`, **throw a clear error**. (Reading the code revised the report's suggested full-scan fallback: the `basis()` predicate at `:961-966` enforces `sum(x)==num`, so full-scan filters to the *same* single weight class Gosper does and drops the same orbits. Physically, a spin inversion maps the `N` sector to `L−N`, so a fixed off-half-filling `N` sector has **no** inversion eigenstates — the request is ill-defined, matching the documented half-filling restriction.) | `basis(L=6,N=2,z=1)` **throws**; `basis(L=6,N=3,z=1)` (half-filling) still builds correctly. |
 | `productstate` | `src/ToolKit.jl:107-113` | `c,I=index(B,collect(v))`; `iszero(c)&&error(...)`; `s=zeros(eltype(B),size(B,1))`; `s[I]=c`. Uses a local buffer (also resolves `productstate-2`). | Round-trip a product state through a reduced basis; out-of-sector input errors. |
 
 **Exit:** both criticals fixed with tests; CHANGELOG updated.
