@@ -93,6 +93,12 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `SpinfulFermionBasis(L=…, S=2, N=…)` — spinful / multi-species fermion
+  occupation basis over `M = S·L` modes (blocked ordering `mode(i,σ)=(σ−1)L+i`),
+  with per-species `(N₁,…,N_S)` or total-`N` sectors. Spin-aware operators via
+  `fermion_operator(op, [(site, spin)…], B)` (spin `:↑`/`:↓` or integer species)
+  and a `fermionmode(B, site, spin)` helper. A `hubbard(B; t, U, μ, boundary)`
+  helper builds the spin-½ Fermi–Hubbard Hamiltonian (`e1`).
 - `timeevolve`/`timeevolve!` now support **backward and two-sided** evolution: a
   negative time evolves by `exp(+i|t|H)`, and a forward pass followed by a
   backward pass enables OTOC / Heisenberg-picture workflows. Each cache evolves

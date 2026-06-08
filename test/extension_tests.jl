@@ -191,3 +191,62 @@ end
     ψ_otoc = timeevolve(H, ψ_ins, -1.5; tol=1e-11)
     @test ψ_otoc ≈ exp(+im * 1.5 * Hm) * (W * (exp(-im * 1.5 * Hm) * ψ0)) rtol=1e-7
 end
+
+@testset "e1: spinful / multi-species fermions" begin
+    # Sector dimensions.
+    @test size(SpinfulFermionBasis(L=3, S=2, N=(2, 1)), 1) == binomial(3, 2) * binomial(3, 1)  # 9
+    @test size(SpinfulFermionBasis(L=4, S=2, N=(2, 2)), 1) == binomial(4, 2)^2                  # 36
+    @test size(SpinfulFermionBasis(L=3, S=2, N=3), 1) == binomial(6, 3)                         # total N=3 over 6 modes
+    @test size(SpinfulFermionBasis(L=2, S=2), 1) == 2^4                                         # all sectors, 4 modes
+    @test size(SpinfulFermionBasis(L=3, S=3, N=(1, 1, 1)), 1) == binomial(3, 1)^3               # 27
+
+    # Mode map (blocked): mode(i,σ) = (σ-1)L + i.
+    B = SpinfulFermionBasis(L=4, S=2)
+    @test fermionmode(B, 1, 1) == 1
+    @test fermionmode(B, 4, 1) == 4
+    @test fermionmode(B, 1, 2) == 5
+    @test fermionmode(B, 3, 2) == 7
+    @test fermionmode(B, 2, :↑) == 2
+    @test fermionmode(B, 2, :↓) == 6
+    @test fermionmode(B, 2, :up) == fermionmode(B, 2, :↑)
+    @test fermionmode(B, 2, :down) == fermionmode(B, 2, :↓)
+
+    # Canonical anticommutation {c_p, c†_q} = δ_pq I on the full Fock space.
+    Bfull = SpinfulFermionBasis(L=2, S=2)               # 4 modes, dim 16
+    d = size(Bfull, 1)
+    cs = [Array(fermion_operator("-", [p], Bfull)) for p in 1:4]   # annihilation
+    cd = [Array(fermion_operator("+", [q], Bfull)) for q in 1:4]   # creation
+    for p in 1:4, q in 1:4
+        anti = cs[p] * cd[q] + cd[q] * cs[p]
+        @test anti ≈ (p == q ? Matrix(I, d, d) : zeros(d, d))
+    end
+
+    # Spin-aware construction agrees with raw-mode construction.
+    Bs = SpinfulFermionBasis(L=3, S=2, N=(2, 1))
+    Braw = SpinlessFermionBasis(L=6, N=3, f = dgt -> sum(dgt[1:3]) == 2 && sum(dgt[4:6]) == 1)
+    @test Bs.I == Braw.I
+    op_spin = fermion_operator("+-", [(1, :↑), (2, :↑)], Bs)
+    op_raw  = fermion_operator("+-", [1, 2], Bs)        # modes for (1,↑),(2,↑)
+    @test Array(op_spin) ≈ Array(op_raw)
+
+    # Number conservation: [H, N̂] = 0 on the full Fock space.
+    Bf = SpinfulFermionBasis(L=2, S=2)
+    Hf = hubbard(Bf; t=1.0, U=3.0, μ=0.7)
+    Nop = reduce(+, [fermion_operator("n", [m], Bf) for m in 1:4])
+    Hfm, Nfm = Array(Hf), Array(Nop)
+    @test Hfm ≈ Hfm'
+    @test Hfm * Nfm ≈ Nfm * Hfm
+
+    # 2-site half-filled Hubbard: exact ground state E0 = (U - √(U²+16t²))/2.
+    for (t, U) in [(1.0, 0.0), (1.0, 4.0), (0.7, 2.5)]
+        B2 = SpinfulFermionBasis(L=2, S=2, N=(1, 1))
+        H2 = hubbard(B2; t=t, U=U, boundary=:open)
+        E0 = minimum(eigvals(Hermitian(Array(H2))))
+        @test E0 ≈ (U - sqrt(U^2 + 16t^2)) / 2
+    end
+
+    # Errors.
+    @test_throws Exception SpinfulFermionBasis(L=3, S=2, N=(4, 1))           # N↑ > L
+    @test_throws Exception fermionmode(SpinfulFermionBasis(L=2, S=1), 1, :↓)  # :↓ needs S ≥ 2
+    @test_throws Exception hubbard(SpinfulFermionBasis(L=3, S=3))            # hubbard needs S=2
+end
