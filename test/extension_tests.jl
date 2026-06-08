@@ -295,3 +295,61 @@ end
     @test copy(Bk).I == Bk.I
     @test EDKit.order(Bk) == 6
 end
+
+@testset "extension-1: mixed local dimensions" begin
+    # index/change! round-trip against a brute-force mixed-radix reference.
+    dims = [2, 3, 2, 4]
+    B = MixedTensorBasis(dims=dims)
+    D = prod(dims)
+    @test size(B, 1) == D
+    dgt = zeros(Int, length(dims))
+    for i in 1:D
+        EDKit.change!(B, i, dgt)
+        ref = 0
+        for k in 1:length(dims)
+            ref = ref * dims[k] + dgt[k]      # big-endian mixed radix
+        end
+        @test ref + 1 == i                    # change! matches reference
+        @test EDKit.index(B, dgt)[2] == i      # index inverts change!
+        @test all(0 .<= dgt .< dims)          # digits in per-site range
+    end
+
+    # Mixed-dim operator (spin-½ ⊗ spin-1 ⊗ spin-½) vs explicit kron embedding.
+    d1, d2, d3 = 2, 3, 2
+    B2 = MixedTensorBasis(dims=[d1, d2, d3])
+    h12 = randn(d1 * d2, d1 * d2); h12 = h12 + h12'
+    h23 = randn(d2 * d3, d2 * d3); h23 = h23 + h23'
+    H = operator([h12, h23], [[1, 2], [2, 3]], B2)
+    Href = kron(h12, Matrix(I, d3, d3)) + kron(Matrix(I, d1, d1), h23)
+    @test Array(H) ≈ Href
+    @test eigvals(Hermitian(Array(H))) ≈ eigvals(Hermitian(Href))
+
+    # Reduces to TensorBasis when all dims are equal.
+    Bu = MixedTensorBasis(dims=[2, 2, 2])
+    Bt = TensorBasis(L=3, base=2)
+    hh = randn(4, 4); hh = hh + hh'
+    @test Array(operator([hh], [[1, 2]], Bu)) ≈ Array(operator([hh], [[1, 2]], Bt))
+
+    # Entanglement across a mixed bipartition (rdm reuses the schmidt machinery).
+    B3 = MixedTensorBasis(dims=[2, 3, 2])
+    v = randn(ComplexF64, prod([2, 3, 2])); v ./= norm(v)
+    ρ1 = rdm(v, [1], B3)
+    @test size(ρ1) == (2, 2)
+    @test tr(ρ1) ≈ 1
+    @test ρ1 ≈ ρ1'
+    ρ2 = rdm(v, [2], B3)
+    @test size(ρ2) == (3, 3)
+    @test tr(ρ2) ≈ 1
+    @test minimum(real(eigvals(Hermitian(ρ2)))) > -1e-10
+    # Site-2 RDM matches a brute-force partial trace over sites 1 and 3.
+    ψ = reshape(v, 2, 3, 2)               # column-major: (site3, site2, site1)
+    ρ2_ref = zeros(ComplexF64, 3, 3)
+    for a in 1:2, c in 1:2, m in 1:3, n in 1:3
+        ρ2_ref[m, n] += ψ[c, m, a] * conj(ψ[c, n, a])
+    end
+    @test ρ2 ≈ ρ2_ref
+
+    # Errors.
+    @test_throws Exception MixedTensorBasis(dims=Int[])
+    @test_throws Exception MixedTensorBasis(dims=[2, 0, 3])
+end

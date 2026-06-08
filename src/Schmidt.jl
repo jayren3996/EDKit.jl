@@ -38,6 +38,12 @@ Arguments:
 Returns:
 - A [`SchmidtMatrix`](@ref) whose matrix `M` is initialized to zeros.
 """
+# Default subsystem basis for the Schmidt bipartition: a uniform `TensorBasis`
+# for scalar-base bases, a `MixedTensorBasis` carrying the per-site dimensions of
+# the selected sites for a mixed-dimension basis.
+_schmidt_subbasis(b::AbstractBasis, sites) = TensorBasis(L=length(sites), base=b.B)
+_schmidt_subbasis(b::MixedTensorBasis, sites) = MixedTensorBasis(dims=b.B[sites])
+
 function schmidtmatrix(
     T::DataType, b::AbstractBasis, Ainds::AbstractVector{Ta},
     B1=nothing, B2=nothing;
@@ -52,8 +58,8 @@ function schmidtmatrix(
             P += 1
         end
     end
-    B1 = isnothing(B1) ? TensorBasis(L=length(Ainds), base=b.B) : B1
-    B2 = isnothing(B2) ? TensorBasis(L=length(Binds), base=b.B) : B2
+    B1 = isnothing(B1) ? _schmidt_subbasis(b, Ainds) : B1
+    B2 = isnothing(B2) ? _schmidt_subbasis(b, Binds) : B2
     M = zeros(T, size(B1, 1), size(B2, 1))
     dgt1 = similar(B1.dgt)
     dgt2 = similar(B2.dgt)

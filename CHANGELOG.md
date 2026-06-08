@@ -93,6 +93,13 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `MixedTensorBasis(dims=[…])` — full tensor-product basis with **per-site local
+  dimensions** (e.g. alternating spin-½/spin-1 chains, spin-boson models, bosons
+  with per-site cutoffs). Operators (`operator(mat, sites, B)`) and entanglement
+  (`schmidt`/`rdm`/`ent_S`/`mutual_information`) work via mixed-radix
+  `index`/`change!`. The scalar `TensorBasis` and its base-2 fast kernel are
+  untouched; the mixed-radix branch is folded away at compile time on the scalar
+  path (`extension-1`).
 - `TranslationalFermionBasis(L=…, N=…, k=…)` — momentum-resolved basis for
   spinless fermions at fixed `N`. The many-body translation sign
   `(−1)^((N−1)·n_wrap)` (periodic for odd `N`, antiperiodic for even `N`) is

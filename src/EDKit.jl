@@ -25,6 +25,7 @@ import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, co
 import LinearAlgebra: norm, mul!
 
 include("Basis/AbstractBasis.jl")
+include("Basis/MixedTensorBasis.jl")
 include("Basis/ProjectedBasis.jl")
 include("Basis/TranslationalBasis.jl")
 include("Basis/TranslationalFermionBasis.jl")
