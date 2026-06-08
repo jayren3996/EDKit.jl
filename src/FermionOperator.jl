@@ -167,15 +167,16 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
     # would silently produce wrong eigenvalues. Diagonal/identity operators
     # carry no JW string and remain valid on any onsite permutation — gated
     # via `jw_string_required` so new diagonal ops are safe by default.
-    if B isa AbstractPermuteBasis && jw_string_required(op)
+    if B isa AbstractPermuteBasis && !(B isa TranslationalFermionBasis) && jw_string_required(op)
         error("fermion_operator(\"$op\", $(sites), ::$(typeof(B))) is not supported: " *
               "the Jordan-Wigner string for c†/c does not commute with the symmetry of " *
-              "$(typeof(B)). All AbstractPermuteBasis subtypes are rejected — " *
+              "$(typeof(B)). These AbstractPermuteBasis subtypes are rejected — " *
               "TranslationalBasis, ParityBasis, FlipBasis, ParityFlipBasis, " *
               "TranslationParityBasis, TranslationFlipBasis, and AbelianBasis. Use " *
-              "SpinlessFermionBasis (with N=… or nf=…) instead — symmetry-resolved " *
-              "fermion bases are not yet implemented. See the \"Symmetry caveats\" " *
-              "section of the spinless fermions manual.")
+              "SpinlessFermionBasis (with N=… or nf=…) for the full-space sector, or " *
+              "TranslationalFermionBasis (momentum-resolved spinless fermions) with " *
+              "trans_inv_fermion_operator. See the \"Symmetry caveats\" section of the " *
+              "spinless fermions manual.")
     end
 
     # Single-site diagonal / identity operators — no JW string.
@@ -292,7 +293,8 @@ H = -(H_hop + adjoint(H_hop))      # = -Σ_i (c†_i c_{i+1} + h.c.)
     `H = -H_hop`.
 """
 function trans_inv_fermion_operator(op::AbstractString,
-        support::AbstractVector{<:Integer}, B::AbstractOnsiteBasis;
+        support::AbstractVector{<:Integer},
+        B::Union{AbstractOnsiteBasis, TranslationalFermionBasis};
         convention::Symbol=:left)
     L = length(B.dgt)
     isempty(support) && error("`support` must be non-empty (got $support).")
@@ -311,7 +313,7 @@ function trans_inv_fermion_operator(op::AbstractString,
 end
 
 trans_inv_fermion_operator(op::AbstractString, span::Integer,
-        B::AbstractOnsiteBasis; kwargs...) =
+        B::Union{AbstractOnsiteBasis, TranslationalFermionBasis}; kwargs...) =
     trans_inv_fermion_operator(op, collect(1:span), B; kwargs...)
 
 """

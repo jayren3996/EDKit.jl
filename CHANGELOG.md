@@ -93,6 +93,13 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `TranslationalFermionBasis(L=…, N=…, k=…)` — momentum-resolved basis for
+  spinless fermions at fixed `N`. The many-body translation sign
+  `(−1)^((N−1)·n_wrap)` (periodic for odd `N`, antiperiodic for even `N`) is
+  baked into the orbit phase, so `trans_inv_fermion_operator` builds correct
+  Hamiltonians per momentum sector. Verified: the union of all `k`-sector spectra
+  equals the full `N`-sector spectrum. Real (`Float64`) for `k=0` and `k=L/2`
+  sectors. The Jordan-Wigner guard is relaxed for this one basis type (`e2`).
 - `SpinfulFermionBasis(L=…, S=2, N=…)` — spinful / multi-species fermion
   occupation basis over `M = S·L` modes (blocked ordering `mode(i,σ)=(σ−1)L+i`),
   with per-species `(N₁,…,N_S)` or total-`N` sectors. Spin-aware operators via

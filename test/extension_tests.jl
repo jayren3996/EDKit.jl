@@ -250,3 +250,48 @@ end
     @test_throws Exception fermionmode(SpinfulFermionBasis(L=2, S=1), 1, :↓)  # :↓ needs S ≥ 2
     @test_throws Exception hubbard(SpinfulFermionBasis(L=3, S=3))            # hubbard needs S=2
 end
+
+@testset "e2: momentum-resolved spinless fermions" begin
+    # Translation-invariant fermion Hamiltonian: hopping + nn interaction.
+    fermH(B, V) = begin
+        hop = trans_inv_fermion_operator("+-", [1, 2], B)
+        -(Array(hop) + adjoint(Array(hop))) + V * Array(trans_inv_fermion_operator("nn", [1, 2], B))
+    end
+
+    for (L, N, V) in [(6, 3, 0.0), (6, 2, 0.8), (7, 3, 1.1), (8, 4, 0.5), (6, 4, 1.3)]
+        # Full N-sector reference.
+        Bfull = SpinlessFermionBasis(L=L, N=N)
+        ref = sort(real(eigvals(Hermitian(fermH(Bfull, V)))))
+
+        # Union of all momentum sectors.
+        kvals = Float64[]
+        dimsum = 0
+        for k in 0:L-1
+            Bk = TranslationalFermionBasis(L=L, N=N, k=k)
+            dimsum += size(Bk, 1)
+            size(Bk, 1) == 0 && continue
+            append!(kvals, real(eigvals(Hermitian(Matrix(fermH(Bk, V))))))
+        end
+        @test dimsum == size(Bfull, 1)                  # sector dims partition the N-sector
+        @test sort(kvals) ≈ ref                          # union of k-spectra = full spectrum
+    end
+
+    # eltype: real-phase sectors (k=0 and, for even L, k=L/2) are Float64;
+    # generic momenta are ComplexF64.
+    @test eltype(TranslationalFermionBasis(L=6, N=3, k=0)) <: Real
+    @test eltype(TranslationalFermionBasis(L=6, N=3, k=3)) <: Real
+    @test eltype(TranslationalFermionBasis(L=6, N=3, k=1)) <: Complex
+
+    # JW operators are allowed on TranslationalFermionBasis but still rejected on
+    # other permutation bases.
+    Bk = TranslationalFermionBasis(L=6, N=3, k=0)
+    @test trans_inv_fermion_operator("+-", [1, 2], Bk) isa EDKit.Operator
+    @test_throws Exception fermion_operator("+", [1], TranslationalBasis(L=6, k=0, N=3))
+
+    # base != 2 is rejected.
+    @test_throws Exception TranslationalFermionBasis(L=4, N=2, base=3)
+
+    # copy and order.
+    @test copy(Bk).I == Bk.I
+    @test EDKit.order(Bk) == 6
+end

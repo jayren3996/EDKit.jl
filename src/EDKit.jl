@@ -27,6 +27,7 @@ import LinearAlgebra: norm, mul!
 include("Basis/AbstractBasis.jl")
 include("Basis/ProjectedBasis.jl")
 include("Basis/TranslationalBasis.jl")
+include("Basis/TranslationalFermionBasis.jl")
 include("Basis/TranslationalParityBasis.jl")
 include("Basis/TranslationalFlipBasis.jl")
 include("Basis/ParityBasis.jl")
