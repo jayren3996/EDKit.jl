@@ -11,6 +11,7 @@ fermion
 fermion_operator
 trans_inv_fermion_operator
 jw_string_required
+hubbard
 addto!
 EDKit.mul
 sparse!

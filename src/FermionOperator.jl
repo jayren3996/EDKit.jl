@@ -1,4 +1,4 @@
-export fermion, fermion_operator, trans_inv_fermion_operator, jw_string_required
+export fermion, fermion_operator, trans_inv_fermion_operator, jw_string_required, hubbard
 
 const _JW_BEARING_OPS  = ("+", "-", "+-", "-+", "++", "--")
 const _JW_FREE_OPS     = ("n", "z", "I", "nn")
@@ -167,15 +167,16 @@ function fermion_operator(op::AbstractString, sites::AbstractVector{<:Integer},
     # would silently produce wrong eigenvalues. Diagonal/identity operators
     # carry no JW string and remain valid on any onsite permutation — gated
     # via `jw_string_required` so new diagonal ops are safe by default.
-    if B isa AbstractPermuteBasis && jw_string_required(op)
+    if B isa AbstractPermuteBasis && !(B isa TranslationalFermionBasis) && jw_string_required(op)
         error("fermion_operator(\"$op\", $(sites), ::$(typeof(B))) is not supported: " *
               "the Jordan-Wigner string for c†/c does not commute with the symmetry of " *
-              "$(typeof(B)). All AbstractPermuteBasis subtypes are rejected — " *
+              "$(typeof(B)). These AbstractPermuteBasis subtypes are rejected — " *
               "TranslationalBasis, ParityBasis, FlipBasis, ParityFlipBasis, " *
               "TranslationParityBasis, TranslationFlipBasis, and AbelianBasis. Use " *
-              "SpinlessFermionBasis (with N=… or nf=…) instead — symmetry-resolved " *
-              "fermion bases are not yet implemented. See the \"Symmetry caveats\" " *
-              "section of the spinless fermions manual.")
+              "SpinlessFermionBasis (with N=… or nf=…) for the full-space sector, or " *
+              "TranslationalFermionBasis (momentum-resolved spinless fermions) with " *
+              "trans_inv_fermion_operator. See the \"Symmetry caveats\" section of the " *
+              "spinless fermions manual.")
     end
 
     # Single-site diagonal / identity operators — no JW string.
@@ -292,7 +293,8 @@ H = -(H_hop + adjoint(H_hop))      # = -Σ_i (c†_i c_{i+1} + h.c.)
     `H = -H_hop`.
 """
 function trans_inv_fermion_operator(op::AbstractString,
-        support::AbstractVector{<:Integer}, B::AbstractOnsiteBasis;
+        support::AbstractVector{<:Integer},
+        B::Union{AbstractOnsiteBasis, TranslationalFermionBasis};
         convention::Symbol=:left)
     L = length(B.dgt)
     isempty(support) && error("`support` must be non-empty (got $support).")
@@ -311,7 +313,7 @@ function trans_inv_fermion_operator(op::AbstractString,
 end
 
 trans_inv_fermion_operator(op::AbstractString, span::Integer,
-        B::AbstractOnsiteBasis; kwargs...) =
+        B::Union{AbstractOnsiteBasis, TranslationalFermionBasis}; kwargs...) =
     trans_inv_fermion_operator(op, collect(1:span), B; kwargs...)
 
 """
@@ -321,3 +323,79 @@ Single-site shorthand: equivalent to `fermion_operator(op, [site], B; kwargs...)
 """
 fermion_operator(op::AbstractString, site::Integer, B::AbstractBasis; kwargs...) =
     fermion_operator(op, [site], B; kwargs...)
+
+#-----------------------------------------------------------------------------------------------------
+# Spinful / multi-species fermion operators
+#-----------------------------------------------------------------------------------------------------
+"""
+    fermion_operator(op, sitespins::AbstractVector{<:Tuple}, B::SpinfulFermionBasis; convention=:left)
+    fermion_operator(op, sitespin::Tuple, B::SpinfulFermionBasis; convention=:left)
+
+Spin-aware embedding for a [`SpinfulFermionBasis`](@ref): each `(site, spin)`
+tuple is mapped to its mode index via [`fermionmode`](@ref) and the call is
+forwarded to the mode-indexed [`fermion_operator`](@ref). `spin` accepts an
+`Integer` species or, for spin-½, the symbols `:↑`/`:↓` (`:up`/`:down`).
+
+# Example
+```julia
+B = SpinfulFermionBasis(L=4, S=2, N=(2, 2))
+hop = fermion_operator("+-", [(1, :↑), (2, :↑)], B)   # c†_{1↑} c_{2↑}
+```
+"""
+function fermion_operator(op::AbstractString, sitespins::AbstractVector{<:Tuple},
+        B::SpinfulFermionBasis; convention::Symbol=:left)
+    modes = [fermionmode(B, sp[1], sp[2]) for sp in sitespins]
+    fermion_operator(op, modes, B; convention=convention)
+end
+
+fermion_operator(op::AbstractString, sitespin::Tuple, B::SpinfulFermionBasis; kwargs...) =
+    fermion_operator(op, [sitespin], B; kwargs...)
+
+"""
+    hubbard(B::SpinfulFermionBasis; t=1.0, U=0.0, μ=0.0, boundary=:periodic)
+
+Build the single-band Fermi–Hubbard Hamiltonian on a spin-½
+[`SpinfulFermionBasis`](@ref) (`S = 2`):
+
+    H = −t Σ_{⟨ij⟩,σ} (c†_{iσ} c_{jσ} + h.c.)  +  U Σ_i n_{i↑} n_{i↓}  −  μ Σ_{iσ} n_{iσ}
+
+Keyword arguments:
+- `t`        : nearest-neighbour hopping amplitude.
+- `U`        : on-site interaction.
+- `μ`        : chemical potential.
+- `boundary` : `:periodic` (ring) or `:open` (chain).
+
+On a 2-site `:periodic` lattice the single bond is counted once (the generic
+ring would otherwise traverse it twice). Returns an [`Operator`](@ref).
+"""
+function hubbard(B::SpinfulFermionBasis; t::Real=1.0, U::Real=0.0, μ::Real=0.0,
+        boundary::Symbol=:periodic)
+    B.S == 2 || error("hubbard requires a spin-½ basis (S=2); got S=$(B.S). Build multi-species Hamiltonians term by term with fermion_operator.")
+    boundary in (:periodic, :open) || error("boundary must be :periodic or :open (got $boundary).")
+    L = B.L
+
+    bonds = if boundary === :open
+        [(i, i + 1) for i in 1:L-1]
+    elseif L == 2
+        [(1, 2)]                                  # ring with one distinct bond
+    else
+        [(i, mod1(i + 1, L)) for i in 1:L]
+    end
+
+    total = nothing
+    for (i, j) in bonds, σ in (:↑, :↓)
+        hop = fermion_operator("+-", [(i, σ), (j, σ)], B)   # c†_{iσ} c_{jσ}
+        total = total + (-t) * (hop + adjoint(hop))
+    end
+    if !iszero(U)
+        for i in 1:L
+            total = total + U * fermion_operator("nn", [(i, :↑), (i, :↓)], B)
+        end
+    end
+    if !iszero(μ)
+        for i in 1:L, σ in (:↑, :↓)
+            total = total + (-μ) * fermion_operator("n", [(i, σ)], B)
+        end
+    end
+    total
+end

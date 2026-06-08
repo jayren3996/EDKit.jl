@@ -19,13 +19,16 @@ module EDKit
 
 using LinearAlgebra, SparseArrays, Random, Combinatorics
 using ITensors, ITensorMPS, LRUCache
+using KrylovKit: eigsolve
 
 import Base: +, -, *, /, Array, Vector, Matrix, size, length, eltype, digits, copy
 import LinearAlgebra: norm, mul!
 
 include("Basis/AbstractBasis.jl")
+include("Basis/MixedTensorBasis.jl")
 include("Basis/ProjectedBasis.jl")
 include("Basis/TranslationalBasis.jl")
+include("Basis/TranslationalFermionBasis.jl")
 include("Basis/TranslationalParityBasis.jl")
 include("Basis/TranslationalFlipBasis.jl")
 include("Basis/ParityBasis.jl")
@@ -33,6 +36,7 @@ include("Basis/FlipBasis.jl")
 include("Basis/ParityFlipBasis.jl")
 include("Basis/AbelianBasis.jl")
 include("Basis/SpinlessFermionBasis.jl")
+include("Basis/SpinfulFermionBasis.jl")
 
 
 include("LinearMap.jl")

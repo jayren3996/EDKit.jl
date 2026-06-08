@@ -122,6 +122,10 @@ mutable struct KrylovEvolutionCache{TH, T<:Number, R<:Real}
 
     # Diagnostics
     diagnostics::KrylovEvolutionDiagnostics
+
+    # Time direction: +1 forward, -1 backward, 0 until the first nonzero motion
+    # fixes it. A cache evolves monotonically in a single direction.
+    direction::Int
 end
 
 """
@@ -212,6 +216,7 @@ function KrylovEvolutionCache(H, ψ0::AbstractVector;
         reuse_basis, extend_basis, normalize_output,
         w, reduced_phase, reduced_coeffs,
         KrylovEvolutionDiagnostics(),
+        0,
     )
 
     _lanczos_build!(cache, cache.m_init)
@@ -374,58 +379,80 @@ end
 # The selector:
 #   1. Takes a free early-exit when |β_m| ≤ tol: the monitor cannot exceed tol
 #      anywhere, so the full candidate interval is accepted.
-#   2. Picks an effective sample count n_eff that is at least the user-supplied
-#      `nsample` but also satisfies the Nyquist-style density condition above,
-#      with a safety factor of 4 and a hard upper cap to avoid runaway cost.
+#   2. Resolves the candidate interval so the monitor is sampled at the
+#      safety-factor-4 Nyquist rate. When fully resolving the whole candidate
+#      would need more than the sample cap, the *interval* is shrunk rather than
+#      the sampling under-resolved (`_resolved_interval`); the caller consumes
+#      the remainder via a restart, so the accuracy contract holds per step.
 #   3. Scans the monitor at those samples, finds the first failure, bisects
 #      that sub-interval to refine, and returns the largest accepted prefix.
+#
+# Why shrink instead of cap the samples: the Krylov error at time τ is bounded
+# by the *integrated* defect ∫₀^τ η(s) ds, not just η(τ). Under-sampling a long
+# interval can step over a narrow η peak, so the sampled points pass while the
+# integral — and hence the error — exceeds `tol`. Keeping the sampling at full
+# Nyquist resolution on every accepted interval closes that gap.
 #---------------------------------------------------------------------------------------------------
-function _effective_nsample(cache::KrylovEvolutionCache, τ_try::Float64)
+const _MONITOR_SAMPLE_CAP = 513
+
+function _resolved_interval(cache::KrylovEvolutionCache, τ_try::Float64)
     base_n = cache.nsample
-    isempty(cache.λ) && return base_n
-    m = cache.m
-    m ≤ 1 && return base_n
+    (isempty(cache.λ) || cache.m ≤ 1) && return base_n, τ_try
     ω = Float64(cache.λ[end] - cache.λ[1])           # spectral spread of T_m
-    ω ≤ 0 && return base_n
-    # Nyquist-style: need at least ceil(ω·τ_try / π) + 1 samples; we use a
-    # safety factor of 4 for conservative error control, then cap the result.
-    n_nyq = ceil(Int, 4 * ω * τ_try / π) + 1
-    return clamp(max(base_n, n_nyq), base_n, 513)
+    ω ≤ 0 && return base_n, τ_try
+    # Nyquist-style with a safety factor of 4: need this many samples to resolve
+    # every oscillation of the monitor over [0, τ_try].
+    n_req = ceil(Int, 4 * ω * τ_try / π) + 1
+    n_req ≤ base_n            && return base_n, τ_try
+    n_req ≤ _MONITOR_SAMPLE_CAP && return n_req, τ_try
+    # Full resolution would exceed the cap: shrink the interval to the largest
+    # span the cap can resolve (n_req(τ_eff) == cap), keeping the sampling rate.
+    τ_eff = (_MONITOR_SAMPLE_CAP - 1) * π / (4 * ω)
+    return _MONITOR_SAMPLE_CAP, τ_eff
 end
 
+# Returns a *signed* `τ_valid` with the same sign as `τ_try` and
+# `|τ_valid| ≤ |τ_try|`. The defect monitor η(τ) is sampled along the path from
+# `0` to the signed `τ_try`; backward evolution (`τ_try < 0`) samples the same
+# monitor at negative arguments. All density/bisection logic operates on the
+# magnitude `|τ|`, so the forward path (`σ = +1`) is bit-for-bit unchanged.
 function _max_valid_interval(cache::KrylovEvolutionCache, τ_try::Real)
-    τ_try > 0 || return 0.0
+    τ_try == 0 && return 0.0
+    σ = sign(Float64(τ_try))
+    mag = abs(Float64(τ_try))
     tol = cache.tol
 
     # Early exit: the monitor is bounded above by |β_m|. If the Lanczos
     # boundary coefficient itself is already below tolerance, the basis is
-    # valid for every τ ≥ 0 and the full candidate interval is safe.
+    # valid for every τ along the path and the full candidate interval is safe.
     if abs(cache.β[cache.m]) ≤ tol
         return Float64(τ_try)
     end
 
-    τ_try_f = Float64(τ_try)
-    n_eff = _effective_nsample(cache, τ_try_f)
-    xs = range(0.0, τ_try_f, length=n_eff)
+    # Resolve the candidate interval; `mag` may shrink so the monitor stays fully
+    # sampled (see `_resolved_interval`). A shrunk interval that passes is a valid
+    # prefix, and the caller's loop consumes the remainder.
+    n_eff, mag = _resolved_interval(cache, mag)
+    xs = range(0.0, mag, length=n_eff)            # magnitudes 0 … (possibly shrunk) |τ_try|
 
     for k in 1:n_eff
-        η = _defect_monitor(cache, xs[k])
+        η = _defect_monitor(cache, σ * xs[k])
         if !isfinite(η) || η > tol
             k == 1 && return 0.0
-            τ_lo = Float64(xs[k - 1])
-            τ_hi = Float64(xs[k])
+            lo = Float64(xs[k - 1])
+            hi = Float64(xs[k])
             for _ in 1:cache.bisect_iters
-                τ_mid = 0.5 * (τ_lo + τ_hi)
-                if _defect_monitor(cache, τ_mid) > tol
-                    τ_hi = τ_mid
+                mid = 0.5 * (lo + hi)
+                if _defect_monitor(cache, σ * mid) > tol
+                    hi = mid
                 else
-                    τ_lo = τ_mid
+                    lo = mid
                 end
             end
-            return τ_lo
+            return σ * lo
         end
     end
-    return τ_try_f
+    return σ * mag
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -483,14 +510,18 @@ end
 # [0, τ_target] *relative to the current anchor*. Any required extensions or
 # restarts are performed in place. After this returns, the caller may safely
 # reconstruct the state at any τ ∈ [0, τ_target] using `_reconstruct_state!`.
+# `τ_target` is signed (relative to the current anchor). The loop consumes it in
+# valid prefixes; all comparisons are on magnitude so forward and backward share
+# one code path. `_restart_from_new_anchor!` advances the anchor by the signed
+# `τ_valid`, so the direction is carried implicitly.
 function _ensure_valid_up_to!(cache::KrylovEvolutionCache, τ_target::Real)
     τ_remaining = Float64(τ_target)
-    τ_remaining ≤ 0 && return cache
+    τ_remaining == 0 && return cache
 
     while true
         τ_valid = _max_valid_interval(cache, τ_remaining)
 
-        if τ_valid ≥ τ_remaining
+        if abs(τ_valid) ≥ abs(τ_remaining)
             return cache
         end
 
@@ -503,7 +534,7 @@ function _ensure_valid_up_to!(cache::KrylovEvolutionCache, τ_target::Real)
 
         # If the current basis is not valid at all (τ_valid ≈ 0), we must not
         # lose progress: try to extend, otherwise error.
-        if τ_valid ≤ 0
+        if τ_valid == 0
             if cache.m < cache.m_max && _extend_basis!(cache)
                 continue
             end
@@ -512,11 +543,26 @@ function _ensure_valid_up_to!(cache::KrylovEvolutionCache, τ_target::Real)
         end
 
         # Otherwise: accept the valid prefix, restart from the new anchor, and
-        # continue consuming the remaining interval.
-        push!(cache.diagnostics.accepted_intervals, τ_valid)
+        # continue consuming the remaining (signed) interval.
+        push!(cache.diagnostics.accepted_intervals, abs(τ_valid))
         _restart_from_new_anchor!(cache, τ_valid)
         τ_remaining -= τ_valid
     end
+end
+
+# Validate and record the time direction of a requested target time `tf`.
+# A cache evolves monotonically in one direction; the first nonzero motion away
+# from the last served time fixes it. Returns nothing; errors on a reversal.
+function _advance_direction!(cache::KrylovEvolutionCache, tf::Float64)
+    Δ = tf - cache.t_latest
+    if cache.direction == 0
+        Δ != 0 && (cache.direction = Δ > 0 ? 1 : -1)
+    elseif cache.direction > 0
+        tf < cache.t_latest && error("timeevolve!: this cache evolves forward; time $tf precedes the last served time $(cache.t_latest).")
+    else
+        tf > cache.t_latest && error("timeevolve!: this cache evolves backward; time $tf exceeds the last served time $(cache.t_latest).")
+    end
+    return nothing
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -531,12 +577,14 @@ Hamiltonian `H`.
 
 `H` can be an EDKit [`Operator`](@ref), an `AbstractMatrix`, a `SparseMatrixCSC`,
 or any object that supports `LinearAlgebra.mul!(y, H, x)`. The propagator is
-**Hermitian-only** and **forward in time only**: the single-time form returns
-`exp(-i t H) ψ0` for `t ≥ 0`, and a negative `t` is rejected. The multi-time
-form returns a matrix whose `k`-th column is the state at `ts[k]`, in the
-order the caller supplied; `ts` is sorted internally before propagation and
-the output columns are restored to the input order, so passing an unsorted
-`ts` is fine. All times in `ts` must be non-negative. One Lanczos basis is
+**Hermitian-only**: the single-time form returns `exp(-i t H) ψ0`. A negative
+`t` performs **backward** evolution, `exp(+i|t|H) ψ0`, which together with a
+forward pass enables two-sided (e.g. OTOC / Heisenberg-picture) workflows. The
+multi-time form returns a matrix whose `k`-th column is the state at `ts[k]`, in
+the order the caller supplied; `ts` is sorted internally before propagation and
+the output columns are restored to the input order, so passing an unsorted `ts`
+is fine. All times in `ts` must share one sign (a single cache evolves in one
+direction); mixing positive and negative times is rejected. One Lanczos basis is
 reused across as many requested times as possible before a restart happens.
 
 Keyword arguments are forwarded to [`KrylovEvolutionCache`](@ref). The
@@ -562,10 +610,12 @@ end
 
 function timeevolve(H, ψ0::AbstractVector, ts::AbstractVector{<:Real};
                     return_diagnostics::Bool=false, kwargs...)
-    any(<(0), ts) && error("timeevolve: all times in ts must be non-negative; backward evolution is not supported")
+    any(>(0), ts) && any(<(0), ts) && error("timeevolve: ts must not mix positive and negative times; a single cache evolves in one direction. Split the request or use two caches.")
     cache = KrylovEvolutionCache(H, ψ0; kwargs...)
     T = eltype(cache.ψ_anchor)
-    perm = sortperm(ts)
+    # Evolve monotonically away from t=0; sorting by |t| handles both forward
+    # (ascending) and backward (descending) time streams, then restore order.
+    perm = sortperm(ts; by=abs)
     ts_sorted = collect(Float64.(ts[perm]))
     out_sorted = Matrix{T}(undef, cache.N, length(ts))
     timeevolve!(out_sorted, cache, ts_sorted)
@@ -579,15 +629,19 @@ end
 """
     timeevolve!(cache::KrylovEvolutionCache, t::Real) -> Vector
 
-Advance an existing cache to time `t` (which must be ≥ `cache.t_anchor`) and
-return a freshly allocated state vector at that time. The cache's anchor may be
-moved forward as a side effect when the current basis cannot cover `t` alone.
+Advance an existing cache to time `t` and return a freshly allocated state
+vector `exp(-i t H) ψ0` at that time. The cache's anchor is moved as a side
+effect when the current basis cannot cover `t` alone.
+
+A cache evolves monotonically in a single direction, fixed by its first nonzero
+motion: a forward cache requires non-decreasing `t`, a backward cache requires
+non-increasing `t`. A negative `t` performs **backward** evolution
+(`exp(+i|t|H) ψ0`).
 """
 function timeevolve!(cache::KrylovEvolutionCache, t::Real)
     tf = Float64(t)
-    tf < cache.t_latest && error("timeevolve!: requested time $t precedes the last served time $(cache.t_latest); backward evolution is not supported")
+    _advance_direction!(cache, tf)
     τ = tf - cache.t_anchor
-    τ < 0 && error("timeevolve!: requested time $t precedes anchor time $(cache.t_anchor)")
     _ensure_valid_up_to!(cache, τ)
     ψ_out = similar(cache.ψ_anchor)
     _reconstruct_state!(ψ_out, cache, tf - cache.t_anchor)
@@ -603,24 +657,25 @@ Fill the columns of `out` with the evolved states at the times `ts`, reusing
 the cache's current Lanczos basis for as many requested times as the defect
 monitor allows before extension or restart.
 
-`ts` **must be sorted in strictly forward order** (i.e. non-decreasing, and
-every entry must be ≥ the cache's last served time). This form deliberately
-does not sort internally: the cache is stateful, and reordering the time
-stream would either advance the anchor past intermediate requests or require
-the caller to know about the internal ordering. Use the stateless
-`timeevolve(H, ψ0, ts)` form if you want a convenience sort.
+`ts` **must be sorted in the cache's evolution order**: non-decreasing for a
+forward cache, non-increasing for a backward cache (i.e. sorted by `|t|` once a
+direction is fixed, with every entry on the correct side of the last served
+time). This form deliberately does not sort internally: the cache is stateful,
+and reordering the time stream would either advance the anchor past intermediate
+requests or require the caller to know about the internal ordering. Use the
+stateless `timeevolve(H, ψ0, ts)` form if you want a convenience sort.
 """
 function timeevolve!(out::AbstractMatrix, cache::KrylovEvolutionCache,
                      ts::AbstractVector{<:Real})
     size(out, 1) == cache.N || error("timeevolve!: output has $(size(out,1)) rows, expected $(cache.N)")
     size(out, 2) == length(ts) || error("timeevolve!: output has $(size(out,2)) columns, expected $(length(ts))")
-    issorted(ts) || error("timeevolve!: ts must be sorted in ascending order")
+    issorted(ts) || issorted(ts; rev=true) ||
+        error("timeevolve!: ts must be monotonic (ascending for forward, descending for backward evolution)")
 
     for i in eachindex(ts)
         tf = Float64(ts[i])
-        tf < cache.t_latest && error("timeevolve!: requested time $(ts[i]) precedes the last served time $(cache.t_latest); backward evolution is not supported")
+        _advance_direction!(cache, tf)
         τ = tf - cache.t_anchor
-        τ < 0 && error("timeevolve!: requested time $(ts[i]) precedes anchor time $(cache.t_anchor)")
         _ensure_valid_up_to!(cache, τ)
         _reconstruct_state!(view(out, :, i), cache, tf - cache.t_anchor)
         cache.t_latest = tf
@@ -639,8 +694,8 @@ function timeevolve!(out::AbstractVector, H, ψ0::AbstractVector, t::Real; kwarg
     length(out) == length(ψ0) || error("timeevolve!: output length mismatch")
     cache = KrylovEvolutionCache(H, ψ0; kwargs...)
     tf = Float64(t)
+    _advance_direction!(cache, tf)
     τ = tf - cache.t_anchor
-    τ < 0 && error("timeevolve!: requested time $t precedes anchor time $(cache.t_anchor)")
     _ensure_valid_up_to!(cache, τ)
     _reconstruct_state!(out, cache, tf - cache.t_anchor)
     cache.t_latest = tf

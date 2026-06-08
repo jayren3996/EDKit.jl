@@ -282,3 +282,29 @@ end
     v = randn(ComplexF64, size(Bfull, 1))
     @test S * v ≈ D(v)                         # symmetrizer matrix == matrix-free action
 end
+
+@testset "te-1: defect-monitor interval stays fully resolved" begin
+    # Large spectral spread → the candidate interval enters the sample-cap regime.
+    N, W = 200, 60.0
+    λvec = collect(range(-W, W; length=N))
+    H = Diagonal(λvec)
+    ψ0 = ComplexF64[cis(0.37k) / sqrt(N) for k in 1:N]   # deterministic, normalized
+    cache = KrylovEvolutionCache(H, ψ0; tol=1e-10, m_init=30, m_max=30)
+    ω = cache.λ[end] - cache.λ[1]
+
+    # The fix: the candidate interval is shrunk (not the sampling under-resolved)
+    # when full resolution would exceed the cap, so the returned sampling always
+    # resolves the returned interval at the safety-factor-4 Nyquist rate.
+    for τ in (0.05, 1.0, 5.0, 50.0, 500.0, 5000.0)
+        n, τeff = EDKit._resolved_interval(cache, Float64(τ))
+        @test 0 < τeff ≤ τ + 1e-9                       # never grows the interval
+        @test n ≤ EDKit._MONITOR_SAMPLE_CAP             # sample count stays bounded
+        @test n ≥ ceil(Int, 4 * ω * τeff / π) + 1       # never under-resolved
+    end
+    @test EDKit._resolved_interval(cache, 0.01)[2] == 0.01   # small intervals pass through
+
+    # End-to-end: deep cap regime (ω·τ ≈ 4800) stays within a small multiple of tol.
+    tol = 1e-9
+    ψ = timeevolve(H, ψ0, 40.0; tol=tol, m_init=24, m_max=24, extend_basis=false)
+    @test norm(ψ - cis.(-40.0 .* λvec) .* ψ0) < 50 * tol
+end

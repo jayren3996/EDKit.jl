@@ -15,4 +15,6 @@ ent_S
 EDKit.ent_spec
 EDKit.entropy
 EDKit.schmidt
+rdm
+mutual_information
 ```

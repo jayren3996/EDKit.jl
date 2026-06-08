@@ -295,8 +295,20 @@ Notes:
 - The computation uses iterative polynomial evaluation rather than explicit
   powers for speed.
 """
-@inline function index(dgt::AbstractVector{<:Integer}; base::T=2) where T <: Integer
-    N = zero(T)
+# Mixed-radix index of a full digit string: big-endian over per-site dims
+# `base[i]`. Used by MixedTensorBasis. The branch in `index` below is folded to a
+# compile-time constant per keyword specialization, so the scalar path is
+# unaffected.
+@inline function _mixed_index(dgt::AbstractVector, base::AbstractVector)
+    N = 0
+    @inbounds for i in eachindex(dgt)
+        N = N * Int(base[i]) + Int(dgt[i])
+    end
+    N + 1
+end
+@inline function index(dgt::AbstractVector{<:Integer}; base=2)
+    base isa AbstractVector && return _mixed_index(dgt, base)
+    N = zero(base)
     if base == 2
         @inbounds for i = 1:length(dgt)
             N = (N << 1) | dgt[i]
@@ -307,7 +319,7 @@ Notes:
             N += dgt[i]
         end
     end
-    N + one(T)
+    N + one(base)
 end
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -328,8 +340,18 @@ Returns:
 This is a central helper in local operator application, where a sparse local
 matrix acts only on a selected subset of sites.
 """
-@inline function index(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}; base::T=2) where T <: Integer
-    N = zero(T)
+# Mixed-radix index over a subset of sites, using each site's own dimension
+# `base[i]`. `base` is the full per-site vector; `sites` selects and orders.
+@inline function _mixed_index(dgt::AbstractVector, sites::AbstractVector{<:Integer}, base::AbstractVector)
+    N = 0
+    @inbounds for i in sites
+        N = N * Int(base[i]) + Int(dgt[i])
+    end
+    N + 1
+end
+@inline function index(dgt::AbstractVector{<:Integer}, sites::AbstractVector{<:Integer}; base=2)
+    base isa AbstractVector && return _mixed_index(dgt, sites, base)
+    N = zero(base)
     if base == 2
         @inbounds for i in sites
             N = (N << 1) | dgt[i]
@@ -340,7 +362,7 @@ matrix acts only on a selected subset of sites.
             N += dgt[i]
         end
     end
-    N + one(T)
+    N + one(base)
 end
 #-------------------------------------------------------------------------------------------------------------------------
 """
@@ -358,7 +380,18 @@ Returns:
 
 This is the inverse of `index(dgt; base=...)`.
 """
-@inline function change!(dgt::AbstractVector{T}, ind::Integer; base::Integer=2) where T
+# Mixed-radix decode of a full index into per-site digits (inverse of
+# `_mixed_index`).
+@inline function _mixed_change!(dgt::AbstractVector, ind::Integer, base::AbstractVector)
+    N = ind - oneunit(ind)
+    @inbounds for i = length(dgt):-1:1
+        N, r = divrem(N, Int(base[i]))
+        dgt[i] = r
+    end
+    dgt
+end
+@inline function change!(dgt::AbstractVector{T}, ind::Integer; base=2) where T
+    base isa AbstractVector && return _mixed_change!(dgt, ind, base)
     N = ind - oneunit(ind)
     if base == 2
         @inbounds for i = length(dgt):-1:1
@@ -392,7 +425,15 @@ Returns:
 This is the inverse of `index(dgt, sites; base=...)` and is heavily used
 inside matrix-free operator application.
 """
-@inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base::T=2) where T
+# Mixed-radix decode into a subset of sites (inverse of the sites `_mixed_index`).
+@inline function _mixed_change!(dgt::AbstractVector, sites::AbstractVector{<:Integer}, ind::Integer, base::AbstractVector)
+    N = ind - 1
+    @inbounds for k = length(sites):-1:1
+        N, dgt[sites[k]] = divrem(N, Int(base[sites[k]]))
+    end
+end
+@inline function change!(dgt::AbstractVector{T}, sites::AbstractVector{<:Integer}, ind::Integer; base=2) where T
+    base isa AbstractVector && return _mixed_change!(dgt, sites, ind, base)
     N = ind - one(T)
     if base == 2
         @inbounds for i = length(sites):-1:1

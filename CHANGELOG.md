@@ -70,6 +70,12 @@ breaking changes; see each entry below.
 - `gapratio`/`meangapratio` gained a `sorted` keyword (sorts the spectrum when
   `false`) and now return `NaN` for fully-degenerate `0/0` gaps instead of a
   spurious `1.0`; `meangapratio` filters those out (`gapratio-1`).
+- The adaptive Krylov time-evolution defect monitor now **shrinks the candidate
+  interval** instead of under-sampling it when full Nyquist resolution would
+  exceed the sample cap. Previously a very large `ω·τ` could leave a long
+  interval sampled below the Nyquist rate, letting the integrated defect
+  `∫η` (which bounds the error) exceed `tol` between samples; the monitor is now
+  always fully resolved on every accepted interval (`te-1`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)
@@ -93,5 +99,43 @@ breaking changes; see each entry below.
   stay real (`linearmap-1`).
 
 ### Added
+- `MixedTensorBasis(dims=[…])` — full tensor-product basis with **per-site local
+  dimensions** (e.g. alternating spin-½/spin-1 chains, spin-boson models, bosons
+  with per-site cutoffs). Operators (`operator(mat, sites, B)`) and entanglement
+  (`schmidt`/`rdm`/`ent_S`/`mutual_information`) work via mixed-radix
+  `index`/`change!`. The scalar `TensorBasis` and its base-2 fast kernel are
+  untouched; the mixed-radix branch is folded away at compile time on the scalar
+  path (`extension-1`).
+- `TranslationalFermionBasis(L=…, N=…, k=…)` — momentum-resolved basis for
+  spinless fermions at fixed `N`. The many-body translation sign
+  `(−1)^((N−1)·n_wrap)` (periodic for odd `N`, antiperiodic for even `N`) is
+  baked into the orbit phase, so `trans_inv_fermion_operator` builds correct
+  Hamiltonians per momentum sector. Verified: the union of all `k`-sector spectra
+  equals the full `N`-sector spectrum. Real (`Float64`) for `k=0` and `k=L/2`
+  sectors. The Jordan-Wigner guard is relaxed for this one basis type (`e2`).
+- `SpinfulFermionBasis(L=…, S=2, N=…)` — spinful / multi-species fermion
+  occupation basis over `M = S·L` modes (blocked ordering `mode(i,σ)=(σ−1)L+i`),
+  with per-species `(N₁,…,N_S)` or total-`N` sectors. Spin-aware operators via
+  `fermion_operator(op, [(site, spin)…], B)` (spin `:↑`/`:↓` or integer species)
+  and a `fermionmode(B, site, spin)` helper. A `hubbard(B; t, U, μ, boundary)`
+  helper builds the spin-½ Fermi–Hubbard Hamiltonian (`e1`).
+- `timeevolve`/`timeevolve!` now support **backward and two-sided** evolution: a
+  negative time evolves by `exp(+i|t|H)`, and a forward pass followed by a
+  backward pass enables OTOC / Heisenberg-picture workflows. Each cache evolves
+  in one direction (fixed by its first motion); mixing positive and negative
+  times in one stateless call is rejected (`te-4`).
+- `steadystate(A)` computes a Lindblad steady state `ρ_ss` (`𝓛[ρ_ss]=0`) from a
+  `LiouvillianMap`, `Lindblad`, or `(H, jumps)`. Uses dense diagonalization for
+  small systems (`d ≤ 16`) and matrix-free Arnoldi (`KrylovKit.eigsolve`) for
+  large ones, returning a trace-normalized Hermitian `DensityMatrix`
+  (`lindblad-6`). This adds **KrylovKit** as a direct dependency (previously
+  transitive via ITensorMPS).
+- `rdm(v, Ainds, b)` returns the reduced density matrix `ρ_A = S S†` of a
+  subsystem from a state vector, reusing every existing `schmidt` dispatch
+  (works for tensor, projected, translational, parity/flip, and Abelian bases);
+  real-phase bases give a real `ρ_A` (`schmidt-4`).
+- `mutual_information(v, Ainds, Cinds, b)` computes `I(A:C) = S(A)+S(C)−S(A∪C)`
+  between two disjoint subsystems, with `α`/`cutoff` forwarded to `ent_S`
+  (`schmidt-4`).
 - Continuous-integration workflow running the test suite on Julia 1.10 and
   latest across Ubuntu and macOS.

@@ -38,6 +38,12 @@ Arguments:
 Returns:
 - A [`SchmidtMatrix`](@ref) whose matrix `M` is initialized to zeros.
 """
+# Default subsystem basis for the Schmidt bipartition: a uniform `TensorBasis`
+# for scalar-base bases, a `MixedTensorBasis` carrying the per-site dimensions of
+# the selected sites for a mixed-dimension basis.
+_schmidt_subbasis(b::AbstractBasis, sites) = TensorBasis(L=length(sites), base=b.B)
+_schmidt_subbasis(b::MixedTensorBasis, sites) = MixedTensorBasis(dims=b.B[sites])
+
 function schmidtmatrix(
     T::DataType, b::AbstractBasis, Ainds::AbstractVector{Ta},
     B1=nothing, B2=nothing;
@@ -52,8 +58,8 @@ function schmidtmatrix(
             P += 1
         end
     end
-    B1 = isnothing(B1) ? TensorBasis(L=length(Ainds), base=b.B) : B1
-    B2 = isnothing(B2) ? TensorBasis(L=length(Binds), base=b.B) : B2
+    B1 = isnothing(B1) ? _schmidt_subbasis(b, Ainds) : B1
+    B2 = isnothing(B2) ? _schmidt_subbasis(b, Binds) : B2
     M = zeros(T, size(B1, 1), size(B2, 1))
     dgt1 = similar(B1.dgt)
     dgt2 = similar(B2.dgt)
@@ -177,7 +183,77 @@ function ent_S(v::AbstractVector, Aind::AbstractVector{<:Integer}, L::Integer; �
     s = ent_spec(v, Aind, b) .^ 2
     entropy(s, α=α, cutoff=cutoff)
 end
+#-------------------------------------------------------------------------------------------------------------------------
+export rdm
+"""
+    rdm(v, Ainds, b::AbstractBasis; B1=nothing, B2=nothing)
+    rdm(v, Ainds, L::Integer; B1=nothing, B2=nothing)
 
+Reduced density matrix of subsystem `A` for the state `v` represented in basis
+`b`.
+
+Writing the Schmidt decomposition `|v⟩ = Sᵢⱼ |Aᵢ⟩|Bⱼ⟩` (see [`schmidt`](@ref)),
+the subsystem-`A` reduced density matrix is `ρ_A = S S†`. It is Hermitian,
+positive semidefinite, and has unit trace when `v` is normalized.
+
+Arguments:
+- `v`     : state vector in basis `b`.
+- `Ainds` : site indices of subsystem `A`; the rest form subsystem `B`.
+- `b`/`L` : the basis, or a system size `L` from which a [`TensorBasis`](@ref) is inferred.
+- `B1`,`B2` : optional subsystem bases forwarded to [`schmidt`](@ref).
+
+The matrix is expressed in subsystem `A`'s tensor-product basis (`Float64` for
+real-phase bases, `ComplexF64` for momentum sectors), so for a symmetry-reduced
+`b` the result is the physical RDM in the full local Hilbert space of `A`.
+
+See also [`ent_S`](@ref), [`mutual_information`](@ref).
+"""
+function rdm(v::AbstractVector, Ainds::AbstractVector{<:Integer}, b::AbstractBasis; B1=nothing, B2=nothing)
+    S = schmidt(v, Ainds, b; B1, B2)
+    S * S'
+end
+function rdm(v::AbstractVector, Ainds::AbstractVector{<:Integer}, L::Integer; B1=nothing, B2=nothing)
+    b = TensorBasis(L=L, base=round(Int, length(v)^(1/L)))
+    rdm(v, Ainds, b; B1, B2)
+end
+#-------------------------------------------------------------------------------------------------------------------------
+export mutual_information
+"""
+    mutual_information(v, Ainds, Cinds, b::AbstractBasis; α=1, cutoff=1e-20)
+    mutual_information(v, Ainds, Cinds, L::Integer; α=1, cutoff=1e-20)
+
+Quantum mutual information
+
+    I(A:C) = S(A) + S(C) − S(A∪C)
+
+between two **disjoint** subsystems `A` and `C` (which need not be
+complementary), where `S(·)` is the entanglement entropy [`ent_S`](@ref) of the
+indicated region. `α` selects the Rényi index and `cutoff` the Schmidt-value
+floor, both forwarded to `ent_S`.
+
+For a pure state and `C = Ā` (the complement of `A`), this reduces to
+`I(A:Ā) = 2 S(A)`. An `ArgumentError` is thrown if `A` and `C` overlap.
+
+See also [`rdm`](@ref), [`ent_S`](@ref).
+"""
+function mutual_information(
+    v::AbstractVector, Ainds::AbstractVector{<:Integer}, Cinds::AbstractVector{<:Integer},
+    b::AbstractBasis; α::Real=1, cutoff::Real=1e-20
+)
+    A = sort(collect(Ainds))
+    C = sort(collect(Cinds))
+    overlap = intersect(A, C)
+    isempty(overlap) || throw(ArgumentError("mutual_information requires disjoint subsystems; sites $overlap appear in both."))
+    AC = sort(vcat(A, C))
+    ent_S(v, A, b; α, cutoff) + ent_S(v, C, b; α, cutoff) - ent_S(v, AC, b; α, cutoff)
+end
+function mutual_information(
+    v::AbstractVector, Ainds::AbstractVector{<:Integer}, Cinds::AbstractVector{<:Integer},
+    L::Integer; α::Real=1, cutoff::Real=1e-20
+)
+    b = TensorBasis(L=L, base=round(Int, length(v)^(1/L)))
+    mutual_information(v, Ainds, Cinds, b; α, cutoff)
+end
 
 #-------------------------------------------------------------------------------------------------------------------------
 # Specific Bases
