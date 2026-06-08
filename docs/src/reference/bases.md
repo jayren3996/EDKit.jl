@@ -22,6 +22,10 @@ ParityFlipBasis
 TranslationParityBasis
 TranslationFlipBasis
 SpinlessFermionBasis
+SpinfulFermionBasis
+fermionmode
+TranslationalFermionBasis
+MixedTensorBasis
 basis
 EDKit.AbelianOperator
 EDKit.AbelianBasis

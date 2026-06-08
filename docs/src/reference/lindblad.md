@@ -23,6 +23,7 @@ diagnostics.
 EDKit.lindblad_timeevolve
 EDKit.lindblad_timeevolve!
 EDKit.LiouvillianMap
+steadystate
 EDKit.LindbladArnoldiCache
 EDKit.LindbladArnoldiDiagnostics
 ```
