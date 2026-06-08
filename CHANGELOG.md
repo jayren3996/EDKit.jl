@@ -70,6 +70,12 @@ breaking changes; see each entry below.
 - `gapratio`/`meangapratio` gained a `sorted` keyword (sorts the spectrum when
   `false`) and now return `NaN` for fully-degenerate `0/0` gaps instead of a
   spurious `1.0`; `meangapratio` filters those out (`gapratio-1`).
+- The adaptive Krylov time-evolution defect monitor now **shrinks the candidate
+  interval** instead of under-sampling it when full Nyquist resolution would
+  exceed the sample cap. Previously a very large `ω·τ` could leave a long
+  interval sampled below the Nyquist rate, letting the integrated defect
+  `∫η` (which bounds the error) exceed `tol` between samples; the monitor is now
+  always fully resolved on every accepted interval (`te-1`).
 
 ### Performance
 - `ParityBasis`, `FlipBasis`, `ParityFlipBasis` now have a real (`Float64`)

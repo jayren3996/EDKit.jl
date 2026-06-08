@@ -379,23 +379,36 @@ end
 # The selector:
 #   1. Takes a free early-exit when |β_m| ≤ tol: the monitor cannot exceed tol
 #      anywhere, so the full candidate interval is accepted.
-#   2. Picks an effective sample count n_eff that is at least the user-supplied
-#      `nsample` but also satisfies the Nyquist-style density condition above,
-#      with a safety factor of 4 and a hard upper cap to avoid runaway cost.
+#   2. Resolves the candidate interval so the monitor is sampled at the
+#      safety-factor-4 Nyquist rate. When fully resolving the whole candidate
+#      would need more than the sample cap, the *interval* is shrunk rather than
+#      the sampling under-resolved (`_resolved_interval`); the caller consumes
+#      the remainder via a restart, so the accuracy contract holds per step.
 #   3. Scans the monitor at those samples, finds the first failure, bisects
 #      that sub-interval to refine, and returns the largest accepted prefix.
+#
+# Why shrink instead of cap the samples: the Krylov error at time τ is bounded
+# by the *integrated* defect ∫₀^τ η(s) ds, not just η(τ). Under-sampling a long
+# interval can step over a narrow η peak, so the sampled points pass while the
+# integral — and hence the error — exceeds `tol`. Keeping the sampling at full
+# Nyquist resolution on every accepted interval closes that gap.
 #---------------------------------------------------------------------------------------------------
-function _effective_nsample(cache::KrylovEvolutionCache, τ_try::Float64)
+const _MONITOR_SAMPLE_CAP = 513
+
+function _resolved_interval(cache::KrylovEvolutionCache, τ_try::Float64)
     base_n = cache.nsample
-    isempty(cache.λ) && return base_n
-    m = cache.m
-    m ≤ 1 && return base_n
+    (isempty(cache.λ) || cache.m ≤ 1) && return base_n, τ_try
     ω = Float64(cache.λ[end] - cache.λ[1])           # spectral spread of T_m
-    ω ≤ 0 && return base_n
-    # Nyquist-style: need at least ceil(ω·τ_try / π) + 1 samples; we use a
-    # safety factor of 4 for conservative error control, then cap the result.
-    n_nyq = ceil(Int, 4 * ω * τ_try / π) + 1
-    return clamp(max(base_n, n_nyq), base_n, 513)
+    ω ≤ 0 && return base_n, τ_try
+    # Nyquist-style with a safety factor of 4: need this many samples to resolve
+    # every oscillation of the monitor over [0, τ_try].
+    n_req = ceil(Int, 4 * ω * τ_try / π) + 1
+    n_req ≤ base_n            && return base_n, τ_try
+    n_req ≤ _MONITOR_SAMPLE_CAP && return n_req, τ_try
+    # Full resolution would exceed the cap: shrink the interval to the largest
+    # span the cap can resolve (n_req(τ_eff) == cap), keeping the sampling rate.
+    τ_eff = (_MONITOR_SAMPLE_CAP - 1) * π / (4 * ω)
+    return _MONITOR_SAMPLE_CAP, τ_eff
 end
 
 # Returns a *signed* `τ_valid` with the same sign as `τ_try` and
@@ -416,8 +429,11 @@ function _max_valid_interval(cache::KrylovEvolutionCache, τ_try::Real)
         return Float64(τ_try)
     end
 
-    n_eff = _effective_nsample(cache, mag)
-    xs = range(0.0, mag, length=n_eff)            # magnitudes 0 … |τ_try|
+    # Resolve the candidate interval; `mag` may shrink so the monitor stays fully
+    # sampled (see `_resolved_interval`). A shrunk interval that passes is a valid
+    # prefix, and the caller's loop consumes the remainder.
+    n_eff, mag = _resolved_interval(cache, mag)
+    xs = range(0.0, mag, length=n_eff)            # magnitudes 0 … (possibly shrunk) |τ_try|
 
     for k in 1:n_eff
         η = _defect_monitor(cache, σ * xs[k])
@@ -436,7 +452,7 @@ function _max_valid_interval(cache::KrylovEvolutionCache, τ_try::Real)
             return σ * lo
         end
     end
-    return Float64(τ_try)
+    return σ * mag
 end
 
 #---------------------------------------------------------------------------------------------------
