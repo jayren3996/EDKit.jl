@@ -139,3 +139,12 @@ breaking changes; see each entry below.
   (`schmidt-4`).
 - Continuous-integration workflow running the test suite on Julia 1.10 and
   latest across Ubuntu and macOS.
+
+### Changed
+- Relaxed the `ITensorMPS` compatibility bound from `^0.3` to `0.3, 0.4` so
+  downstream environments can upgrade to ITensorMPS 0.4.x. Verified against
+  ITensorMPS v0.4.1 (resolving alongside ITensors v0.9.30 / NDTensors v0.4.28):
+  the full test suite — including every MPS/MPO, Pauli-space, and TEBD
+  conversion — passes unchanged. The existing `ITensors` (`0.7, 0.8, 0.9`) and
+  `KrylovKit` (`0.8, 0.9, 0.10`) bounds already cover ITensorMPS 0.4.x's
+  requirements, so no other compat entries needed to change (#14).
