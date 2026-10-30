@@ -18,3 +18,8 @@ EDKit.expv
 EDKit.covmat
 EDKit.qimsolve
 ```
+
+```@docs
+conserved_operators
+eigenstate_operators
+```

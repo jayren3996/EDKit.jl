@@ -45,8 +45,10 @@ include("Operator.jl")
 include("FermionOperator.jl")
 include("ToolKit.jl")
 
+include("algorithms/ConservedOperators.jl")
+
 for file in sort(readdir("$(@__DIR__)/algorithms/"))
-    if file[end-2:end] == ".jl"
+    if file[end-2:end] == ".jl" && file != "ConservedOperators.jl"
         include("$(@__DIR__)/algorithms/$file")
     end
 end

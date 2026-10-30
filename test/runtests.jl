@@ -20,3 +20,5 @@ include("fermion_tests.jl")
 include("analytic_physics_tests.jl")
 include("remediation_tests.jl")
 include("extension_tests.jl")
+
+include("conserved_operator_tests.jl")
