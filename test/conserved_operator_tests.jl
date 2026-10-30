@@ -119,7 +119,7 @@ end
     wide = eigenstate_operators([Id, X, Y, Z], [1.0, 0]; coefficients=:complex)
     @test length(wide.values) == 4
     @test count(v -> v < 1e-12, wide.values) == 3
-    @test all(wide.residuals .^ 2 .≈ wide.values)
+    @test wide.residuals .^ 2 ≈ wide.values atol=1e-12
 end
 
 @testset "Eigenstate search with EDKit operators" begin
